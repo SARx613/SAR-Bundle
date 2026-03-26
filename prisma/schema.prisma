@@ -1,0 +1,199 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+// --- SAR Bundle ---
+
+enum PricingScope {
+  FLAT
+  TIERED
+}
+
+enum DiscountValueType {
+  PERCENT
+  FIXED_AMOUNT
+  FIXED_PRICE
+}
+
+enum ThresholdBasis {
+  ITEM_COUNT
+  CART_VALUE
+}
+
+enum StepRuleMetric {
+  BUNDLE_PRICE
+  TOTAL_ITEM_COUNT
+  VARIANT_QUANTITY
+  DISTINCT_VARIANT_COUNT
+}
+
+enum StepRuleOperator {
+  LT
+  LTE
+  EQ
+  GTE
+  GT
+}
+
+enum LineItemPropertyFieldType {
+  CHECKBOX
+  TEXT
+}
+
+enum BundleStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Bundle {
+  id         String @id @default(cuid())
+  /// Stable id for storefront line item property `_sar_bundle_id`
+  bundleUid  String @unique @default(uuid())
+  shopDomain String
+
+  name        String
+  description String?
+  imageUrl    String?
+  imageGid    String?
+  /// Linked catalog product (GID) for SEO, collections, and theme metafield binding
+  shopifyProductId String?
+
+  status BundleStatus @default(DRAFT)
+
+  pricingScope       PricingScope
+  discountValueType  DiscountValueType
+  /// Used when pricingScope is FLAT; interpreted per discountValueType
+  flatDiscountValue  Decimal?
+
+  showCompareAtPrice   Boolean @default(true)
+  showFixedPriceOnLoad Boolean @default(false)
+  allowZeroTotal       Boolean @default(false)
+
+  minTotalItemCount  Int?
+  maxTotalItemCount  Int?
+  minBundleCartValue Decimal?
+  maxBundleCartValue Decimal?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pricingTiers BundlePricingTier[]
+  steps        BundleStep[]
+
+  @@index([shopDomain])
+}
+
+model BundlePricingTier {
+  id       String @id @default(cuid())
+  bundleId String
+  bundle   Bundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  thresholdBasis ThresholdBasis
+  thresholdMin   Decimal
+  thresholdMax   Decimal?
+  /// Interpreted per parent Bundle.discountValueType
+  tierValue      Decimal
+
+  @@index([bundleId, sortOrder])
+}
+
+model BundleStep {
+  id       String @id @default(cuid())
+  bundleId String
+  bundle   Bundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  name        String?
+  description String?
+  imageUrl    String?
+  imageGid    String?
+  isFinalStep Boolean @default(false)
+
+  products           StepProduct[]
+  rules              StepRule[]
+  lineItemProperties StepLineItemProperty[]
+
+  @@index([bundleId, sortOrder])
+}
+
+model StepProduct {
+  id     String     @id @default(cuid())
+  stepId String
+  step   BundleStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  variantGid String
+  sortOrder  Int    @default(0)
+  minQuantity Int?
+  maxQuantity Int?
+
+  @@index([stepId, sortOrder])
+}
+
+model StepRule {
+  id     String     @id @default(cuid())
+  stepId String
+  step   BundleStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  metric   StepRuleMetric
+  operator StepRuleOperator
+  value    Decimal
+
+  /// Required when metric is VARIANT_QUANTITY
+  targetVariantGid String?
+
+  @@index([stepId, sortOrder])
+}
+
+model StepLineItemProperty {
+  id     String     @id @default(cuid())
+  stepId String
+  step   BundleStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  fieldType       LineItemPropertyFieldType
+  label           String
+  propertyKey     String
+  required        Boolean @default(false)
+  defaultChecked  Boolean @default(false)
+  placeholder     String?
+
+  @@index([stepId, sortOrder])
+}
