@@ -2,7 +2,7 @@
 
 client_id = "35892f24b2856f9d3de4914a939f8a98"
 name = "SAR Bundle"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://sar-bundle.onrender.com"
 embedded = true
 
 [build]
@@ -24,9 +24,9 @@ api_version = "2026-04"
 scopes = "write_products,write_files"
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth/callback" ]
+redirect_urls = ["https://sar-bundle.onrender.com/auth/callback"]
 
 [app_proxy]
-url = "https://shopify.dev/apps/sar-bundle"
+url = "https://sar-bundle.onrender.com/apps/sar-bundle"
 subpath = "sar-bundle"
 prefix = "apps"
