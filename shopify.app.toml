@@ -6,7 +6,8 @@ application_url = "https://sar-bundle.onrender.com"
 embedded = true
 
 [build]
-automatically_update_urls_on_dev = true
+# Évite d’écraser App URL / App Proxy avec un tunnel trycloudflare quand tu lances `shopify app dev` en local.
+automatically_update_urls_on_dev = false
 
 [webhooks]
 api_version = "2026-04"
