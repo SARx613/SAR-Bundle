@@ -89,6 +89,12 @@ model Bundle {
   imageGid    String?
   /// Linked catalog product (GID) for SEO, collections, and theme metafield binding
   shopifyProductId String?
+  /// URL slug: /products/{productHandle} (optional; défaut = dérivé du nom)
+  productHandle    String?
+  seoTitle         String?
+  seoDescription   String?
+  /// Éditeur visuel (blocs, styles globaux) — JSON versionné
+  storefrontDesign Json?
 
   status BundleStatus @default(DRAFT)
 
@@ -160,6 +166,12 @@ model StepProduct {
   sortOrder  Int    @default(0)
   minQuantity Int?
   maxQuantity Int?
+  /// Handle produit Shopify pour charger /products/{handle}.js (variantes)
+  productHandle String?
+  /// Disposition carte produit sur la boutique
+  layoutPreset  String  @default("STACK_ADD_TO_QTY")
+  /// Rayon bouton/image, couleurs, etc. par produit
+  styleOverrides Json?
 
   @@index([stepId, sortOrder])
 }

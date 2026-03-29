@@ -29,6 +29,7 @@ import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { duplicateBundle } from "../utils/bundle.server";
 import { deleteBundleShopifyProduct, syncBundleShopifyProduct } from "../utils/shopify-bundle-product.server";
+import { slugifyProductHandle } from "../utils/storefront-design";
 import { fetchProductHandlesByGids } from "../utils/shopify-product-lookup.server";
 
 type BundleRow = {
@@ -174,6 +175,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           description: bundle.description,
           imageUrl: bundle.imageUrl,
           shopifyProductId: null,
+          handle:
+            bundle.productHandle?.trim() ||
+            slugifyProductHandle(bundle.name),
+          seoTitle: bundle.seoTitle,
+          seoDescription: bundle.seoDescription,
+          storefrontDesign: bundle.storefrontDesign ?? {},
         });
         await prisma.bundle.update({
           where: { id: newId },

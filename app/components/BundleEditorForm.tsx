@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFetcher, useNavigate } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -17,7 +17,14 @@ import {
   Banner,
   Divider,
   Box,
+  Tabs,
 } from "@shopify/polaris";
+import { BundleStorefrontBlocksEditor } from "./bundle-editor/BundleStorefrontBlocksEditor";
+import {
+  PRODUCT_LAYOUT_PRESETS,
+  slugifyProductHandle,
+  type ProductStyleOverrides,
+} from "../utils/storefront-design";
 import {
   emptyPricingTier,
   emptyStep,
@@ -89,6 +96,7 @@ type PickerVariant = {
   id: string;
   displayName?: string;
   image?: { url?: string | null } | null;
+  product?: { handle?: string | null };
 };
 
 function variantsFromPickerSafe(payload: unknown): PickerVariant[] {
@@ -102,9 +110,11 @@ function variantsFromPickerSafe(payload: unknown): PickerVariant[] {
 export function BundleEditorForm({
   isNew,
   bundle: bundleRaw,
+  shopDomain,
 }: {
   isNew: boolean;
   bundle: SerializedBundle;
+  shopDomain: string;
 }) {
   const shopifyBridge = useAppBridge();
   const navigate = useNavigate();
@@ -112,10 +122,34 @@ export function BundleEditorForm({
   const bundle = bundleRaw;
 
   const [form, setForm] = useState<BundleFormState>(() => toFormState(bundle));
+  const [selectedTab, setSelectedTab] = useState(0);
 
   useEffect(() => {
     setForm(toFormState(bundle));
   }, [bundle.id, bundle.bundleUid, isNew]);
+
+  const previewHandle =
+    form.productHandle.trim() || slugifyProductHandle(form.name.trim() || "bundle");
+  const previewProductUrl = `https://${shopDomain}/products/${previewHandle}`;
+
+  const updateStepProduct = useCallback(
+    (stepIndex: number, productIndex: number, patch: Partial<UiStepProduct>) => {
+      setForm((f) => ({
+        ...f,
+        steps: f.steps.map((s, j) =>
+          j === stepIndex
+            ? {
+                ...s,
+                products: s.products.map((p, k) =>
+                  k === productIndex ? { ...p, ...patch } : p,
+                ),
+              }
+            : s,
+        ),
+      }));
+    },
+    [],
+  );
 
   const saveFetcher = useFetcher<SaveActionJson>();
   const uploadFetcher = useFetcher<UploadJson>();
@@ -231,6 +265,9 @@ export function BundleEditorForm({
           maxQuantity: null,
           displayName: v.displayName ?? v.id.split("/").pop() ?? v.id,
           imageUrl: v.image?.url ?? null,
+          productHandle: v.product?.handle ?? null,
+          layoutPreset: "STACK_ADD_TO_QTY",
+          styleOverrides: null,
         });
       }
       steps[stepIndex] = {
@@ -324,6 +361,17 @@ export function BundleEditorForm({
               </Banner>
             ) : null}
 
+            <Tabs
+              tabs={[
+                { id: "page", content: "Page & URL" },
+                { id: "design", content: "Design boutique" },
+                { id: "steps", content: "Étapes & produits" },
+                { id: "pricing", content: "Tarifs & panier" },
+              ]}
+              selected={selectedTab}
+              onSelect={setSelectedTab}
+            >
+              {selectedTab === 0 ? (
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
@@ -379,9 +427,432 @@ export function BundleEditorForm({
                     GID: {form.imageGid}
                   </Text>
                 ) : null}
+                <Divider />
+                <Text as="h3" variant="headingSm">
+                  Page produit Shopify
+                </Text>
+                <TextField
+                  label="Segment d’URL (handle)"
+                  value={form.productHandle}
+                  onChange={(v) => setForm((f) => ({ ...f, productHandle: v }))}
+                  autoComplete="off"
+                  helpText={`Vide = généré automatiquement depuis le nom (${slugifyProductHandle(
+                    form.name.trim() || "bundle",
+                  )}). Aperçu : ${previewProductUrl}`}
+                />
+                <TextField
+                  label="Titre SEO (balise title)"
+                  value={form.seoTitle}
+                  onChange={(v) => setForm((f) => ({ ...f, seoTitle: v }))}
+                  autoComplete="off"
+                />
+                <TextField
+                  label="Description SEO (meta)"
+                  value={form.seoDescription}
+                  onChange={(v) =>
+                    setForm((f) => ({ ...f, seoDescription: v }))
+                  }
+                  multiline={3}
+                  autoComplete="off"
+                />
               </BlockStack>
             </Card>
+              ) : null}
+              {selectedTab === 1 ? (
+                <Card>
+                  <BlockStack gap="400">
+                    <Text as="h2" variant="headingMd">
+                      Mise en page (boutique)
+                    </Text>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Blocs au-dessus du tunnel : titres, textes, images. Les
+                      produits par étape se configurent dans l’onglet suivant.
+                    </Text>
+                    <BundleStorefrontBlocksEditor
+                      design={form.storefrontDesign}
+                      onChange={(d) =>
+                        setForm((f) => ({ ...f, storefrontDesign: d }))
+                      }
+                    />
+                  </BlockStack>
+                </Card>
+              ) : null}
+              {selectedTab === 2 ? (
+            <Card>
+              <BlockStack gap="500">
+                <Text as="h2" variant="headingMd">
+                  Étapes (tunnel)
+                </Text>
+                <Button
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      steps: [...f.steps, emptyStep(f.steps.length)],
+                    }))
+                  }
+                >
+                  Ajouter une étape
+                </Button>
 
+                {form.steps.length === 0 ? (
+                  <Banner tone="info">
+                    Aucune étape. Ajoutez une étape pour configurer le tunnel.
+                  </Banner>
+                ) : null}
+
+                {form.steps.map((step, si) => (
+                  <Box
+                    key={si}
+                    padding="400"
+                    background="bg-surface-secondary"
+                    borderRadius="200"
+                  >
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text as="h3" variant="headingMd">
+                          Étape {si + 1}
+                        </Text>
+                        <Button
+                          tone="critical"
+                          variant="plain"
+                          onClick={() =>
+                            setForm((f) => ({
+                              ...f,
+                              steps: f.steps.filter((_, j) => j !== si),
+                            }))
+                          }
+                        >
+                          Supprimer l’étape
+                        </Button>
+                      </InlineStack>
+                      <TextField
+                        label="Nom (optionnel)"
+                        value={step.name}
+                        onChange={(v) => updateStep(si, { name: v })}
+                        autoComplete="off"
+                      />
+                      <TextField
+                        label="Description / consignes"
+                        value={step.description}
+                        onChange={(v) => updateStep(si, { description: v })}
+                        multiline={3}
+                        autoComplete="off"
+                      />
+                      <Checkbox
+                        label="Étape finale (options additionnelles)"
+                        checked={step.isFinalStep}
+                        onChange={(v) => updateStep(si, { isFinalStep: v })}
+                      />
+                      <Text as="h4" variant="headingSm">
+                        Image de l’étape
+                      </Text>
+                      <InlineStack gap="400" blockAlign="start">
+                        {step.imageUrl ? (
+                          <Thumbnail
+                            source={step.imageUrl}
+                            alt=""
+                            size="medium"
+                          />
+                        ) : null}
+                        <DropZone
+                          onDrop={(_d, accepted) => {
+                            const f = accepted[0];
+                            if (f) submitFile(f, { kind: "step", stepIndex: si });
+                          }}
+                          allowMultiple={false}
+                        >
+                          <DropZone.FileUpload actionHint="Max 5 Mo" />
+                        </DropZone>
+                      </InlineStack>
+
+                      <Divider />
+                      <Text as="h4" variant="headingSm">
+                        Produits éligibles
+                      </Text>
+                      <Button onClick={() => openVariantPicker(si)}>
+                        Sélectionner des variants
+                      </Button>
+                      {step.products.length === 0 ? (
+                        <Text as="p" tone="subdued" variant="bodySm">
+                          Aucun variant sélectionné.
+                        </Text>
+                      ) : (
+                        <BlockStack gap="300">
+                          {step.products.map((p, pi) => (
+                            <Box
+                              key={p.variantGid}
+                              padding="300"
+                              background="bg-surface"
+                              borderWidth="025"
+                              borderColor="border"
+                              borderRadius="200"
+                            >
+                              <BlockStack gap="300">
+                                <InlineStack
+                                  blockAlign="center"
+                                  gap="200"
+                                  wrap={false}
+                                >
+                                  {p.imageUrl ? (
+                                    <Thumbnail
+                                      source={p.imageUrl}
+                                      alt=""
+                                      size="small"
+                                    />
+                                  ) : null}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <Text as="p" variant="bodySm" truncate>
+                                      {p.displayName}
+                                    </Text>
+                                    <Text
+                                      as="p"
+                                      variant="bodySm"
+                                      tone="subdued"
+                                      truncate
+                                    >
+                                      {p.variantGid}
+                                    </Text>
+                                  </div>
+                                  <Button
+                                    variant="plain"
+                                    tone="critical"
+                                    onClick={() =>
+                                      setForm((f) => ({
+                                        ...f,
+                                        steps: f.steps.map((s, j) =>
+                                          j === si
+                                            ? {
+                                                ...s,
+                                                products: s.products.filter(
+                                                  (_, k) => k !== pi,
+                                                ),
+                                              }
+                                            : s,
+                                        ),
+                                      }))
+                                    }
+                                  >
+                                    Retirer
+                                  </Button>
+                                </InlineStack>
+                                <Select
+                                  label="Disposition sur la boutique"
+                                  options={[...PRODUCT_LAYOUT_PRESETS]}
+                                  value={p.layoutPreset}
+                                  onChange={(v) =>
+                                    updateStepProduct(si, pi, {
+                                      layoutPreset: v,
+                                    })
+                                  }
+                                />
+                                <TextField
+                                  label="Handle produit (pour variantes)"
+                                  value={p.productHandle ?? ""}
+                                  onChange={(v) =>
+                                    updateStepProduct(si, pi, {
+                                      productHandle: v.trim() || null,
+                                    })
+                                  }
+                                  autoComplete="off"
+                                  helpText="Renseigné automatiquement si le sélecteur Shopify fournit le produit. Sinon saisissez le handle (URL du produit sans /products/)."
+                                />
+                                <Text as="p" variant="bodySm" fontWeight="semibold">
+                                  Style de la carte produit
+                                </Text>
+                                <InlineStack gap="200" wrap>
+                                  <div style={{ flex: "1 1 140px" }}>
+                                    <TextField
+                                      label="Rayon image"
+                                      value={
+                                        p.styleOverrides?.imageBorderRadius ??
+                                        ""
+                                      }
+                                      onChange={(v) =>
+                                        updateStepProduct(si, pi, {
+                                          styleOverrides: {
+                                            ...(p.styleOverrides ??
+                                              ({} as ProductStyleOverrides)),
+                                            imageBorderRadius: v || undefined,
+                                          },
+                                        })
+                                      }
+                                      autoComplete="off"
+                                      placeholder="8px"
+                                    />
+                                  </div>
+                                  <div style={{ flex: "1 1 140px" }}>
+                                    <TextField
+                                      label="Rayon bouton"
+                                      value={
+                                        p.styleOverrides?.buttonBorderRadius ??
+                                        ""
+                                      }
+                                      onChange={(v) =>
+                                        updateStepProduct(si, pi, {
+                                          styleOverrides: {
+                                            ...(p.styleOverrides ??
+                                              ({} as ProductStyleOverrides)),
+                                            buttonBorderRadius: v || undefined,
+                                          },
+                                        })
+                                      }
+                                      autoComplete="off"
+                                    />
+                                  </div>
+                                </InlineStack>
+                                <InlineStack gap="200" wrap>
+                                  <div style={{ flex: "1 1 140px" }}>
+                                    <TextField
+                                      label="Fond carte"
+                                      value={
+                                        p.styleOverrides?.cardBackground ?? ""
+                                      }
+                                      onChange={(v) =>
+                                        updateStepProduct(si, pi, {
+                                          styleOverrides: {
+                                            ...(p.styleOverrides ??
+                                              ({} as ProductStyleOverrides)),
+                                            cardBackground: v || undefined,
+                                          },
+                                        })
+                                      }
+                                      autoComplete="off"
+                                    />
+                                  </div>
+                                  <div style={{ flex: "1 1 140px" }}>
+                                    <TextField
+                                      label="Fond bouton"
+                                      value={
+                                        p.styleOverrides?.buttonBackground ??
+                                        ""
+                                      }
+                                      onChange={(v) =>
+                                        updateStepProduct(si, pi, {
+                                          styleOverrides: {
+                                            ...(p.styleOverrides ??
+                                              ({} as ProductStyleOverrides)),
+                                            buttonBackground: v || undefined,
+                                          },
+                                        })
+                                      }
+                                      autoComplete="off"
+                                    />
+                                  </div>
+                                </InlineStack>
+                              </BlockStack>
+                            </Box>
+                          ))}
+                        </BlockStack>
+                      )}
+
+                      <Divider />
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text as="h4" variant="headingSm">
+                          Règles de validation
+                        </Text>
+                        <Button
+                          onClick={() =>
+                            setForm((f) => ({
+                              ...f,
+                              steps: f.steps.map((s, j) =>
+                                j === si
+                                  ? {
+                                      ...s,
+                                      rules: [
+                                        ...s.rules,
+                                        {
+                                          sortOrder: s.rules.length,
+                                          metric: "BUNDLE_PRICE",
+                                          operator: "GTE",
+                                          value: "0",
+                                          targetVariantGid: "",
+                                        },
+                                      ],
+                                    }
+                                  : s,
+                              ),
+                            }))
+                          }
+                        >
+                          Ajouter une règle
+                        </Button>
+                      </InlineStack>
+                      {step.rules.map((rule, ri) => (
+                        <Box
+                          key={ri}
+                          paddingBlockStart="200"
+                          paddingBlockEnd="200"
+                        >
+                          <BlockStack gap="300">
+                            <Select
+                              label="Métrique"
+                              options={METRIC_OPTIONS}
+                              value={rule.metric}
+                              onChange={(v) =>
+                                updateStepRule(si, ri, { metric: v })
+                              }
+                            />
+                            <Select
+                              label="Opérateur"
+                              options={OPERATOR_OPTIONS}
+                              value={rule.operator}
+                              onChange={(v) =>
+                                updateStepRule(si, ri, { operator: v })
+                              }
+                            />
+                            <TextField
+                              label="Valeur"
+                              value={rule.value}
+                              onChange={(v) =>
+                                updateStepRule(si, ri, { value: v })
+                              }
+                              autoComplete="off"
+                            />
+                            {rule.metric === "VARIANT_QUANTITY" ? (
+                              <TextField
+                                label="GID du variant cible"
+                                value={rule.targetVariantGid}
+                                onChange={(v) =>
+                                  updateStepRule(si, ri, {
+                                    targetVariantGid: v,
+                                  })
+                                }
+                                autoComplete="off"
+                                helpText="gid://shopify/ProductVariant/…"
+                              />
+                            ) : null}
+                            <Button
+                              variant="plain"
+                              tone="critical"
+                              onClick={() =>
+                                setForm((f) => ({
+                                  ...f,
+                                  steps: f.steps.map((s, j) =>
+                                    j === si
+                                      ? {
+                                          ...s,
+                                          rules: s.rules.filter(
+                                            (_, k) => k !== ri,
+                                          ),
+                                        }
+                                      : s,
+                                  ),
+                                }))
+                              }
+                            >
+                              Supprimer la règle
+                            </Button>
+                          </BlockStack>
+                        </Box>
+                      ))}
+                    </BlockStack>
+                  </Box>
+                ))}
+              </BlockStack>
+            </Card>
+              ) : null}
+              {selectedTab === 3 ? (
+            <BlockStack gap="500">
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
@@ -587,266 +1058,6 @@ export function BundleEditorForm({
                 </InlineStack>
               </BlockStack>
             </Card>
-
-            <Card>
-              <BlockStack gap="500">
-                <Text as="h2" variant="headingMd">
-                  Étapes (tunnel)
-                </Text>
-                <Button
-                  onClick={() =>
-                    setForm((f) => ({
-                      ...f,
-                      steps: [...f.steps, emptyStep(f.steps.length)],
-                    }))
-                  }
-                >
-                  Ajouter une étape
-                </Button>
-
-                {form.steps.length === 0 ? (
-                  <Banner tone="info">
-                    Aucune étape. Ajoutez une étape pour configurer le tunnel.
-                  </Banner>
-                ) : null}
-
-                {form.steps.map((step, si) => (
-                  <Box
-                    key={si}
-                    padding="400"
-                    background="bg-surface-secondary"
-                    borderRadius="200"
-                  >
-                    <BlockStack gap="400">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text as="h3" variant="headingMd">
-                          Étape {si + 1}
-                        </Text>
-                        <Button
-                          tone="critical"
-                          variant="plain"
-                          onClick={() =>
-                            setForm((f) => ({
-                              ...f,
-                              steps: f.steps.filter((_, j) => j !== si),
-                            }))
-                          }
-                        >
-                          Supprimer l’étape
-                        </Button>
-                      </InlineStack>
-                      <TextField
-                        label="Nom (optionnel)"
-                        value={step.name}
-                        onChange={(v) => updateStep(si, { name: v })}
-                        autoComplete="off"
-                      />
-                      <TextField
-                        label="Description / consignes"
-                        value={step.description}
-                        onChange={(v) => updateStep(si, { description: v })}
-                        multiline={3}
-                        autoComplete="off"
-                      />
-                      <Checkbox
-                        label="Étape finale (options additionnelles)"
-                        checked={step.isFinalStep}
-                        onChange={(v) => updateStep(si, { isFinalStep: v })}
-                      />
-                      <Text as="h4" variant="headingSm">
-                        Image de l’étape
-                      </Text>
-                      <InlineStack gap="400" blockAlign="start">
-                        {step.imageUrl ? (
-                          <Thumbnail
-                            source={step.imageUrl}
-                            alt=""
-                            size="medium"
-                          />
-                        ) : null}
-                        <DropZone
-                          onDrop={(_d, accepted) => {
-                            const f = accepted[0];
-                            if (f) submitFile(f, { kind: "step", stepIndex: si });
-                          }}
-                          allowMultiple={false}
-                        >
-                          <DropZone.FileUpload actionHint="Max 5 Mo" />
-                        </DropZone>
-                      </InlineStack>
-
-                      <Divider />
-                      <Text as="h4" variant="headingSm">
-                        Produits éligibles
-                      </Text>
-                      <Button onClick={() => openVariantPicker(si)}>
-                        Sélectionner des variants
-                      </Button>
-                      {step.products.length === 0 ? (
-                        <Text as="p" tone="subdued" variant="bodySm">
-                          Aucun variant sélectionné.
-                        </Text>
-                      ) : (
-                        <BlockStack gap="200">
-                          {step.products.map((p, pi) => (
-                            <InlineStack
-                              key={p.variantGid}
-                              blockAlign="center"
-                              gap="200"
-                              wrap={false}
-                            >
-                              {p.imageUrl ? (
-                                <Thumbnail
-                                  source={p.imageUrl}
-                                  alt=""
-                                  size="small"
-                                />
-                              ) : null}
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <Text as="p" variant="bodySm" truncate>
-                                  {p.displayName}
-                                </Text>
-                                <Text
-                                  as="p"
-                                  variant="bodySm"
-                                  tone="subdued"
-                                  truncate
-                                >
-                                  {p.variantGid}
-                                </Text>
-                              </div>
-                              <Button
-                                variant="plain"
-                                tone="critical"
-                                onClick={() =>
-                                  setForm((f) => ({
-                                    ...f,
-                                    steps: f.steps.map((s, j) =>
-                                      j === si
-                                        ? {
-                                            ...s,
-                                            products: s.products.filter(
-                                              (_, k) => k !== pi,
-                                            ),
-                                          }
-                                        : s,
-                                    ),
-                                  }))
-                                }
-                              >
-                                Retirer
-                              </Button>
-                            </InlineStack>
-                          ))}
-                        </BlockStack>
-                      )}
-
-                      <Divider />
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text as="h4" variant="headingSm">
-                          Règles de validation
-                        </Text>
-                        <Button
-                          onClick={() =>
-                            setForm((f) => ({
-                              ...f,
-                              steps: f.steps.map((s, j) =>
-                                j === si
-                                  ? {
-                                      ...s,
-                                      rules: [
-                                        ...s.rules,
-                                        {
-                                          sortOrder: s.rules.length,
-                                          metric: "BUNDLE_PRICE",
-                                          operator: "GTE",
-                                          value: "0",
-                                          targetVariantGid: "",
-                                        },
-                                      ],
-                                    }
-                                  : s,
-                              ),
-                            }))
-                          }
-                        >
-                          Ajouter une règle
-                        </Button>
-                      </InlineStack>
-                      {step.rules.map((rule, ri) => (
-                        <Box
-                          key={ri}
-                          paddingBlockStart="200"
-                          paddingBlockEnd="200"
-                        >
-                          <BlockStack gap="300">
-                            <Select
-                              label="Métrique"
-                              options={METRIC_OPTIONS}
-                              value={rule.metric}
-                              onChange={(v) =>
-                                updateStepRule(si, ri, { metric: v })
-                              }
-                            />
-                            <Select
-                              label="Opérateur"
-                              options={OPERATOR_OPTIONS}
-                              value={rule.operator}
-                              onChange={(v) =>
-                                updateStepRule(si, ri, { operator: v })
-                              }
-                            />
-                            <TextField
-                              label="Valeur"
-                              value={rule.value}
-                              onChange={(v) =>
-                                updateStepRule(si, ri, { value: v })
-                              }
-                              autoComplete="off"
-                            />
-                            {rule.metric === "VARIANT_QUANTITY" ? (
-                              <TextField
-                                label="GID du variant cible"
-                                value={rule.targetVariantGid}
-                                onChange={(v) =>
-                                  updateStepRule(si, ri, {
-                                    targetVariantGid: v,
-                                  })
-                                }
-                                autoComplete="off"
-                                helpText="gid://shopify/ProductVariant/…"
-                              />
-                            ) : null}
-                            <Button
-                              variant="plain"
-                              tone="critical"
-                              onClick={() =>
-                                setForm((f) => ({
-                                  ...f,
-                                  steps: f.steps.map((s, j) =>
-                                    j === si
-                                      ? {
-                                          ...s,
-                                          rules: s.rules.filter(
-                                            (_, k) => k !== ri,
-                                          ),
-                                        }
-                                      : s,
-                                  ),
-                                }))
-                              }
-                            >
-                              Supprimer la règle
-                            </Button>
-                          </BlockStack>
-                        </Box>
-                      ))}
-                    </BlockStack>
-                  </Box>
-                ))}
-              </BlockStack>
-            </Card>
-
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
@@ -993,6 +1204,9 @@ export function BundleEditorForm({
                 )}
               </BlockStack>
             </Card>
+            </BlockStack>
+              ) : null}
+            </Tabs>
           </BlockStack>
         </Layout.Section>
       </Layout>

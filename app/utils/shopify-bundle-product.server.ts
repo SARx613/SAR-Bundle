@@ -11,11 +11,17 @@ export type BundleProductSyncInput = {
   description: string | null;
   imageUrl: string | null;
   shopifyProductId: string | null;
+  /** Slug Shopify /products/{handle} */
+  handle: string;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  /** JSON éditeur visuel (metafield custom.sar_bundle_storefront) */
+  storefrontDesign: unknown;
 };
 
 /**
  * Creates or updates a Shopify catalog product (SEO / collections) and sets
- * metafield custom.sar_bundle_id = bundle DB id.
+ * metafields custom.sar_bundle_id, custom.sar_bundle_storefront.
  * Returns the Product GID for Bundle.shopifyProductId.
  */
 export async function syncBundleShopifyProduct(
@@ -26,12 +32,20 @@ export async function syncBundleShopifyProduct(
     ? `<p>${escapeHtml(bundle.description)}</p>`
     : "";
 
+  const storefrontJson = safeJsonStringify(bundle.storefrontDesign ?? {});
+
   const metafields = [
     {
       namespace: "custom",
       key: "sar_bundle_id",
       type: "single_line_text_field",
       value: bundle.id,
+    },
+    {
+      namespace: "custom",
+      key: "sar_bundle_storefront",
+      type: "json",
+      value: storefrontJson,
     },
   ];
 
@@ -45,14 +59,25 @@ export async function syncBundleShopifyProduct(
         ]
       : undefined;
 
+  const hasSeo = Boolean(
+    (bundle.seoTitle && bundle.seoTitle.trim()) ||
+      (bundle.seoDescription && bundle.seoDescription.trim()),
+  );
+  const seo = hasSeo
+    ? {
+        title: bundle.seoTitle?.trim() ?? "",
+        description: bundle.seoDescription?.trim() ?? "",
+      }
+    : undefined;
+
   if (bundle.shopifyProductId) {
-    // Do not pass media on update (would append duplicates). Image changes: admin Shopify or future media sync.
     const res = await admin.graphql(
       `#graphql
         mutation ProductUpdateBundle($product: ProductUpdateInput!) {
           productUpdate(product: $product) {
             product {
               id
+              handle
             }
             userErrors {
               field
@@ -65,7 +90,9 @@ export async function syncBundleShopifyProduct(
           product: {
             id: bundle.shopifyProductId,
             title: bundle.name,
+            handle: bundle.handle,
             descriptionHtml,
+            ...(seo ? { seo } : {}),
             metafields,
           },
         },
@@ -87,6 +114,7 @@ export async function syncBundleShopifyProduct(
         productCreate(product: $product, media: $media) {
           product {
             id
+            handle
           }
           userErrors {
             field
@@ -98,7 +126,9 @@ export async function syncBundleShopifyProduct(
       variables: {
         product: {
           title: bundle.name,
+          handle: bundle.handle,
           descriptionHtml,
+          ...(seo ? { seo } : {}),
           metafields,
         },
         media: media ?? null,
@@ -115,6 +145,14 @@ export async function syncBundleShopifyProduct(
   const newId = createBody?.data?.productCreate?.product?.id;
   if (!newId) throw new Error("productCreate returned no product id");
   return newId;
+}
+
+function safeJsonStringify(v: unknown): string {
+  try {
+    return JSON.stringify(v ?? {});
+  } catch {
+    return "{}";
+  }
 }
 
 /**

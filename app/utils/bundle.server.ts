@@ -1,4 +1,10 @@
 import {
+  defaultStorefrontDesign,
+  normalizeLayoutPreset,
+  normalizeProductHandle,
+  slugifyProductHandle,
+} from "./storefront-design";
+import {
   Prisma,
   type PrismaClient,
   type BundleStatus,
@@ -62,6 +68,9 @@ export type StepProductPayload = {
   sortOrder?: number;
   minQuantity?: number | null;
   maxQuantity?: number | null;
+  productHandle?: string | null;
+  layoutPreset?: string;
+  styleOverrides?: unknown;
 };
 
 export type StepPayload = {
@@ -90,6 +99,11 @@ export type BundleWritePayload = {
   imageUrl?: string | null;
   imageGid?: string | null;
   status?: BundleStatus;
+  /** Slug /products/{handle} — toujours défini côté parse (défaut = nom slugifié) */
+  productHandle: string;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  storefrontDesign: Prisma.InputJsonValue;
   pricingScope: string;
   discountValueType: string;
   flatDiscountValue?: string | number | null;
@@ -207,6 +221,17 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
           { status: 400 },
         );
       }
+      if (
+        p.styleOverrides != null &&
+        typeof p.styleOverrides !== "object"
+      ) {
+        throw Response.json(
+          {
+            error: `steps[${si}].products[${pi}].styleOverrides must be an object`,
+          },
+          { status: 400 },
+        );
+      }
     }
 
     for (let ri = 0; ri < rules.length; ri++) {
@@ -261,8 +286,23 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     }
   }
 
+  const nameTrim = o.name.trim();
+  const explicitHandle =
+    typeof o.productHandle === "string" && o.productHandle.trim() !== ""
+      ? normalizeProductHandle(o.productHandle)
+      : null;
+  const productHandle = explicitHandle ?? slugifyProductHandle(nameTrim);
+
+  let storefrontDesign: Prisma.InputJsonValue =
+    defaultStorefrontDesign() as unknown as Prisma.InputJsonValue;
+  if (o.storefrontDesign !== undefined && o.storefrontDesign !== null) {
+    if (typeof o.storefrontDesign === "object") {
+      storefrontDesign = o.storefrontDesign as Prisma.InputJsonValue;
+    }
+  }
+
   return {
-    name: o.name.trim(),
+    name: nameTrim,
     description:
       typeof o.description === "string"
         ? o.description
@@ -307,6 +347,13 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
           : undefined,
     minBundleCartValue: o.minBundleCartValue as string | number | null | undefined,
     maxBundleCartValue: o.maxBundleCartValue as string | number | null | undefined,
+    productHandle,
+    seoTitle: typeof o.seoTitle === "string" ? o.seoTitle.trim() || null : null,
+    seoDescription:
+      typeof o.seoDescription === "string"
+        ? o.seoDescription.trim() || null
+        : null,
+    storefrontDesign,
     pricingTiers,
     steps,
   };
@@ -325,6 +372,10 @@ export function toPrismaBundleScalars(
     description: data.description ?? null,
     imageUrl: data.imageUrl ?? null,
     imageGid: data.imageGid ?? null,
+    productHandle: data.productHandle,
+    seoTitle: data.seoTitle ?? null,
+    seoDescription: data.seoDescription ?? null,
+    storefrontDesign: data.storefrontDesign,
     status: data.status ?? "DRAFT",
     pricingScope: data.pricingScope as PricingScope,
     discountValueType: data.discountValueType as DiscountValueType,
@@ -364,6 +415,15 @@ export function buildNestedCreates(data: BundleWritePayload): {
         variantGid: p.variantGid.trim(),
         minQuantity: p.minQuantity ?? null,
         maxQuantity: p.maxQuantity ?? null,
+        productHandle:
+          typeof p.productHandle === "string" && p.productHandle.trim()
+            ? normalizeProductHandle(p.productHandle)
+            : null,
+        layoutPreset: normalizeLayoutPreset(p.layoutPreset),
+        styleOverrides:
+          p.styleOverrides != null && typeof p.styleOverrides === "object"
+            ? (p.styleOverrides as Prisma.InputJsonValue)
+            : undefined,
       })),
     },
     rules: {
@@ -428,11 +488,19 @@ export type BundleWithDetail = Prisma.BundleGetPayload<{
 export function bundlePrismaToWritePayload(
   bundle: BundleWithDetail,
 ): BundleWritePayload {
+  const storefront =
+    bundle.storefrontDesign != null
+      ? (bundle.storefrontDesign as Prisma.InputJsonValue)
+      : (defaultStorefrontDesign() as unknown as Prisma.InputJsonValue);
   return {
     name: bundle.name,
     description: bundle.description,
     imageUrl: bundle.imageUrl,
     imageGid: bundle.imageGid,
+    productHandle: bundle.productHandle ?? slugifyProductHandle(bundle.name),
+    seoTitle: bundle.seoTitle,
+    seoDescription: bundle.seoDescription,
+    storefrontDesign: storefront,
     status: bundle.status,
     pricingScope: bundle.pricingScope,
     discountValueType: bundle.discountValueType,
@@ -463,6 +531,9 @@ export function bundlePrismaToWritePayload(
         sortOrder: p.sortOrder,
         minQuantity: p.minQuantity,
         maxQuantity: p.maxQuantity,
+        productHandle: p.productHandle,
+        layoutPreset: p.layoutPreset,
+        styleOverrides: p.styleOverrides ?? undefined,
       })),
       rules: s.rules.map((r) => ({
         sortOrder: r.sortOrder,
@@ -502,6 +573,7 @@ export async function duplicateBundle(
   const payload = bundlePrismaToWritePayload(source);
   payload.name = `Copie de ${source.name}`;
   payload.status = "DRAFT";
+  payload.productHandle = slugifyProductHandle(`${payload.productHandle}-copie`);
   const nested = buildNestedCreates(payload);
   const scalars = toPrismaBundleScalars(shopDomain, payload);
   const created = await prisma.bundle.create({

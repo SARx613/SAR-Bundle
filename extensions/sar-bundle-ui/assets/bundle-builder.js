@@ -33,18 +33,20 @@
     return parseFloat(String(priceStr).replace(',', '.')) || 0;
   }
 
-  function getTotals(selections, priceMap) {
+  function getTotals(selections, priceMap, variantChoice) {
     var bundlePrice = 0;
     var totalQty = 0;
     var distinct = {};
     var gid;
+    variantChoice = variantChoice || {};
     for (gid in selections) {
       if (!Object.prototype.hasOwnProperty.call(selections, gid)) continue;
       var q = selections[gid] || 0;
       if (q <= 0) continue;
       totalQty += q;
       distinct[gid] = true;
-      var unit = priceMap[gid] || 0;
+      var eg = variantChoice[gid] || gid;
+      var unit = priceMap[eg] || 0;
       bundlePrice += unit * q;
     }
     var distinctCount = 0;
@@ -98,11 +100,11 @@
     }
   }
 
-  function validateStepRules(bundle, stepIndex, selections, priceMap) {
+  function validateStepRules(bundle, stepIndex, selections, priceMap, variantChoice) {
     var step = bundle.steps[stepIndex];
     if (!step || !step.rules || !step.rules.length)
       return { ok: true, messages: [] };
-    var base = getTotals(selections, priceMap);
+    var base = getTotals(selections, priceMap, variantChoice);
     var ctx = {
       bundlePrice: base.bundlePrice,
       totalItemCount: base.totalItemCount,
@@ -187,6 +189,7 @@
 
         var priceMap = {};
         var variantCache = {};
+        var productJsonByHandle = {};
         var ids = collectVariantIds(bundle);
 
         return Promise.all(
@@ -201,7 +204,32 @@
                 priceMap[entry.gid] = 0;
               });
           }),
-        ).then(function () {
+        )
+          .then(function () {
+            var handles = [];
+            for (var hsi = 0; hsi < bundle.steps.length; hsi++) {
+              var pr = bundle.steps[hsi].products || [];
+              for (var hpx = 0; hpx < pr.length; hpx++) {
+                var ph = pr[hpx].productHandle;
+                if (ph && handles.indexOf(ph) < 0) handles.push(ph);
+              }
+            }
+            return Promise.all(
+              handles.map(function (h) {
+                return fetch(
+                  joinRoot('products/' + encodeURIComponent(h) + '.js'),
+                  { headers: { Accept: 'application/json' } },
+                )
+                  .then(function (r) {
+                    return r.ok ? r.json() : null;
+                  })
+                  .then(function (j) {
+                    if (j) productJsonByHandle[h] = j;
+                  });
+              }),
+            );
+          })
+          .then(function () {
           loading.hidden = true;
           inner.hidden = false;
 
@@ -209,6 +237,7 @@
             stepIndex: 0,
             selections: {},
             selected: {},
+            variantChoice: {},
           };
 
           for (var si = 0; si < bundle.steps.length; si++) {
@@ -244,12 +273,82 @@
                 : '';
           }
 
+          function effectiveGid(originalGid) {
+            return state.variantChoice[originalGid] || originalGid;
+          }
+
+          function renderDesignBlocks(container, design) {
+            if (!design || design.version !== 1) return;
+            var g = design.global || {};
+            if (g.fontBody) container.style.fontFamily = g.fontBody;
+            var wrap = document.createElement('div');
+            wrap.className = 'sar-bundle__design';
+            if (g.contentMaxWidth) wrap.style.maxWidth = g.contentMaxWidth;
+            if (g.pageBackground) wrap.style.background = g.pageBackground;
+            wrap.style.marginBottom = '1rem';
+            var blocks = design.blocks || [];
+            for (var bi = 0; bi < blocks.length; bi++) {
+              var b = blocks[bi];
+              if (!b || !b.type) continue;
+              var st = b.style || {};
+              if (b.type === 'heading') {
+                var hx = document.createElement(b.tag || 'h2');
+                hx.textContent = b.text || '';
+                applyTextStyle(hx, st);
+                wrap.appendChild(hx);
+              } else if (b.type === 'text') {
+                var p = document.createElement('p');
+                p.textContent = b.text || '';
+                applyTextStyle(p, st);
+                wrap.appendChild(p);
+              } else if (b.type === 'image' && b.url) {
+                var im = document.createElement('img');
+                im.src = b.url;
+                im.alt = b.alt || '';
+                im.loading = 'lazy';
+                im.style.display = 'block';
+                im.style.maxWidth = st.maxWidth || '100%';
+                applyTextStyle(im, st);
+                wrap.appendChild(im);
+              } else if (b.type === 'spacer') {
+                var sp = document.createElement('div');
+                sp.style.height = (b.height || 8) + 'px';
+                wrap.appendChild(sp);
+              }
+            }
+            if (wrap.childNodes.length) container.appendChild(wrap);
+          }
+
+          function applyTextStyle(el, st) {
+            if (!st) return;
+            if (st.fontSize) el.style.fontSize = st.fontSize;
+            if (st.fontWeight) el.style.fontWeight = st.fontWeight;
+            if (st.color) el.style.color = st.color;
+            if (st.backgroundColor) el.style.backgroundColor = st.backgroundColor;
+            if (st.textAlign) el.style.textAlign = st.textAlign;
+            if (st.marginTop) el.style.marginTop = st.marginTop;
+            if (st.marginBottom) el.style.marginBottom = st.marginBottom;
+            if (st.padding) el.style.padding = st.padding;
+            if (st.borderRadius) el.style.borderRadius = st.borderRadius;
+            if (st.borderWidth) el.style.borderWidth = st.borderWidth;
+            if (st.borderColor) el.style.borderColor = st.borderColor;
+            if (st.fontFamily) el.style.fontFamily = st.fontFamily;
+          }
+
+          function applyProductCardStyles(card, so) {
+            if (!so) return;
+            if (so.cardBackground) card.style.background = so.cardBackground;
+            if (so.cardBorderRadius) card.style.borderRadius = so.cardBorderRadius;
+          }
+
           function render() {
             inner.innerHTML = '';
             var errBox = document.createElement('div');
             errBox.className = 'sar-bundle__error';
             errBox.hidden = true;
             inner.appendChild(errBox);
+
+            renderDesignBlocks(inner, bundle.storefrontDesign);
 
             var h = document.createElement('h2');
             h.className = 'sar-bundle__title';
@@ -292,67 +391,186 @@
             var stepProds = step.products || [];
 
             for (var pj = 0; pj < stepProds.length; pj++) {
-              (function (gid) {
-                var meta = variantCache[gid] || {};
+              (function (prodRow) {
+                var originalGid = prodRow.variantGid;
+                var layout = prodRow.layoutPreset || 'STACK_ADD_TO_QTY';
+                var so = prodRow.styleOverrides || {};
+                var ph = prodRow.productHandle;
+
+                function gidNow() {
+                  return effectiveGid(originalGid);
+                }
+                function getMeta() {
+                  return variantCache[gidNow()] || {};
+                }
+
                 var card = document.createElement('div');
                 card.className =
-                  'sar-bundle__product' +
-                  (state.selected[gid]
-                    ? ' sar-bundle__product--selected'
-                    : '');
-                card.addEventListener('click', function (e) {
-                  if (e.target.tagName === 'INPUT') return;
-                  state.selected[gid] = !state.selected[gid];
-                  if (state.selected[gid] && (state.selections[gid] || 0) < 1) {
-                    state.selections[gid] = 1;
-                  }
-                  if (!state.selected[gid]) state.selections[gid] = 0;
-                  errBox.hidden = true;
-                  render();
-                });
+                  'sar-bundle__product sar-bundle__product--' +
+                  String(layout).replace(/_/g, '-').toLowerCase();
+                if (
+                  state.selected[originalGid] &&
+                  (state.selections[originalGid] || 0) > 0
+                ) {
+                  card.className += ' sar-bundle__product--selected';
+                }
+                applyProductCardStyles(card, so);
 
                 var img = document.createElement('img');
+                img.className = 'sar-bundle__product-img';
                 img.alt = '';
                 img.loading = 'lazy';
-                if (meta.featured_image && meta.featured_image.src) {
-                  img.src = meta.featured_image.src;
-                } else if (typeof meta.featured_image === 'string') {
-                  img.src = meta.featured_image;
-                } else {
-                  img.src =
-                    'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
+                if (so.imageBorderRadius) img.style.borderRadius = so.imageBorderRadius;
+
+                function refreshImgTitle() {
+                  var m = getMeta();
+                  if (m.featured_image && m.featured_image.src) {
+                    img.src = m.featured_image.src;
+                  } else if (typeof m.featured_image === 'string') {
+                    img.src = m.featured_image;
+                  } else {
+                    img.src =
+                      'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
+                  }
                 }
-                card.appendChild(img);
+                refreshImgTitle();
 
                 var tt = document.createElement('p');
                 tt.className = 'sar-bundle__product-title';
-                tt.textContent = meta.title || gid.split('/').pop();
-                card.appendChild(tt);
+                if (so.titleFontSize) tt.style.fontSize = so.titleFontSize;
 
                 var pr = document.createElement('div');
                 pr.className = 'sar-bundle__product-price';
-                pr.textContent = meta.price != null ? String(meta.price) : '—';
-                card.appendChild(pr);
+                if (so.priceFontSize) pr.style.fontSize = so.priceFontSize;
 
-                if (state.selected[gid]) {
-                  var qtyIn = document.createElement('input');
-                  qtyIn.type = 'number';
-                  qtyIn.min = '1';
-                  qtyIn.className = 'sar-bundle__qty';
-                  qtyIn.value = String(state.selections[gid] || 1);
-                  qtyIn.addEventListener('click', function (e) {
+                function refreshTitlePrice() {
+                  var m = getMeta();
+                  tt.textContent = m.title || originalGid.split('/').pop();
+                  pr.textContent = m.price != null ? String(m.price) : '—';
+                }
+                refreshTitlePrice();
+
+                var controls = document.createElement('div');
+                controls.className = 'sar-bundle__product-controls';
+
+                if (ph && productJsonByHandle[ph] && productJsonByHandle[ph].variants) {
+                  var vars = productJsonByHandle[ph].variants || [];
+                  if (vars.length > 1) {
+                    var sel = document.createElement('select');
+                    sel.className = 'sar-bundle__variant-select';
+                    for (var vi = 0; vi < vars.length; vi++) {
+                      var vv = vars[vi];
+                      var opt = document.createElement('option');
+                      var vgid = 'gid://shopify/ProductVariant/' + String(vv.id);
+                      opt.value = vgid;
+                      opt.textContent = vv.title || vv.name || '#' + vv.id;
+                      if (vgid === gidNow()) opt.selected = true;
+                      sel.appendChild(opt);
+                    }
+                    sel.addEventListener('change', function () {
+                      var ng = sel.value;
+                      state.variantChoice[originalGid] = ng;
+                      var nid = variantGidToNumericId(ng);
+                      fetchVariantJson(nid)
+                        .then(function (j) {
+                          variantCache[ng] = j;
+                          priceMap[ng] = parseMoney(j.price);
+                        })
+                        .catch(function () {})
+                        .then(function () {
+                          render();
+                        });
+                    });
+                    controls.appendChild(sel);
+                  }
+                }
+
+                function setQty(q) {
+                  state.selections[originalGid] = q;
+                  state.selected[originalGid] = q > 0;
+                  errBox.hidden = true;
+                  render();
+                }
+
+                var addBtn = document.createElement('button');
+                addBtn.type = 'button';
+                addBtn.className =
+                  'sar-bundle__btn sar-bundle__btn--primary sar-bundle__add';
+                addBtn.textContent = 'Ajouter';
+                if (so.buttonBorderRadius)
+                  addBtn.style.borderRadius = so.buttonBorderRadius;
+                if (so.buttonBackground) addBtn.style.background = so.buttonBackground;
+                if (so.buttonColor) addBtn.style.color = so.buttonColor;
+
+                var qtyIn = document.createElement('input');
+                qtyIn.type = 'number';
+                qtyIn.min = '0';
+                qtyIn.className = 'sar-bundle__qty';
+                qtyIn.addEventListener('click', function (e) {
+                  e.stopPropagation();
+                });
+
+                var showQty =
+                  state.selected[originalGid] &&
+                  (state.selections[originalGid] || 0) > 0;
+
+                if (layout === 'SPLIT_QTY_ADD') {
+                  var row = document.createElement('div');
+                  row.className = 'sar-bundle__split-qty-add';
+                  qtyIn.value = String(
+                    showQty ? state.selections[originalGid] || 1 : 0,
+                  );
+                  addBtn.textContent = 'Ajouter';
+                  addBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
                     e.stopPropagation();
+                    var q = parseInt(qtyIn.value, 10) || 0;
+                    setQty(q > 0 ? q : 1);
                   });
                   qtyIn.addEventListener('change', function () {
-                    var q = parseInt(qtyIn.value, 10) || 1;
-                    if (q < 1) q = 1;
-                    state.selections[gid] = q;
-                    qtyIn.value = String(q);
+                    var q = parseInt(qtyIn.value, 10);
+                    if (isNaN(q) || q < 0) q = 0;
+                    setQty(q);
                   });
-                  card.appendChild(qtyIn);
+                  row.appendChild(qtyIn);
+                  row.appendChild(addBtn);
+                  controls.appendChild(row);
+                } else {
+                  if (showQty) {
+                    qtyIn.value = String(state.selections[originalGid] || 1);
+                    qtyIn.addEventListener('change', function () {
+                      var q = parseInt(qtyIn.value, 10);
+                      if (isNaN(q) || q < 0) q = 0;
+                      setQty(q);
+                    });
+                    controls.appendChild(qtyIn);
+                  } else {
+                    addBtn.addEventListener('click', function (e) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setQty(1);
+                    });
+                    controls.appendChild(addBtn);
+                  }
                 }
+
+                if (layout === 'MEDIA_LEFT_STACK' || layout === 'ROW_COMPACT') {
+                  card.appendChild(img);
+                  var col = document.createElement('div');
+                  col.className = 'sar-bundle__product-col';
+                  col.appendChild(tt);
+                  col.appendChild(pr);
+                  col.appendChild(controls);
+                  card.appendChild(col);
+                } else {
+                  card.appendChild(img);
+                  card.appendChild(tt);
+                  card.appendChild(pr);
+                  card.appendChild(controls);
+                }
+
                 grid.appendChild(card);
-              })(stepProds[pj].variantGid);
+              })(stepProds[pj]);
             }
 
             body.appendChild(grid);
@@ -431,6 +649,7 @@
                 state.stepIndex,
                 state.selections,
                 priceMap,
+                state.variantChoice,
               );
               if (!v.ok) {
                 errBox.textContent = v.messages.join(' ');
@@ -454,7 +673,8 @@
                   continue;
                 if (!state.selected[gk] || (state.selections[gk] || 0) <= 0)
                   continue;
-                var vid = variantGidToNumericId(gk);
+                var egCart = state.variantChoice[gk] || gk;
+                var vid = variantGidToNumericId(egCart);
                 if (!vid) continue;
                 items.push({
                   id: vid,

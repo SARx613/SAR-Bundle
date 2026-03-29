@@ -13,6 +13,7 @@ import {
   serializeBundleTree,
   toPrismaBundleScalars,
 } from "../utils/bundle.server";
+import { slugifyProductHandle } from "../utils/storefront-design";
 import { syncBundleShopifyProduct } from "../utils/shopify-bundle-product.server";
 
 const emptyBundleState: SerializedBundle = {
@@ -23,6 +24,10 @@ const emptyBundleState: SerializedBundle = {
   imageUrl: null,
   imageGid: null,
   shopifyProductId: null,
+  productHandle: null,
+  seoTitle: null,
+  seoDescription: null,
+  storefrontDesign: null,
   status: "DRAFT",
   pricingScope: "FLAT",
   discountValueType: "PERCENT",
@@ -44,7 +49,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   if (!id) throw new Response("Missing bundle id", { status: 400 });
 
   if (id === "new") {
-    return json({ isNew: true as const, bundle: emptyBundleState });
+    return json({
+      isNew: true as const,
+      bundle: emptyBundleState,
+      shop: session.shop,
+    });
   }
 
   const bundle = await prisma.bundle.findFirst({
@@ -57,6 +66,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   return json({
     isNew: false as const,
     bundle: serializeBundleTree(bundle) as unknown as SerializedBundle,
+    shop: session.shop,
   });
 };
 
@@ -108,6 +118,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           description: created.description,
           imageUrl: created.imageUrl,
           shopifyProductId: null,
+          handle:
+            created.productHandle?.trim() ||
+            slugifyProductHandle(created.name),
+          seoTitle: created.seoTitle,
+          seoDescription: created.seoDescription,
+          storefrontDesign: created.storefrontDesign ?? {},
         });
         out = await prisma.bundle.update({
           where: { id: created.id },
@@ -159,6 +175,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         description: updated.description,
         imageUrl: updated.imageUrl,
         shopifyProductId: updated.shopifyProductId,
+        handle:
+          updated.productHandle?.trim() ||
+          slugifyProductHandle(updated.name),
+        seoTitle: updated.seoTitle,
+        seoDescription: updated.seoDescription,
+        storefrontDesign: updated.storefrontDesign ?? {},
       });
       if (productGid !== updated.shopifyProductId) {
         updated = await prisma.bundle.update({
@@ -190,6 +212,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 };
 
 export default function AppBundleDetail() {
-  const { isNew, bundle } = useLoaderData<typeof loader>();
-  return <BundleEditorForm isNew={isNew} bundle={bundle} />;
+  const { isNew, bundle, shop } = useLoaderData<typeof loader>();
+  return <BundleEditorForm isNew={isNew} bundle={bundle} shopDomain={shop} />;
 }

@@ -1,11 +1,22 @@
 /**
  * JSON body for POST /app/bundle/:id — must stay aligned with parseBundlePayload (bundle.server).
  */
+import {
+  defaultStorefrontDesign,
+  type ProductStyleOverrides,
+  type StorefrontDesignV1,
+} from "./storefront-design";
+
 export type BundleSubmitPayload = {
   name: string;
   description?: string | null;
   imageUrl?: string | null;
   imageGid?: string | null;
+  /** Vide = slug dérivé du nom côté serveur */
+  productHandle?: string;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  storefrontDesign?: StorefrontDesignV1;
   status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
   pricingScope: string;
   discountValueType: string;
@@ -36,6 +47,9 @@ export type BundleSubmitPayload = {
       sortOrder?: number;
       minQuantity?: number | null;
       maxQuantity?: number | null;
+      productHandle?: string | null;
+      layoutPreset?: string;
+      styleOverrides?: ProductStyleOverrides | null;
     }>;
     rules: Array<{
       sortOrder?: number;
@@ -64,6 +78,10 @@ export type UiStepProduct = {
   maxQuantity: number | null;
   displayName: string;
   imageUrl: string | null;
+  /** Handle produit Shopify (variant picker / URL produit.js) */
+  productHandle: string | null;
+  layoutPreset: string;
+  styleOverrides: ProductStyleOverrides | null;
 };
 
 export type UiPricingTier = {
@@ -109,6 +127,11 @@ export type BundleFormState = {
   description: string;
   imageUrl: string | null;
   imageGid: string | null;
+  /** Laisser vide pour URL auto depuis le nom */
+  productHandle: string;
+  seoTitle: string;
+  seoDescription: string;
+  storefrontDesign: StorefrontDesignV1;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
   pricingScope: "FLAT" | "TIERED";
   discountValueType: "PERCENT" | "FIXED_AMOUNT" | "FIXED_PRICE";
@@ -132,6 +155,10 @@ export type SerializedBundle = {
   imageUrl?: string | null;
   imageGid?: string | null;
   shopifyProductId?: string | null;
+  productHandle?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  storefrontDesign?: unknown;
   status: string;
   pricingScope: string;
   discountValueType: string;
@@ -162,6 +189,9 @@ export type SerializedBundle = {
       sortOrder?: number;
       minQuantity?: number | null;
       maxQuantity?: number | null;
+      productHandle?: string | null;
+      layoutPreset?: string;
+      styleOverrides?: unknown;
     }>;
     rules?: Array<{
       sortOrder?: number;
@@ -181,6 +211,22 @@ export type SerializedBundle = {
     }>;
   }>;
 };
+
+function parseStorefrontDesign(raw: unknown): StorefrontDesignV1 {
+  if (
+    raw &&
+    typeof raw === "object" &&
+    (raw as StorefrontDesignV1).version === 1
+  ) {
+    const o = raw as StorefrontDesignV1;
+    return {
+      version: 1,
+      global: { ...defaultStorefrontDesign().global, ...o.global },
+      blocks: Array.isArray(o.blocks) ? o.blocks : [],
+    };
+  }
+  return defaultStorefrontDesign();
+}
 
 export function emptyStep(sortOrder: number): UiStep {
   return {
@@ -205,6 +251,10 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
     description: bundle.description ?? "",
     imageUrl: bundle.imageUrl ?? null,
     imageGid: bundle.imageGid ?? null,
+    productHandle: bundle.productHandle ?? "",
+    seoTitle: bundle.seoTitle ?? "",
+    seoDescription: bundle.seoDescription ?? "",
+    storefrontDesign: parseStorefrontDesign(bundle.storefrontDesign),
     status: (bundle.status as BundleFormState["status"]) || "DRAFT",
     pricingScope: (bundle.pricingScope as BundleFormState["pricingScope"]) || "FLAT",
     discountValueType:
@@ -246,6 +296,12 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
         maxQuantity: p.maxQuantity ?? null,
         displayName: p.variantGid.split("/").pop() ?? p.variantGid,
         imageUrl: null,
+        productHandle: p.productHandle ?? null,
+        layoutPreset: p.layoutPreset ?? "STACK_ADD_TO_QTY",
+        styleOverrides:
+          p.styleOverrides && typeof p.styleOverrides === "object"
+            ? (p.styleOverrides as ProductStyleOverrides)
+            : null,
       })),
       rules: (s.rules ?? []).map((r, ri) => ({
         sortOrder: r.sortOrder ?? ri,
@@ -295,6 +351,10 @@ export function toApiPayload(form: BundleFormState): BundleSubmitPayload {
     description: form.description.trim() || null,
     imageUrl: form.imageUrl,
     imageGid: form.imageGid,
+    productHandle: form.productHandle.trim(),
+    seoTitle: form.seoTitle.trim() || null,
+    seoDescription: form.seoDescription.trim() || null,
+    storefrontDesign: form.storefrontDesign,
     status: form.status,
     pricingScope: form.pricingScope,
     discountValueType: form.discountValueType,
@@ -328,6 +388,9 @@ export function toApiPayload(form: BundleFormState): BundleSubmitPayload {
         sortOrder: pi,
         minQuantity: p.minQuantity,
         maxQuantity: p.maxQuantity,
+        productHandle: p.productHandle?.trim() || null,
+        layoutPreset: p.layoutPreset,
+        styleOverrides: p.styleOverrides,
       })),
       rules: s.rules.map((r, ri) => ({
         sortOrder: ri,

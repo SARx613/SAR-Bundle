@@ -42,8 +42,50 @@
 
 .sar-bundle__products {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 1rem;
+}
+
+.sar-bundle__product--media-left-stack,
+.sar-bundle__product--row-compact {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  text-align: left;
+  align-items: flex-start;
+}
+
+.sar-bundle__product--media-left-stack .sar-bundle__product-img,
+.sar-bundle__product--row-compact .sar-bundle__product-img {
+  width: 96px;
+  min-width: 96px;
+  flex-shrink: 0;
+}
+
+.sar-bundle__product-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.sar-bundle__split-qty-add {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.sar-bundle__variant-select {
+  width: 100%;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  padding: 0.35rem;
+}
+
+.sar-bundle__product-controls {
+  margin-top: 0.5rem;
+  width: 100%;
 }
 
 .sar-bundle__product {
