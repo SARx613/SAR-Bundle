@@ -169,7 +169,11 @@
   }
 
   function mount(el) {
-    var ref = (el.getAttribute('data-bundle-ref') || '').trim();
+    var ref = (
+      el.getAttribute('data-bundle-ref') ||
+      el.getAttribute('data-bundle-id') ||
+      ''
+    ).trim();
     var heading = el.getAttribute('data-heading') || 'Composez votre pack';
     var showProgress = el.getAttribute('data-show-progress') !== 'false';
     var loading = el.querySelector('[data-sar-loading]');
@@ -667,6 +671,19 @@
                   ? crypto.randomUUID()
                   : String(Date.now()) + '-' + Math.random().toString(36).slice(2);
 
+              var configId = bundle.id ? String(bundle.id) : '';
+              var parentVariantGid = bundle.shopifyParentVariantId
+                ? String(bundle.shopifyParentVariantId)
+                : '';
+
+              var baseLineProps = {
+                _sar_bundle_id: bundleInstanceId,
+                _sar_bundle_config_id: configId,
+              };
+              if (parentVariantGid) {
+                baseLineProps._sar_parent_variant_id = parentVariantGid;
+              }
+
               var items = [];
               for (var gk in state.selections) {
                 if (!Object.prototype.hasOwnProperty.call(state.selections, gk))
@@ -679,7 +696,7 @@
                 items.push({
                   id: vid,
                   quantity: state.selections[gk],
-                  properties: { _sar_bundle_id: bundleInstanceId },
+                  properties: Object.assign({}, baseLineProps),
                 });
               }
 
@@ -689,7 +706,7 @@
                 return;
               }
 
-              var masterProps = { _sar_bundle_id: bundleInstanceId };
+              var masterProps = Object.assign({}, baseLineProps);
               for (var pk in propValues) {
                 if (!Object.prototype.hasOwnProperty.call(propValues, pk))
                   continue;
@@ -741,7 +758,9 @@
   }
 
   function init() {
-    var roots = document.querySelectorAll('[data-sar-bundle-root]');
+    var roots = document.querySelectorAll(
+      '#sar-bundle-root, [data-sar-bundle-root]',
+    );
     for (var i = 0; i < roots.length; i++) {
       mount(roots[i]).catch(function (e) {
         console.error('[SAR Bundle]', e);

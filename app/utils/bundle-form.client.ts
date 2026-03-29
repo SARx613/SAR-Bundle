@@ -155,6 +155,7 @@ export type SerializedBundle = {
   imageUrl?: string | null;
   imageGid?: string | null;
   shopifyProductId?: string | null;
+  shopifyParentVariantId?: string | null;
   productHandle?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;

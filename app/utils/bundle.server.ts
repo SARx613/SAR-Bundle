@@ -580,6 +580,7 @@ export async function duplicateBundle(
     data: {
       ...scalars,
       shopifyProductId: null,
+      shopifyParentVariantId: null,
       pricingTiers: { create: nested.pricingTiers },
       steps: { create: nested.steps },
     },

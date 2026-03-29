@@ -17,17 +17,23 @@ export type BundleProductSyncInput = {
   seoDescription: string | null;
   /** JSON éditeur visuel (metafield custom.sar_bundle_storefront) */
   storefrontDesign: unknown;
+  status: "DRAFT" | "ACTIVE" | "ARCHIVED";
+};
+
+export type BundleProductSyncResult = {
+  productId: string;
+  defaultVariantId: string | null;
 };
 
 /**
  * Creates or updates a Shopify catalog product (SEO / collections) and sets
- * metafields custom.sar_bundle_id, custom.sar_bundle_storefront.
- * Returns the Product GID for Bundle.shopifyProductId.
+ * metafields custom.sar_bundle_id, custom.sar_bundle_storefront, custom.sar_bundle_active.
+ * Returns the Product GID and the default variant GID (for Cart Transform merge).
  */
 export async function syncBundleShopifyProduct(
   admin: AdminClient,
   bundle: BundleProductSyncInput,
-): Promise<string> {
+): Promise<BundleProductSyncResult> {
   const descriptionHtml = bundle.description
     ? `<p>${escapeHtml(bundle.description)}</p>`
     : "";
@@ -46,6 +52,12 @@ export async function syncBundleShopifyProduct(
       key: "sar_bundle_storefront",
       type: "json",
       value: storefrontJson,
+    },
+    {
+      namespace: "custom",
+      key: "sar_bundle_active",
+      type: "boolean",
+      value: bundle.status === "ACTIVE" ? "true" : "false",
     },
   ];
 
@@ -105,7 +117,8 @@ export async function syncBundleShopifyProduct(
     }
     const pid = body?.data?.productUpdate?.product?.id;
     if (!pid) throw new Error("productUpdate returned no product id");
-    return pid;
+    const defaultVariantId = await fetchDefaultVariantGid(admin, pid);
+    return { productId: pid, defaultVariantId };
   }
 
   const createRes = await admin.graphql(
@@ -144,7 +157,31 @@ export async function syncBundleShopifyProduct(
   }
   const newId = createBody?.data?.productCreate?.product?.id;
   if (!newId) throw new Error("productCreate returned no product id");
-  return newId;
+  const defaultVariantId = await fetchDefaultVariantGid(admin, newId);
+  return { productId: newId, defaultVariantId };
+}
+
+async function fetchDefaultVariantGid(
+  admin: AdminClient,
+  productGid: string,
+): Promise<string | null> {
+  const res = await admin.graphql(
+    `#graphql
+      query BundleProductDefaultVariant($id: ID!) {
+        product(id: $id) {
+          variants(first: 1) {
+            nodes {
+              id
+            }
+          }
+        }
+      }`,
+    { variables: { id: productGid } },
+  );
+  const body = await res.json();
+  const nodes = body?.data?.product?.variants?.nodes;
+  const first = Array.isArray(nodes) ? nodes[0] : null;
+  return typeof first?.id === "string" ? first.id : null;
 }
 
 function safeJsonStringify(v: unknown): string {

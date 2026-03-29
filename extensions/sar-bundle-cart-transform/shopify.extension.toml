@@ -1,0 +1,21 @@
+api_version = "2026-01"
+
+[[extensions]]
+name = "SAR Bundle Cart Transform"
+handle = "sar-bundle-cart-transform"
+type = "function"
+uid = "d37afe70-dc9d-38e0-614f-8f5b13b16fff05b25ce5"
+description = "Merge SAR bundle component lines into one parent line for checkout."
+
+  [[extensions.targeting]]
+  target = "cart.transform.run"
+  input_query = "src/cart_transform_run.graphql"
+  export = "cart-transform-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"
+
+  [extensions.ui.paths]
+  create = "/"
+  details = "/"

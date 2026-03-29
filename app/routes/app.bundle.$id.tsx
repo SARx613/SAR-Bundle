@@ -24,6 +24,7 @@ const emptyBundleState: SerializedBundle = {
   imageUrl: null,
   imageGid: null,
   shopifyProductId: null,
+  shopifyParentVariantId: null,
   productHandle: null,
   seoTitle: null,
   seoDescription: null,
@@ -112,7 +113,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       let out = created;
       let warning: string | undefined;
       try {
-        const productGid = await syncBundleShopifyProduct(admin, {
+        const sync = await syncBundleShopifyProduct(admin, {
           id: created.id,
           name: created.name,
           description: created.description,
@@ -124,10 +125,16 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           seoTitle: created.seoTitle,
           seoDescription: created.seoDescription,
           storefrontDesign: created.storefrontDesign ?? {},
+          status: created.status,
         });
         out = await prisma.bundle.update({
           where: { id: created.id },
-          data: { shopifyProductId: productGid },
+          data: {
+            shopifyProductId: sync.productId,
+            ...(sync.defaultVariantId
+              ? { shopifyParentVariantId: sync.defaultVariantId }
+              : {}),
+          },
           include: bundleDetailInclude,
         });
       } catch (e) {
@@ -169,7 +176,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
     let warning: string | undefined;
     try {
-      const productGid = await syncBundleShopifyProduct(admin, {
+      const sync = await syncBundleShopifyProduct(admin, {
         id: updated.id,
         name: updated.name,
         description: updated.description,
@@ -181,11 +188,20 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         seoTitle: updated.seoTitle,
         seoDescription: updated.seoDescription,
         storefrontDesign: updated.storefrontDesign ?? {},
+        status: updated.status,
       });
-      if (productGid !== updated.shopifyProductId) {
+      if (
+        sync.productId !== updated.shopifyProductId ||
+        sync.defaultVariantId
+      ) {
         updated = await prisma.bundle.update({
           where: { id: updated.id },
-          data: { shopifyProductId: productGid },
+          data: {
+            shopifyProductId: sync.productId,
+            ...(sync.defaultVariantId
+              ? { shopifyParentVariantId: sync.defaultVariantId }
+              : {}),
+          },
           include: bundleDetailInclude,
         });
       }

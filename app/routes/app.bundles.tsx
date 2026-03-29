@@ -169,7 +169,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
     if (bundle) {
       try {
-        const gid = await syncBundleShopifyProduct(admin, {
+        const sync = await syncBundleShopifyProduct(admin, {
           id: bundle.id,
           name: bundle.name,
           description: bundle.description,
@@ -181,10 +181,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           seoTitle: bundle.seoTitle,
           seoDescription: bundle.seoDescription,
           storefrontDesign: bundle.storefrontDesign ?? {},
+          status: bundle.status,
         });
         await prisma.bundle.update({
           where: { id: newId },
-          data: { shopifyProductId: gid },
+          data: {
+            shopifyProductId: sync.productId,
+            ...(sync.defaultVariantId
+              ? { shopifyParentVariantId: sync.defaultVariantId }
+              : {}),
+          },
         });
       } catch (e) {
         console.error("duplicate bundle product sync", e);

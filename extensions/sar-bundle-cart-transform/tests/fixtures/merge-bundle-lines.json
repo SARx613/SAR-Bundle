@@ -1,0 +1,43 @@
+{
+  "payload": {
+    "export": "cart-transform-run",
+    "target": "cart.transform.run",
+    "input": {
+      "cart": {
+        "lines": [
+          {
+            "id": "gid://shopify/CartLine/1",
+            "quantity": 1,
+            "parentRelationship": null,
+            "sarBundleId": { "value": "550e8400-e29b-41d4-a716-446655440000" },
+            "sarParentVariantId": {
+              "value": "gid://shopify/ProductVariant/99"
+            }
+          },
+          {
+            "id": "gid://shopify/CartLine/2",
+            "quantity": 2,
+            "parentRelationship": null,
+            "sarBundleId": { "value": "550e8400-e29b-41d4-a716-446655440000" },
+            "sarParentVariantId": {
+              "value": "gid://shopify/ProductVariant/99"
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "linesMerge": {
+            "parentVariantId": "gid://shopify/ProductVariant/99",
+            "cartLines": [
+              { "cartLineId": "gid://shopify/CartLine/1", "quantity": 1 },
+              { "cartLineId": "gid://shopify/CartLine/2", "quantity": 2 }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

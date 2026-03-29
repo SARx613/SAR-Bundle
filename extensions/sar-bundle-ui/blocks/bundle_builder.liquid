@@ -1,5 +1,6 @@
 {% comment %}
-  SAR Bundle — Theme App Block (produit lié via metafield custom.sar_bundle_id)
+  SAR Bundle — Theme App Block (produit lié via metafields custom.sar_bundle_id, custom.sar_bundle_active)
+  Template recommandé : product.sar-bundle.json — ajoutez ce bloc à la place de la section produit classique.
 {% endcomment %}
 
 {% assign bundle_id = product.metafields.custom.sar_bundle_id.value %}
@@ -7,7 +8,9 @@
   {% assign bundle_id = product.metafields.custom.sar_bundle_id %}
 {% endif %}
 
-{% if bundle_id != blank %}
+{% assign bundle_active = product.metafields.custom.sar_bundle_active.value %}
+
+{% if bundle_id != blank and bundle_active != false %}
   <style>
     /* Masque le formulaire d’ajout au panier natif (Dawn / thèmes classiques). Ajustez si votre thème utilise d’autres sélecteurs. */
     .product-form,
@@ -17,10 +20,12 @@
   </style>
 
   <div
-    id="sar-bundle-{{ block.id }}"
+    id="sar-bundle-root"
     class="sar-bundle"
     data-sar-bundle-root
     data-bundle-ref="{{ bundle_id | escape }}"
+    data-bundle-id="{{ bundle_id | escape }}"
+    data-shop="{{ shop.permanent_domain | escape }}"
     data-heading="{{ block.settings.heading | escape }}"
     data-show-progress="{{ block.settings.show_step_progress }}"
     style="
@@ -53,7 +58,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Le bundle est détecté automatiquement via le metafield produit custom.sar_bundle_id (créé quand vous enregistrez un bundle dans l’app)."
+      "content": "Le bundle est détecté via custom.sar_bundle_id et custom.sar_bundle_active (mis à jour à l’enregistrement dans l’app)."
     },
     {
       "type": "text",
