@@ -21,6 +21,7 @@ api_version = "2026-04"
   uri = "/webhooks/app/uninstalled"
 
 [access_scopes]
+# Aligner avec la variable SCOPES sur l’hébergement si elle est définie.
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "write_products,write_files,read_orders"
 

@@ -1,0 +1,14 @@
+{
+  "sections": {
+    "sar_bundles_collection": {
+      "type": "sar-bundles-collection",
+      "settings": {
+        "show_title": true,
+        "products_per_page": 24,
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
+    }
+  },
+  "order": ["sar_bundles_collection"]
+}

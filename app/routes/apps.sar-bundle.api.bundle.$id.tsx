@@ -1,8 +1,9 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import prisma from "../db.server";
-import { authenticate } from "../shopify.server";
+import { authenticate, unauthenticated } from "../shopify.server";
 import { bundleDetailInclude, serializeBundleTree } from "../utils/bundle.server";
+import { enrichBundleStepProductsForStorefront } from "../utils/storefront-bundle-enrich.server";
 
 /**
  * App Proxy → GET /apps/sar-bundle/api/bundle/:id
@@ -34,6 +35,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
     if (!bundle) {
       return json({ error: "Bundle not found" }, { status: 404 });
+    }
+
+    try {
+      const { admin } = await unauthenticated.admin(shop);
+      await enrichBundleStepProductsForStorefront(admin, bundle);
+    } catch (e) {
+      console.warn("storefront bundle enrich (Admin API)", e);
     }
 
     return json(serializeBundleTree(bundle), {

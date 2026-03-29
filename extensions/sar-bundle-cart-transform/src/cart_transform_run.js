@@ -52,9 +52,11 @@ export function cartTransformRun(input) {
     if (group.lines.length < 2) {
       continue;
     }
+    const mergeTitle = group.lines[0]?.sarBundleTitle?.value;
     operations.push({
       linesMerge: {
         parentVariantId: group.parentVariantId,
+        ...(mergeTitle ? { title: mergeTitle } : {}),
         cartLines: group.lines.map((l) => ({
           cartLineId: l.id,
           quantity: l.quantity,

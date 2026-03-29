@@ -12,7 +12,8 @@
             "sarBundleId": { "value": "550e8400-e29b-41d4-a716-446655440000" },
             "sarParentVariantId": {
               "value": "gid://shopify/ProductVariant/99"
-            }
+            },
+            "sarBundleTitle": { "value": "Mon pack" }
           },
           {
             "id": "gid://shopify/CartLine/2",
@@ -21,7 +22,8 @@
             "sarBundleId": { "value": "550e8400-e29b-41d4-a716-446655440000" },
             "sarParentVariantId": {
               "value": "gid://shopify/ProductVariant/99"
-            }
+            },
+            "sarBundleTitle": { "value": "Mon pack" }
           }
         ]
       }
@@ -31,6 +33,7 @@
         {
           "linesMerge": {
             "parentVariantId": "gid://shopify/ProductVariant/99",
+            "title": "Mon pack",
             "cartLines": [
               { "cartLineId": "gid://shopify/CartLine/1", "quantity": 1 },
               { "cartLineId": "gid://shopify/CartLine/2", "quantity": 2 }

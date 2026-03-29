@@ -33,6 +33,50 @@
     return parseFloat(String(priceStr).replace(',', '.')) || 0;
   }
 
+  /** Affichage prix (API Admin ou Ajax) avec devise */
+  function formatMoneyDisplay(amountStr, currencyCode) {
+    if (amountStr == null || amountStr === '') return '—';
+    var n = parseFloat(String(amountStr).replace(',', '.'));
+    if (Number.isNaN(n)) return String(amountStr);
+    var cur = currencyCode || 'EUR';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: cur,
+      }).format(n);
+    } catch (e) {
+      return String(amountStr) + ' ' + cur;
+    }
+  }
+
+  /**
+   * Données enrichies côté serveur (Admin API) : titres, image, prix réels.
+   * Surcharge le cache variant après les appels /variants/:id.js.
+   */
+  function applyStorefrontEnrichment(bundle, priceMap, variantCache) {
+    if (!bundle.steps) return;
+    for (var si = 0; si < bundle.steps.length; si++) {
+      var prods = bundle.steps[si].products || [];
+      for (var pi = 0; pi < prods.length; pi++) {
+        var row = prods[pi];
+        var sf = row.storefront;
+        if (!sf) continue;
+        var gid = row.variantGid;
+        if (sf.priceAmount != null && sf.priceAmount !== '') {
+          var pa = parseFloat(String(sf.priceAmount).replace(',', '.'));
+          if (!Number.isNaN(pa)) priceMap[gid] = pa;
+        }
+        var imgSrc = sf.imageUrl || null;
+        variantCache[gid] = {
+          title: sf.displayTitle,
+          featured_image: imgSrc ? { src: imgSrc } : null,
+          price: sf.priceAmount != null ? String(sf.priceAmount) : '0',
+          currencyCode: sf.currencyCode,
+        };
+      }
+    }
+  }
+
   function getTotals(selections, priceMap, variantChoice) {
     var bundlePrice = 0;
     var totalQty = 0;
@@ -210,11 +254,16 @@
           }),
         )
           .then(function () {
+            applyStorefrontEnrichment(bundle, priceMap, variantCache);
             var handles = [];
             for (var hsi = 0; hsi < bundle.steps.length; hsi++) {
               var pr = bundle.steps[hsi].products || [];
               for (var hpx = 0; hpx < pr.length; hpx++) {
-                var ph = pr[hpx].productHandle;
+                var row = pr[hpx];
+                var ph =
+                  row.productHandle ||
+                  (row.storefront && row.storefront.productHandle) ||
+                  '';
                 if (ph && handles.indexOf(ph) < 0) handles.push(ph);
               }
             }
@@ -399,7 +448,10 @@
                 var originalGid = prodRow.variantGid;
                 var layout = prodRow.layoutPreset || 'STACK_ADD_TO_QTY';
                 var so = prodRow.styleOverrides || {};
-                var ph = prodRow.productHandle;
+                var ph =
+                  prodRow.productHandle ||
+                  (prodRow.storefront && prodRow.storefront.productHandle) ||
+                  '';
 
                 function gidNow() {
                   return effectiveGid(originalGid);
@@ -407,6 +459,7 @@
                 function getMeta() {
                   return variantCache[gidNow()] || {};
                 }
+                var sf = prodRow.storefront;
 
                 var card = document.createElement('div');
                 card.className =
@@ -427,6 +480,11 @@
                 if (so.imageBorderRadius) img.style.borderRadius = so.imageBorderRadius;
 
                 function refreshImgTitle() {
+                  if (sf && sf.imageUrl) {
+                    img.src = sf.imageUrl;
+                    img.alt = sf.productTitle || sf.displayTitle || '';
+                    return;
+                  }
                   var m = getMeta();
                   if (m.featured_image && m.featured_image.src) {
                     img.src = m.featured_image.src;
@@ -436,6 +494,7 @@
                     img.src =
                       'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
                   }
+                  img.alt = (m.title && m.title !== 'Default Title' ? m.title : '') || '';
                 }
                 refreshImgTitle();
 
@@ -448,9 +507,54 @@
                 if (so.priceFontSize) pr.style.fontSize = so.priceFontSize;
 
                 function refreshTitlePrice() {
+                  if (sf && sf.displayTitle) {
+                    tt.textContent = sf.displayTitle;
+                    pr.textContent = formatMoneyDisplay(
+                      sf.priceAmount,
+                      sf.currencyCode,
+                    );
+                    return;
+                  }
                   var m = getMeta();
-                  tt.textContent = m.title || originalGid.split('/').pop();
-                  pr.textContent = m.price != null ? String(m.price) : '—';
+                  var rawTitle = m.title;
+                  if (
+                    ph &&
+                    productJsonByHandle[ph] &&
+                    productJsonByHandle[ph].title
+                  ) {
+                    rawTitle = productJsonByHandle[ph].title;
+                    if (
+                      m.title &&
+                      m.title !== 'Default Title' &&
+                      m.title !== 'Default'
+                    ) {
+                      rawTitle = rawTitle + ' – ' + m.title;
+                    }
+                  } else if (!rawTitle || rawTitle === 'Default Title') {
+                    rawTitle =
+                      (m.name && String(m.name)) ||
+                      originalGid.split('/').pop();
+                  }
+                  tt.textContent = rawTitle;
+                  var pVal = m.price;
+                  if (
+                    typeof window.Shopify !== 'undefined' &&
+                    typeof Shopify.formatMoney === 'function' &&
+                    pVal != null
+                  ) {
+                    var cents = parseMoney(String(pVal));
+                    if (!Number.isNaN(cents)) {
+                      pr.textContent = Shopify.formatMoney(
+                        Math.round(cents * 100),
+                        Shopify.money_format || '{{amount}}',
+                      );
+                    } else {
+                      pr.textContent = String(pVal);
+                    }
+                  } else {
+                    pr.textContent =
+                      pVal != null ? formatMoneyDisplay(String(pVal), m.currencyCode) : '—';
+                  }
                 }
                 refreshTitlePrice();
 
@@ -680,6 +784,9 @@
                 _sar_bundle_id: bundleInstanceId,
                 _sar_bundle_config_id: configId,
               };
+              if (bundle.name) {
+                baseLineProps._sar_bundle_title = String(bundle.name);
+              }
               if (parentVariantGid) {
                 baseLineProps._sar_parent_variant_id = parentVariantGid;
               }

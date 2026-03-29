@@ -117,6 +117,7 @@ export async function syncBundleShopifyProduct(
     }
     const pid = body?.data?.productUpdate?.product?.id;
     if (!pid) throw new Error("productUpdate returned no product id");
+    await syncProductFeaturedImageFromBundleUrl(admin, pid, bundle.imageUrl);
     const defaultVariantId = await fetchDefaultVariantGid(admin, pid);
     return { productId: pid, defaultVariantId };
   }
@@ -159,6 +160,102 @@ export async function syncBundleShopifyProduct(
   if (!newId) throw new Error("productCreate returned no product id");
   const defaultVariantId = await fetchDefaultVariantGid(admin, newId);
   return { productId: newId, defaultVariantId };
+}
+
+/**
+ * Aligne l’image du produit catalogue sur l’image du bundle (app).
+ * Supprime les anciennes images produit puis ajoute la nouvelle depuis l’URL publique.
+ */
+async function syncProductFeaturedImageFromBundleUrl(
+  admin: AdminClient,
+  productGid: string,
+  imageUrl: string | null,
+): Promise<void> {
+  if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
+    return;
+  }
+
+  const listRes = await admin.graphql(
+    `#graphql
+      query ProductMediaForSync($id: ID!) {
+        product(id: $id) {
+          media(first: 50) {
+            nodes {
+              __typename
+              ... on MediaImage {
+                id
+              }
+            }
+          }
+        }
+      }`,
+    { variables: { id: productGid } },
+  );
+  const listBody = await listRes.json();
+  const nodes = listBody?.data?.product?.media?.nodes;
+  const mediaIds: string[] = [];
+  if (Array.isArray(nodes)) {
+    for (const n of nodes) {
+      if (n?.__typename === "MediaImage" && typeof n.id === "string") {
+        mediaIds.push(n.id);
+      }
+    }
+  }
+
+  if (mediaIds.length) {
+    const delRes = await admin.graphql(
+      `#graphql
+        mutation ProductDeleteMediaSync($productId: ID!, $mediaIds: [ID!]!) {
+          productDeleteMedia(productId: $productId, mediaIds: $mediaIds) {
+            deletedMediaIds
+            userErrors {
+              field
+              message
+            }
+          }
+        }`,
+      { variables: { productId: productGid, mediaIds } },
+    );
+    const delBody = await delRes.json();
+    const delErrs = delBody?.data?.productDeleteMedia?.userErrors;
+    if (delErrs?.length) {
+      console.error("productDeleteMedia", delErrs);
+    }
+  }
+
+  const createRes = await admin.graphql(
+    `#graphql
+      mutation ProductCreateMediaSync($productId: ID!, $media: [CreateMediaInput!]!) {
+        productCreateMedia(productId: $productId, media: $media) {
+          media {
+            ... on MediaImage {
+              id
+            }
+          }
+          mediaUserErrors {
+            field
+            message
+          }
+        }
+      }`,
+    {
+      variables: {
+        productId: productGid,
+        media: [
+          {
+            originalSource: imageUrl,
+            mediaContentType: "IMAGE",
+            alt: "Bundle",
+          },
+        ],
+      },
+    },
+  );
+  const createBody = await createRes.json();
+  const mErrs = createBody?.data?.productCreateMedia?.mediaUserErrors;
+  if (mErrs?.length) {
+    console.error("productCreateMedia", mErrs);
+  }
 }
 
 async function fetchDefaultVariantGid(

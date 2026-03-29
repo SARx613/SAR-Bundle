@@ -67,9 +67,11 @@ export default function AppHome() {
         {c.error ? (
           <Banner tone="critical" title="Statistiques commandes">
             <p>
-              {c.error} — vérifiez que l’app a le scope{" "}
-              <strong>read_orders</strong> et réinstallez l’app sur la boutique
-              si besoin.
+              {c.error} — vérifiez que <strong>read_orders</strong> figure dans
+              les scopes (fichier <code>shopify.app.toml</code> et variable{" "}
+              <code>SCOPES</code> sur l’hébergement si vous l’utilisez), puis
+              réinstallez l’app sur la boutique pour accepter les nouveaux
+              droits.
             </p>
           </Banner>
         ) : null}
