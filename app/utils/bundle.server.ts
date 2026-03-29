@@ -1,12 +1,13 @@
-import { Prisma } from "@prisma/client";
-import type {
-  BundleStatus,
-  DiscountValueType,
-  LineItemPropertyFieldType,
-  PricingScope,
-  StepRuleMetric,
-  StepRuleOperator,
-  ThresholdBasis,
+import {
+  Prisma,
+  type PrismaClient,
+  type BundleStatus,
+  type DiscountValueType,
+  type LineItemPropertyFieldType,
+  type PricingScope,
+  type StepRuleMetric,
+  type StepRuleOperator,
+  type ThresholdBasis,
 } from "@prisma/client";
 
 const BUNDLE_STATUSES: BundleStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
@@ -419,3 +420,97 @@ export const bundleDetailInclude = {
     },
   },
 } satisfies Prisma.BundleInclude;
+
+export type BundleWithDetail = Prisma.BundleGetPayload<{
+  include: typeof bundleDetailInclude;
+}>;
+
+export function bundlePrismaToWritePayload(
+  bundle: BundleWithDetail,
+): BundleWritePayload {
+  return {
+    name: bundle.name,
+    description: bundle.description,
+    imageUrl: bundle.imageUrl,
+    imageGid: bundle.imageGid,
+    status: bundle.status,
+    pricingScope: bundle.pricingScope,
+    discountValueType: bundle.discountValueType,
+    flatDiscountValue: bundle.flatDiscountValue?.toString() ?? null,
+    showCompareAtPrice: bundle.showCompareAtPrice,
+    showFixedPriceOnLoad: bundle.showFixedPriceOnLoad,
+    allowZeroTotal: bundle.allowZeroTotal,
+    minTotalItemCount: bundle.minTotalItemCount,
+    maxTotalItemCount: bundle.maxTotalItemCount,
+    minBundleCartValue: bundle.minBundleCartValue?.toString() ?? null,
+    maxBundleCartValue: bundle.maxBundleCartValue?.toString() ?? null,
+    pricingTiers: bundle.pricingTiers.map((t) => ({
+      sortOrder: t.sortOrder,
+      thresholdBasis: t.thresholdBasis,
+      thresholdMin: t.thresholdMin.toString(),
+      thresholdMax: t.thresholdMax?.toString() ?? null,
+      tierValue: t.tierValue.toString(),
+    })),
+    steps: bundle.steps.map((s) => ({
+      sortOrder: s.sortOrder,
+      name: s.name,
+      description: s.description,
+      imageUrl: s.imageUrl,
+      imageGid: s.imageGid,
+      isFinalStep: s.isFinalStep,
+      products: s.products.map((p) => ({
+        variantGid: p.variantGid,
+        sortOrder: p.sortOrder,
+        minQuantity: p.minQuantity,
+        maxQuantity: p.maxQuantity,
+      })),
+      rules: s.rules.map((r) => ({
+        sortOrder: r.sortOrder,
+        metric: r.metric,
+        operator: r.operator,
+        value: r.value.toString(),
+        targetVariantGid: r.targetVariantGid,
+      })),
+      lineItemProperties: s.lineItemProperties.map((lp) => ({
+        sortOrder: lp.sortOrder,
+        fieldType: lp.fieldType,
+        label: lp.label,
+        propertyKey: lp.propertyKey,
+        required: lp.required,
+        defaultChecked: lp.defaultChecked,
+        placeholder: lp.placeholder,
+      })),
+    })),
+  };
+}
+
+export async function duplicateBundle(
+  prisma: PrismaClient,
+  shopDomain: string,
+  sourceId: string,
+): Promise<{ id: string }> {
+  const source = await prisma.bundle.findFirst({
+    where: { id: sourceId, shopDomain },
+    include: bundleDetailInclude,
+  });
+  if (!source) {
+    throw new Response(JSON.stringify({ error: "Bundle introuvable" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const payload = bundlePrismaToWritePayload(source);
+  payload.name = `Copie de ${source.name}`;
+  payload.status = "DRAFT";
+  const nested = buildNestedCreates(payload);
+  const scalars = toPrismaBundleScalars(shopDomain, payload);
+  const created = await prisma.bundle.create({
+    data: {
+      ...scalars,
+      shopifyProductId: null,
+      pricingTiers: { create: nested.pricingTiers },
+      steps: { create: nested.steps },
+    },
+  });
+  return { id: created.id };
+}

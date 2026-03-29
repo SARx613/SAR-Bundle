@@ -117,6 +117,42 @@ export async function syncBundleShopifyProduct(
   return newId;
 }
 
+/**
+ * Removes the catalog product created for a bundle (SEO / collections).
+ * Safe to call if the product was already deleted in Shopify.
+ */
+export async function deleteBundleShopifyProduct(
+  admin: AdminClient,
+  productGid: string,
+): Promise<void> {
+  const res = await admin.graphql(
+    `#graphql
+      mutation ProductDeleteBundle($input: ProductDeleteInput!) {
+        productDelete(input: $input) {
+          deletedProductId
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+    {
+      variables: {
+        input: { id: productGid },
+      },
+    },
+  );
+  const body = await res.json();
+  const errs = body?.data?.productDelete?.userErrors;
+  if (errs?.length) {
+    const msg = errs.map((e: { message: string }) => e.message).join("; ");
+    if (/not found|does not exist|Could not find/i.test(msg)) {
+      return;
+    }
+    throw new Error(msg);
+  }
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
