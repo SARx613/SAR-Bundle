@@ -1,8 +1,8 @@
-# Extension theme SAR Bundle — à côté de shopify.extension.toml
-# Le CLI exécute Theme Check en mode strict sur le JS du bloc ; sans cela,
-# `shopify app dev` échoue si bundle-builder.js > 10 Ko (recommandation perf Shopify).
-AssetSizeAppBlockJavaScript:
-  enabled: false
+# parse_json est un filtre Liquid valide sur les boutiques Shopify ; Theme Check ne le connaît pas toujours.
+UnknownFilter:
+  ignore:
+    - snippets/sar-bundle-cart-composition.liquid
 
-AssetSizeAppBlockCSS:
-  enabled: false
+RemoteAsset:
+  ignore:
+    - snippets/sar-bundle-cart-composition.liquid
