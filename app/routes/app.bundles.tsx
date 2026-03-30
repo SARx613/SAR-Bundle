@@ -25,7 +25,7 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 
 import prisma from "../db.server";
-import styles from "./app.bundles.module.css";
+import styles from "../styles/app.bundles.module.css";
 import { authenticate } from "../shopify.server";
 import { duplicateBundle } from "../utils/bundle.server";
 import { deleteBundleShopifyProduct, syncBundleShopifyProduct } from "../utils/shopify-bundle-product.server";
