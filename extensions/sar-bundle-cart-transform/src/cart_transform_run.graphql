@@ -17,6 +17,21 @@ query CartTransformRunInput {
       sarBundleTitle: attribute(key: "_sar_bundle_title") {
         value
       }
+      sarBundleImage: attribute(key: "_sar_bundle_image") {
+        value
+      }
+      sarBundleBreakdown: attribute(key: "_sar_bundle_breakdown") {
+        value
+      }
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          title
+          product {
+            title
+          }
+        }
+      }
     }
   }
 }

@@ -11,7 +11,14 @@
             "parentRelationship": null,
             "sarBundleId": null,
             "sarParentVariantId": null,
-            "sarBundleTitle": null
+            "sarBundleTitle": null,
+            "sarBundleImage": null,
+            "sarBundleBreakdown": null,
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "title": "Default Title",
+              "product": { "title": "Regular product" }
+            }
           }
         ]
       }

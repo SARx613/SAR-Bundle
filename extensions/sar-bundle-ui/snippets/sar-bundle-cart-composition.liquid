@@ -1,0 +1,41 @@
+{% comment %}
+  SAR Bundle — composition du pack dans le panier (miniatures + noms).
+  Dans la boucle des articles (cart / drawer), après le titre de la ligne :
+    {% render 'sar-bundle-cart-composition', item: item %}
+{% endcomment %}
+{% assign sar_bd = '' %}
+{% for p in item.properties %}
+  {% if p.first == '_sar_bundle_breakdown' %}
+    {% assign sar_bd = p.last %}
+    {% break %}
+  {% endif %}
+{% endfor %}
+{% if sar_bd != blank %}
+  {% assign sar_rows = sar_bd | parse_json %}
+  {% if sar_rows != blank %}
+    <ul class="sar-bundle-cart-composition" data-sar-bundle-cart-composition>
+      {% for row in sar_rows %}
+        <li class="sar-bundle-cart-composition__row">
+          {% if row.i != blank %}
+            <img
+              class="sar-bundle-cart-composition__img"
+              src="{{ row.i | escape }}"
+              alt=""
+              width="48"
+              height="48"
+              loading="lazy"
+            >
+          {% endif %}
+          <span class="sar-bundle-cart-composition__text">
+            {% if row.q > 1 %}<span class="sar-bundle-cart-composition__qty">{{ row.q }}×</span> {% endif %}
+            <span class="sar-bundle-cart-composition__title">{{ row.p | escape }}</span>
+            {% assign v = row.v | strip %}
+            {% if v != '' and v != 'Default Title' %}
+              <span class="sar-bundle-cart-composition__variant"> — {{ v | escape }}</span>
+            {% endif %}
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endif %}

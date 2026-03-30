@@ -13,6 +13,88 @@ const NO_CHANGES = {
 };
 
 /**
+ * @param {unknown} s
+ * @returns {s is string}
+ */
+function isHttpUrlString(s) {
+  return (
+    typeof s === "string" && /^https?:\/\//i.test(s.trim())
+  );
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {{ q: number; p?: string; v?: string; i?: string }[] | null}
+ */
+function parseBreakdown(raw) {
+  if (typeof raw !== "string" || !raw.trim()) {
+    return null;
+  }
+  try {
+    const j = JSON.parse(raw);
+    if (!Array.isArray(j)) {
+      return null;
+    }
+    return j;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {{ q?: number; p?: string; v?: string }[]} items
+ * @returns {string}
+ */
+function formatCompositionPlain(items) {
+  if (!items?.length) {
+    return "";
+  }
+  const lines = [];
+  for (const row of items) {
+    const q = typeof row.q === "number" && row.q > 1 ? `${row.q}× ` : "";
+    const p = row.p || "";
+    const vRaw = row.v && String(row.v).trim();
+    const v =
+      vRaw &&
+      vRaw !== "Default Title" &&
+      vRaw.toLowerCase() !== "default title"
+        ? ` — ${vRaw}`
+        : "";
+    lines.push(`${q}${p}${v}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * @param {NonNullable<CartTransformRunInput["cart"]>["lines"]} lines
+ * @returns {string}
+ */
+function fallbackCompositionFromLines(lines) {
+  const parts = [];
+  for (const line of lines) {
+    const m = line.merchandise;
+    if (!m || m.__typename !== "ProductVariant") {
+      continue;
+    }
+    const pt = m.product?.title || "";
+    const vt = m.title;
+    let seg = pt;
+    if (
+      vt &&
+      vt !== "Default Title" &&
+      vt !== "Default"
+    ) {
+      seg += ` — ${vt}`;
+    }
+    const q = line.quantity > 1 ? `${line.quantity}× ` : "";
+    parts.push(`${q}${seg}`);
+  }
+  return parts.join("\n");
+}
+
+const ATTR_VALUE_MAX = 5000;
+
+/**
  * Groups cart lines by `_sar_bundle_id` and merges components into one parent line
  * (Cart Transform API `linesMerge`) when there are 2+ lines and `_sar_parent_variant_id` is set.
  *
@@ -53,10 +135,48 @@ export function cartTransformRun(input) {
       continue;
     }
     const mergeTitle = group.lines[0]?.sarBundleTitle?.value;
+
+    const bundleImage = group.lines
+      .map((l) => l.sarBundleImage?.value)
+      .find((v) => isHttpUrlString(v));
+
+    const rawBreakdown =
+      group.lines.find((l) => l.sarBundleBreakdown?.value)?.sarBundleBreakdown
+        ?.value ?? "";
+
+    const parsed = parseBreakdown(rawBreakdown);
+    let compositionPlain = formatCompositionPlain(parsed || []);
+    if (!compositionPlain) {
+      compositionPlain = fallbackCompositionFromLines(group.lines);
+    }
+
+    /** @type {{ key: string; value: string }[]} */
+    const attributes = [];
+    if (
+      rawBreakdown &&
+      typeof rawBreakdown === "string" &&
+      rawBreakdown.length <= ATTR_VALUE_MAX
+    ) {
+      attributes.push({
+        key: "_sar_bundle_breakdown",
+        value: rawBreakdown.slice(0, ATTR_VALUE_MAX),
+      });
+    }
+    if (compositionPlain) {
+      attributes.push({
+        key: "Composition du pack",
+        value: compositionPlain.slice(0, ATTR_VALUE_MAX),
+      });
+    }
+
     operations.push({
       linesMerge: {
         parentVariantId: group.parentVariantId,
         ...(mergeTitle ? { title: mergeTitle } : {}),
+        ...(bundleImage
+          ? { image: { url: String(bundleImage).trim() } }
+          : {}),
+        ...(attributes.length ? { attributes } : {}),
         cartLines: group.lines.map((l) => ({
           cartLineId: l.id,
           quantity: l.quantity,

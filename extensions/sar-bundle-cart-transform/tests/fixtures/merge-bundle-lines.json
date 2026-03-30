@@ -13,7 +13,18 @@
             "sarParentVariantId": {
               "value": "gid://shopify/ProductVariant/99"
             },
-            "sarBundleTitle": { "value": "Mon pack" }
+            "sarBundleTitle": { "value": "Mon pack" },
+            "sarBundleImage": {
+              "value": "https://cdn.shopify.com/bundle-cover.png"
+            },
+            "sarBundleBreakdown": {
+              "value": "[{\"q\":1,\"p\":\"Produit A\",\"v\":\"Rouge\",\"i\":\"https://cdn.shopify.com/a.jpg\"},{\"q\":2,\"p\":\"Produit B\",\"v\":\"\",\"i\":\"https://cdn.shopify.com/b.jpg\"}]"
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "title": "Rouge",
+              "product": { "title": "Produit A" }
+            }
           },
           {
             "id": "gid://shopify/CartLine/2",
@@ -23,7 +34,14 @@
             "sarParentVariantId": {
               "value": "gid://shopify/ProductVariant/99"
             },
-            "sarBundleTitle": { "value": "Mon pack" }
+            "sarBundleTitle": { "value": "Mon pack" },
+            "sarBundleImage": null,
+            "sarBundleBreakdown": null,
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "title": "Default Title",
+              "product": { "title": "Produit B" }
+            }
           }
         ]
       }
@@ -34,6 +52,17 @@
           "linesMerge": {
             "parentVariantId": "gid://shopify/ProductVariant/99",
             "title": "Mon pack",
+            "image": { "url": "https://cdn.shopify.com/bundle-cover.png" },
+            "attributes": [
+              {
+                "key": "_sar_bundle_breakdown",
+                "value": "[{\"q\":1,\"p\":\"Produit A\",\"v\":\"Rouge\",\"i\":\"https://cdn.shopify.com/a.jpg\"},{\"q\":2,\"p\":\"Produit B\",\"v\":\"\",\"i\":\"https://cdn.shopify.com/b.jpg\"}]"
+              },
+              {
+                "key": "Composition du pack",
+                "value": "Produit A — Rouge\n2× Produit B"
+              }
+            ],
             "cartLines": [
               { "cartLineId": "gid://shopify/CartLine/1", "quantity": 1 },
               { "cartLineId": "gid://shopify/CartLine/2", "quantity": 2 }

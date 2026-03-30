@@ -77,6 +77,145 @@
     }
   }
 
+  function buildProductRowByVariantGid(bundle) {
+    var map = {};
+    if (!bundle.steps) return map;
+    for (var si = 0; si < bundle.steps.length; si++) {
+      var prods = bundle.steps[si].products || [];
+      for (var pi = 0; pi < prods.length; pi++) {
+        var row = prods[pi];
+        if (row.variantGid) map[row.variantGid] = row;
+      }
+    }
+    return map;
+  }
+
+  function breakdownEntryForSelection(
+    originalGid,
+    effectiveGid,
+    qty,
+    prodRow,
+    variantCache,
+    productJsonByHandle,
+  ) {
+    var sf = prodRow && prodRow.storefront;
+    var ph =
+      (prodRow &&
+        (prodRow.productHandle ||
+          (prodRow.storefront && prodRow.storefront.productHandle))) ||
+      '';
+    var m = variantCache[effectiveGid] || {};
+    var image = '';
+    if (effectiveGid !== originalGid) {
+      if (m.featured_image && m.featured_image.src) {
+        image = String(m.featured_image.src);
+      } else if (typeof m.featured_image === 'string') {
+        image = m.featured_image;
+      }
+    }
+    if (!image && sf && sf.imageUrl) image = String(sf.imageUrl);
+    if (!image && m.featured_image) {
+      if (m.featured_image.src) image = String(m.featured_image.src);
+      else if (typeof m.featured_image === 'string') image = m.featured_image;
+    }
+
+    var productTitle = '';
+    var variantTitle = '';
+
+    if (sf) {
+      productTitle = String(sf.productTitle || sf.displayTitle || '');
+      var vtt =
+        effectiveGid !== originalGid && m.title
+          ? String(m.title).trim()
+          : sf.variantTitle && String(sf.variantTitle).trim();
+      if (
+        vtt &&
+        vtt.toLowerCase() !== 'default title' &&
+        vtt !== 'Default'
+      ) {
+        variantTitle = vtt;
+      }
+    } else {
+      if (ph && productJsonByHandle[ph] && productJsonByHandle[ph].title) {
+        productTitle = String(productJsonByHandle[ph].title);
+        var vt = m.title;
+        if (vt && vt !== 'Default Title' && vt !== 'Default') {
+          variantTitle = String(vt);
+        }
+      } else {
+        var nm = m.name && String(m.name);
+        if (nm) {
+          productTitle = nm;
+        } else if (m.title) {
+          productTitle = String(m.title);
+        } else {
+          productTitle = String(originalGid.split('/').pop());
+        }
+        if (
+          m.title &&
+          m.title !== 'Default Title' &&
+          m.title !== 'Default' &&
+          (!nm || productTitle !== nm)
+        ) {
+          variantTitle = String(m.title);
+        }
+      }
+    }
+
+    return {
+      q: qty,
+      p: productTitle.slice(0, 200),
+      v: variantTitle ? variantTitle.slice(0, 120) : '',
+      i: image ? image.slice(0, 500) : '',
+    };
+  }
+
+  function buildBundleBreakdownPayload(
+    bundle,
+    selections,
+    variantChoice,
+    variantCache,
+    productJsonByHandle,
+  ) {
+    var rowMap = buildProductRowByVariantGid(bundle);
+    var rows = [];
+    for (var gk in selections) {
+      if (!Object.prototype.hasOwnProperty.call(selections, gk)) continue;
+      var q = selections[gk] || 0;
+      if (q <= 0) continue;
+      var eg = variantChoice[gk] || gk;
+      var prodRow = rowMap[gk];
+      rows.push(
+        breakdownEntryForSelection(
+          gk,
+          eg,
+          q,
+          prodRow,
+          variantCache,
+          productJsonByHandle,
+        ),
+      );
+    }
+    return rows;
+  }
+
+  function truncateBreakdownJsonIfNeeded(rows) {
+    var j = JSON.stringify(rows);
+    var max = 3500;
+    if (j.length <= max) return j;
+    var slim = rows.map(function (r) {
+      return { q: r.q, p: r.p, v: r.v, i: '' };
+    });
+    j = JSON.stringify(slim);
+    if (j.length <= max) return j;
+    slim = rows.map(function (r) {
+      return { q: r.q, p: r.p, v: '', i: '' };
+    });
+    j = JSON.stringify(slim);
+    if (j.length <= max) return j;
+    return j.slice(0, max);
+  }
+
   function getTotals(selections, priceMap, variantChoice) {
     var bundlePrice = 0;
     var totalQty = 0;
@@ -831,6 +970,21 @@
               if (parentVariantGid) {
                 baseLineProps._sar_parent_variant_id = parentVariantGid;
               }
+              if (
+                bundle.imageUrl &&
+                /^https?:\/\//i.test(String(bundle.imageUrl))
+              ) {
+                baseLineProps._sar_bundle_image = String(bundle.imageUrl).trim();
+              }
+
+              var breakdownRows = buildBundleBreakdownPayload(
+                bundle,
+                state.selections,
+                state.variantChoice,
+                variantCache,
+                productJsonByHandle,
+              );
+              var breakdownJson = truncateBreakdownJsonIfNeeded(breakdownRows);
 
               var items = [];
               for (var gk in state.selections) {
@@ -860,6 +1014,9 @@
                   continue;
                 var val = propValues[pk];
                 if (val != null && val !== '') masterProps[pk] = String(val);
+              }
+              if (breakdownJson) {
+                masterProps._sar_bundle_breakdown = breakdownJson;
               }
               items[0].properties = Object.assign(
                 {},
