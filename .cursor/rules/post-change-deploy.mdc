@@ -1,0 +1,14 @@
+---
+description: After substantive code changes, push GitHub, run Prisma migrations, deploy Shopify app
+alwaysApply: true
+---
+
+# Déploiement après modifications
+
+Après avoir terminé une série de changements de code (hors micro-corrections triviales) :
+
+1. **GitHub** : `git add -A`, commit message clair en phrases complètes, puis `git push origin` (branche courante).
+2. **Prisma** : si `DATABASE_URL` est disponible (fichier `.env` local ou CI), exécuter `npx prisma migrate deploy` pour appliquer les migrations sur la base cible. Les fichiers `prisma/schema.prisma` et `prisma/migrations/**` doivent toujours être commités et poussés avec le code.
+3. **Shopify** : depuis la racine du projet, `npx shopify app deploy --force` (ou équivalent documenté) pour publier l’app et les extensions.
+
+Si une étape échoue (pas de `.env`, CLI non connectée), l’indiquer clairement à l’utilisateur avec la cause et ce qu’il doit faire sur sa machine ou sur Render.
