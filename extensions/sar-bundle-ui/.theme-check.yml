@@ -1,8 +1,0 @@
-# parse_json est un filtre Liquid valide sur les boutiques Shopify ; Theme Check ne le connaît pas toujours.
-UnknownFilter:
-  ignore:
-    - snippets/sar-bundle-cart-composition.liquid
-
-RemoteAsset:
-  ignore:
-    - snippets/sar-bundle-cart-composition.liquid

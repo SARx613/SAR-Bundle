@@ -199,21 +199,33 @@
     return rows;
   }
 
-  function truncateBreakdownJsonIfNeeded(rows) {
-    var j = JSON.stringify(rows);
+  /**
+   * Format sans JSON (Theme Check / Liquid) : lignes séparées par [[SAR]], champs par tabulation.
+   * q, titre produit, titre variante, URL image.
+   */
+  function encodeBreakdownForCart(rows) {
+    function scrub(s) {
+      return String(s || '')
+        .replace(/\t/g, ' ')
+        .replace(/\r?\n/g, ' ')
+        .replace(/\[\[SAR\]\]/g, ' ');
+    }
+    var parts = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      parts.push(
+        [String(r.q), scrub(r.p), scrub(r.v), scrub(r.i)].join('\t'),
+      );
+    }
+    var s = parts.join('[[SAR]]');
     var max = 3500;
-    if (j.length <= max) return j;
-    var slim = rows.map(function (r) {
-      return { q: r.q, p: r.p, v: r.v, i: '' };
-    });
-    j = JSON.stringify(slim);
-    if (j.length <= max) return j;
-    slim = rows.map(function (r) {
-      return { q: r.q, p: r.p, v: '', i: '' };
-    });
-    j = JSON.stringify(slim);
-    if (j.length <= max) return j;
-    return j.slice(0, max);
+    if (s.length <= max) return s;
+    while (parts.length > 1 && parts.join('[[SAR]]').length > max) {
+      parts.pop();
+    }
+    s = parts.join('[[SAR]]');
+    if (s.length > max) s = s.slice(0, max);
+    return s;
   }
 
   function getTotals(selections, priceMap, variantChoice) {
@@ -984,7 +996,7 @@
                 variantCache,
                 productJsonByHandle,
               );
-              var breakdownJson = truncateBreakdownJsonIfNeeded(breakdownRows);
+              var breakdownEncoded = encodeBreakdownForCart(breakdownRows);
 
               var items = [];
               for (var gk in state.selections) {
@@ -1015,8 +1027,8 @@
                 var val = propValues[pk];
                 if (val != null && val !== '') masterProps[pk] = String(val);
               }
-              if (breakdownJson) {
-                masterProps._sar_bundle_breakdown = breakdownJson;
+              if (breakdownEncoded) {
+                masterProps._sar_bundle_breakdown = breakdownEncoded;
               }
               items[0].properties = Object.assign(
                 {},

@@ -23,6 +23,29 @@ function isHttpUrlString(s) {
 }
 
 /**
+ * @param {unknown} row
+ * @returns {{ q: number; p: string; v: string; i: string }}
+ */
+function normalizeBreakdownRow(row) {
+  if (row && typeof row === "object") {
+    const q =
+      typeof row.q === "number"
+        ? row.q
+        : parseInt(String(row.q), 10) || 1;
+    return {
+      q,
+      p: String(row.p || ""),
+      v: String(row.v || ""),
+      i: String(row.i || ""),
+    };
+  }
+  return { q: 1, p: "", v: "", i: "" };
+}
+
+/**
+ * Storefront envoie des lignes `q\\tp\\tv\\ti` séparées par `[[SAR]]` (sans JSON).
+ * On accepte encore l’ancien JSON pour les paniers déjà remplis.
+ *
  * @param {unknown} raw
  * @returns {{ q: number; p?: string; v?: string; i?: string }[] | null}
  */
@@ -30,15 +53,36 @@ function parseBreakdown(raw) {
   if (typeof raw !== "string" || !raw.trim()) {
     return null;
   }
-  try {
-    const j = JSON.parse(raw);
-    if (!Array.isArray(j)) {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("[")) {
+    try {
+      const j = JSON.parse(trimmed);
+      if (!Array.isArray(j)) {
+        return null;
+      }
+      return j.map((r) => normalizeBreakdownRow(r));
+    } catch {
       return null;
     }
-    return j;
-  } catch {
-    return null;
   }
+  const segs = trimmed.split("[[SAR]]");
+  /** @type {{ q: number; p: string; v: string; i: string }[]} */
+  const out = [];
+  for (const seg of segs) {
+    const line = seg.trim();
+    if (!line) {
+      continue;
+    }
+    const cells = line.split("\t");
+    const q = parseInt(String(cells[0] || "1"), 10) || 1;
+    out.push({
+      q,
+      p: cells[1] || "",
+      v: cells[2] || "",
+      i: cells[3] || "",
+    });
+  }
+  return out.length ? out : null;
 }
 
 /**

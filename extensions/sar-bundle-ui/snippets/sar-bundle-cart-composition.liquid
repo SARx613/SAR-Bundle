@@ -2,6 +2,7 @@
   SAR Bundle — composition du pack dans le panier (miniatures + noms).
   Dans la boucle des articles (cart / drawer), après le titre de la ligne :
     {% render 'sar-bundle-cart-composition', item: item %}
+  Format de _sar_bundle_breakdown : lignes séparées par [[SAR]], champs par tab (q, produit, variante, URL image).
 {% endcomment %}
 {% assign sar_bd = '' %}
 {% for p in item.properties %}
@@ -11,31 +12,37 @@
   {% endif %}
 {% endfor %}
 {% if sar_bd != blank %}
-  {% assign sar_rows = sar_bd | parse_json %}
-  {% if sar_rows != blank %}
-    <ul class="sar-bundle-cart-composition" data-sar-bundle-cart-composition>
-      {% for row in sar_rows %}
-        <li class="sar-bundle-cart-composition__row">
-          {% if row.i != blank %}
-            <img
-              class="sar-bundle-cart-composition__img"
-              src="{{ row.i | escape }}"
-              alt=""
-              width="48"
-              height="48"
-              loading="lazy"
-            >
+  {% assign sar_row_strings = sar_bd | split: '[[SAR]]' %}
+  <ul class="sar-bundle-cart-composition" data-sar-bundle-cart-composition>
+    {% for row_str in sar_row_strings %}
+      {% assign row_str = row_str | strip %}
+      {% if row_str == blank %}
+        {% continue %}
+      {% endif %}
+      {% assign cols = row_str | split: '	' %}
+      {% assign rq = cols[0] | default: '1' | plus: 0 %}
+      {% assign rp = cols[1] | default: '' %}
+      {% assign rv = cols[2] | default: '' | strip %}
+      {% assign ri = cols[3] | default: '' | strip %}
+      <li class="sar-bundle-cart-composition__row">
+        {% if ri != blank %}
+          <img
+            class="sar-bundle-cart-composition__img"
+            src="{{ ri | escape }}"
+            alt=""
+            width="48"
+            height="48"
+            loading="lazy"
+          >
+        {% endif %}
+        <span class="sar-bundle-cart-composition__text">
+          {% if rq > 1 %}<span class="sar-bundle-cart-composition__qty">{{ rq }}×</span> {% endif %}
+          <span class="sar-bundle-cart-composition__title">{{ rp | escape }}</span>
+          {% if rv != '' and rv != 'Default Title' %}
+            <span class="sar-bundle-cart-composition__variant"> — {{ rv | escape }}</span>
           {% endif %}
-          <span class="sar-bundle-cart-composition__text">
-            {% if row.q > 1 %}<span class="sar-bundle-cart-composition__qty">{{ row.q }}×</span> {% endif %}
-            <span class="sar-bundle-cart-composition__title">{{ row.p | escape }}</span>
-            {% assign v = row.v | strip %}
-            {% if v != '' and v != 'Default Title' %}
-              <span class="sar-bundle-cart-composition__variant"> — {{ v | escape }}</span>
-            {% endif %}
-          </span>
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
+        </span>
+      </li>
+    {% endfor %}
+  </ul>
 {% endif %}

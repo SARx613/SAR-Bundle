@@ -18,7 +18,7 @@
               "value": "https://cdn.shopify.com/bundle-cover.png"
             },
             "sarBundleBreakdown": {
-              "value": "[{\"q\":1,\"p\":\"Produit A\",\"v\":\"Rouge\",\"i\":\"https://cdn.shopify.com/a.jpg\"},{\"q\":2,\"p\":\"Produit B\",\"v\":\"\",\"i\":\"https://cdn.shopify.com/b.jpg\"}]"
+              "value": "1\tProduit A\tRouge\thttps://cdn.shopify.com/a.jpg[[SAR]]2\tProduit B\t\thttps://cdn.shopify.com/b.jpg"
             },
             "merchandise": {
               "__typename": "ProductVariant",
@@ -56,7 +56,7 @@
             "attributes": [
               {
                 "key": "_sar_bundle_breakdown",
-                "value": "[{\"q\":1,\"p\":\"Produit A\",\"v\":\"Rouge\",\"i\":\"https://cdn.shopify.com/a.jpg\"},{\"q\":2,\"p\":\"Produit B\",\"v\":\"\",\"i\":\"https://cdn.shopify.com/b.jpg\"}]"
+                "value": "1\tProduit A\tRouge\thttps://cdn.shopify.com/a.jpg[[SAR]]2\tProduit B\t\thttps://cdn.shopify.com/b.jpg"
               },
               {
                 "key": "Composition du pack",
