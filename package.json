@@ -4,6 +4,9 @@
   "scripts": {
     "build": "remix vite:build",
     "dev": "shopify app dev",
+    "dev:verbose": "shopify app dev --verbose",
+    "dev:localhost": "shopify app dev --use-localhost",
+    "dev:clean": "shopify app dev clean",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
     "deploy": "shopify app deploy",
