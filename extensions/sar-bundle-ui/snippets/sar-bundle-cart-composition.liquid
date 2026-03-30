@@ -1,48 +1,59 @@
 {% comment %}
-  SAR Bundle — composition du pack dans le panier (miniatures + noms).
-  Dans la boucle des articles (cart / drawer), après le titre de la ligne :
+  SAR Bundle — ligne panier = produit bundle unique ; composition dans `_sar_bundle_components` (JSON).
+
+  Dans la boucle des articles (cart / drawer), après le titre / prix de la ligne :
     {% render 'sar-bundle-cart-composition', item: item %}
-  Format de _sar_bundle_breakdown : lignes séparées par [[SAR]], champs par tab (q, produit, variante, URL image).
+
+  JSON (tableau) : variantGid, variantId, productTitle, variantTitle, imageUrl, quantity
+
+  Exemple React (Hydrogen / panier custom) :
+    const raw = line.attributes?.find((a) => a.key === '_sar_bundle_components')?.value
+      ?? line.properties?._sar_bundle_components;
+    const components = raw ? JSON.parse(raw) : [];
+    return components.map((c) => (
+      <div key={c.variantId + '-' + c.quantity}>
+        {c.imageUrl ? <img src={c.imageUrl} alt="" width={48} height={48} /> : null}
+        <span>{c.quantity > 1 ? `${c.quantity}× ` : ''}{c.productTitle}</span>
+        {c.variantTitle ? <span> — {c.variantTitle}</span> : null}
+      </div>
+    ));
 {% endcomment %}
-{% assign sar_bd = '' %}
+{% assign sar_raw = '' %}
 {% for p in item.properties %}
-  {% if p.first == '_sar_bundle_breakdown' %}
-    {% assign sar_bd = p.last %}
+  {% if p.first == '_sar_bundle_components' %}
+    {% assign sar_raw = p.last %}
     {% break %}
   {% endif %}
 {% endfor %}
-{% if sar_bd != blank %}
-  {% assign sar_row_strings = sar_bd | split: '[[SAR]]' %}
-  <ul class="sar-bundle-cart-composition" data-sar-bundle-cart-composition>
-    {% for row_str in sar_row_strings %}
-      {% assign row_str = row_str | strip %}
-      {% if row_str == blank %}
-        {% continue %}
-      {% endif %}
-      {% assign cols = row_str | split: '	' %}
-      {% assign rq = cols[0] | default: '1' | plus: 0 %}
-      {% assign rp = cols[1] | default: '' %}
-      {% assign rv = cols[2] | default: '' | strip %}
-      {% assign ri = cols[3] | default: '' | strip %}
-      <li class="sar-bundle-cart-composition__row">
-        {% if ri != blank %}
-          <img
-            class="sar-bundle-cart-composition__img"
-            src="{{ ri | escape }}"
-            alt=""
-            width="48"
-            height="48"
-            loading="lazy"
-          >
-        {% endif %}
-        <span class="sar-bundle-cart-composition__text">
-          {% if rq > 1 %}<span class="sar-bundle-cart-composition__qty">{{ rq }}×</span> {% endif %}
-          <span class="sar-bundle-cart-composition__title">{{ rp | escape }}</span>
-          {% if rv != '' and rv != 'Default Title' %}
-            <span class="sar-bundle-cart-composition__variant"> — {{ rv | escape }}</span>
+{% if sar_raw != blank %}
+  {% assign sar_components = sar_raw | parse_json %}
+  {% if sar_components != blank %}
+    <ul class="sar-bundle-cart-composition" data-sar-bundle-cart-composition>
+      {% for comp in sar_components %}
+        {% assign cq = comp.quantity | default: 1 | plus: 0 %}
+        {% assign ct = comp.productTitle | default: '' %}
+        {% assign cv = comp.variantTitle | default: '' | strip %}
+        {% assign cu = comp.imageUrl | default: '' | strip %}
+        <li class="sar-bundle-cart-composition__row">
+          {% if cu != blank %}
+            <img
+              class="sar-bundle-cart-composition__img"
+              src="{{ cu | escape }}"
+              alt=""
+              width="48"
+              height="48"
+              loading="lazy"
+            >
           {% endif %}
-        </span>
-      </li>
-    {% endfor %}
-  </ul>
+          <span class="sar-bundle-cart-composition__text">
+            {% if cq > 1 %}<span class="sar-bundle-cart-composition__qty">{{ cq }}×</span> {% endif %}
+            <span class="sar-bundle-cart-composition__title">{{ ct | escape }}</span>
+            {% if cv != '' and cv != 'Default Title' %}
+              <span class="sar-bundle-cart-composition__variant"> — {{ cv | escape }}</span>
+            {% endif %}
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
 {% endif %}

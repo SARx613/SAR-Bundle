@@ -1,0 +1,8 @@
+# parse_json est valide sur les thèmes Shopify ; Theme Check ne le reconnaît pas toujours.
+UnknownFilter:
+  ignore:
+    - snippets/sar-bundle-cart-composition.liquid
+
+RemoteAsset:
+  ignore:
+    - snippets/sar-bundle-cart-composition.liquid

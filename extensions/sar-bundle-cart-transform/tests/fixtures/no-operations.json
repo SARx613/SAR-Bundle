@@ -6,19 +6,7 @@
       "cart": {
         "lines": [
           {
-            "id": "gid://shopify/CartLine/1",
-            "quantity": 1,
-            "parentRelationship": null,
-            "sarBundleId": null,
-            "sarParentVariantId": null,
-            "sarBundleTitle": null,
-            "sarBundleImage": null,
-            "sarBundleBreakdown": null,
-            "merchandise": {
-              "__typename": "ProductVariant",
-              "title": "Default Title",
-              "product": { "title": "Regular product" }
-            }
+            "id": "gid://shopify/CartLine/1"
           }
         ]
       }

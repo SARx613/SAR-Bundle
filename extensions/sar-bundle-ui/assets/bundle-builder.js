@@ -90,7 +90,10 @@
     return map;
   }
 
-  function breakdownEntryForSelection(
+  /**
+   * Une entrée pour la propriété JSON _sar_bundle_components (ligne unique = produit bundle).
+   */
+  function componentEntryForSelection(
     originalGid,
     effectiveGid,
     qty,
@@ -162,15 +165,18 @@
       }
     }
 
+    var vid = variantGidToNumericId(effectiveGid);
     return {
-      q: qty,
-      p: productTitle.slice(0, 200),
-      v: variantTitle ? variantTitle.slice(0, 120) : '',
-      i: image ? image.slice(0, 500) : '',
+      variantGid: String(effectiveGid),
+      variantId: vid,
+      productTitle: productTitle.slice(0, 200),
+      variantTitle: variantTitle ? variantTitle.slice(0, 120) : '',
+      imageUrl: image ? image.slice(0, 500) : '',
+      quantity: qty,
     };
   }
 
-  function buildBundleBreakdownPayload(
+  function buildBundleComponentsPayload(
     bundle,
     selections,
     variantChoice,
@@ -186,7 +192,7 @@
       var eg = variantChoice[gk] || gk;
       var prodRow = rowMap[gk];
       rows.push(
-        breakdownEntryForSelection(
+        componentEntryForSelection(
           gk,
           eg,
           q,
@@ -199,33 +205,35 @@
     return rows;
   }
 
-  /**
-   * Format sans JSON (Theme Check / Liquid) : lignes séparées par [[SAR]], champs par tabulation.
-   * q, titre produit, titre variante, URL image.
-   */
-  function encodeBreakdownForCart(rows) {
-    function scrub(s) {
-      return String(s || '')
-        .replace(/\t/g, ' ')
-        .replace(/\r?\n/g, ' ')
-        .replace(/\[\[SAR\]\]/g, ' ');
+  /** Limite propriété ligne Shopify (~8k côté pratique). */
+  function serializeBundleComponentsProperty(components) {
+    var max = 7500;
+    function stringify(arr) {
+      return JSON.stringify(arr);
     }
-    var parts = [];
-    for (var i = 0; i < rows.length; i++) {
-      var r = rows[i];
-      parts.push(
-        [String(r.q), scrub(r.p), scrub(r.v), scrub(r.i)].join('\t'),
-      );
-    }
-    var s = parts.join('[[SAR]]');
-    var max = 3500;
+    var s = stringify(components);
     if (s.length <= max) return s;
-    while (parts.length > 1 && parts.join('[[SAR]]').length > max) {
-      parts.pop();
+    var trimmed = components.map(function (c) {
+      return Object.assign({}, c, { imageUrl: '' });
+    });
+    s = stringify(trimmed);
+    if (s.length <= max) return s;
+    while (trimmed.length > 1 && stringify(trimmed).length > max) {
+      trimmed.pop();
     }
-    s = parts.join('[[SAR]]');
-    if (s.length > max) s = s.slice(0, max);
-    return s;
+    s = stringify(trimmed);
+    if (s.length > max) {
+      trimmed = trimmed.map(function (c) {
+        return {
+          variantId: c.variantId,
+          quantity: c.quantity,
+          productTitle: String(c.productTitle || '').slice(0, 60),
+          variantTitle: String(c.variantTitle || '').slice(0, 40),
+        };
+      });
+      s = stringify(trimmed);
+    }
+    return s.length <= max ? s : s.slice(0, max);
   }
 
   function getTotals(selections, priceMap, variantChoice) {
@@ -322,6 +330,71 @@
       }
     }
     return { ok: messages.length === 0, messages: messages };
+  }
+
+  /** Valide les règles de toutes les étapes avant paiement (ligne bundle unique). */
+  function validateAllStepsForCheckout(
+    bundle,
+    selections,
+    priceMap,
+    variantChoice,
+  ) {
+    var steps = bundle.steps || [];
+    var messages = [];
+    for (var si = 0; si < steps.length; si++) {
+      var v = validateStepRules(
+        bundle,
+        si,
+        selections,
+        priceMap,
+        variantChoice,
+      );
+      if (!v.ok) {
+        for (var mi = 0; mi < v.messages.length; mi++) {
+          messages.push(v.messages[mi]);
+        }
+      }
+    }
+    return { ok: messages.length === 0, messages: messages };
+  }
+
+  /**
+   * Si une règle TOTAL_ITEM_COUNT + EQ existe (étape finale en priorité),
+   * le total d’articles sélectionnés doit être exactement cette valeur.
+   */
+  function getRequiredExactTotalItemCount(bundle) {
+    var steps = bundle.steps || [];
+    var finalIdx = -1;
+    for (var i = 0; i < steps.length; i++) {
+      if (steps[i].isFinalStep) {
+        finalIdx = i;
+        break;
+      }
+    }
+    function findEq(step) {
+      if (!step || !step.rules) return null;
+      for (var ri = 0; ri < step.rules.length; ri++) {
+        var r = step.rules[ri];
+        if (
+          r.metric === 'TOTAL_ITEM_COUNT' &&
+          r.operator === 'EQ' &&
+          r.value != null
+        ) {
+          var n = parseFloat(String(r.value));
+          if (!Number.isNaN(n)) return n;
+        }
+      }
+      return null;
+    }
+    if (finalIdx >= 0) {
+      var onFinal = findEq(steps[finalIdx]);
+      if (onFinal != null) return onFinal;
+    }
+    for (var s = 0; s < steps.length; s++) {
+      var v = findEq(steps[s]);
+      if (v != null) return v;
+    }
+    return null;
   }
 
   function fetchVariantJson(numericId) {
@@ -944,102 +1017,110 @@
             next.textContent = isLast ? 'Ajouter au panier' : 'Suivant';
             next.addEventListener('click', function () {
               errBox.hidden = true;
-              var v = validateStepRules(
-                bundle,
-                state.stepIndex,
-                state.selections,
-                priceMap,
-                state.variantChoice,
-              );
-              if (!v.ok) {
-                errBox.textContent = v.messages.join(' ');
-                errBox.hidden = false;
-                return;
-              }
               if (!isLast) {
+                var vStep = validateStepRules(
+                  bundle,
+                  state.stepIndex,
+                  state.selections,
+                  priceMap,
+                  state.variantChoice,
+                );
+                if (!vStep.ok) {
+                  errBox.textContent = vStep.messages.join(' ');
+                  errBox.hidden = false;
+                  return;
+                }
                 state.stepIndex++;
                 render();
                 return;
               }
 
-              var bundleInstanceId =
-                typeof crypto !== 'undefined' && crypto.randomUUID
-                  ? crypto.randomUUID()
-                  : String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+              var vAll = validateAllStepsForCheckout(
+                bundle,
+                state.selections,
+                priceMap,
+                state.variantChoice,
+              );
+              if (!vAll.ok) {
+                errBox.textContent = vAll.messages.join(' ');
+                errBox.hidden = false;
+                return;
+              }
 
-              var configId = bundle.id ? String(bundle.id) : '';
+              var totals = getTotals(
+                state.selections,
+                priceMap,
+                state.variantChoice,
+              );
+              var requiredExact = getRequiredExactTotalItemCount(bundle);
+              if (requiredExact != null && !Number.isNaN(requiredExact)) {
+                if (totals.totalItemCount !== requiredExact) {
+                  errBox.textContent =
+                    'Ce pack requiert exactement ' +
+                    String(requiredExact) +
+                    ' article(s) au total. Actuellement : ' +
+                    String(totals.totalItemCount) +
+                    '.';
+                  errBox.hidden = false;
+                  return;
+                }
+              } else if (totals.totalItemCount < 1) {
+                errBox.textContent = 'Sélectionnez au moins un produit.';
+                errBox.hidden = false;
+                return;
+              }
+
               var parentVariantGid = bundle.shopifyParentVariantId
                 ? String(bundle.shopifyParentVariantId)
                 : '';
-
-              var baseLineProps = {
-                _sar_bundle_id: bundleInstanceId,
-                _sar_bundle_config_id: configId,
-              };
-              if (bundle.name) {
-                baseLineProps._sar_bundle_title = String(bundle.name);
-              }
-              if (parentVariantGid) {
-                baseLineProps._sar_parent_variant_id = parentVariantGid;
-              }
-              if (
-                bundle.imageUrl &&
-                /^https?:\/\//i.test(String(bundle.imageUrl))
-              ) {
-                baseLineProps._sar_bundle_image = String(bundle.imageUrl).trim();
+              var parentNumericId = variantGidToNumericId(parentVariantGid);
+              if (!parentNumericId) {
+                errBox.textContent =
+                  'Ce bundle n’a pas de produit parent Shopify (variante par défaut). Enregistrez le bundle dans l’app pour le créer.';
+                errBox.hidden = false;
+                return;
               }
 
-              var breakdownRows = buildBundleBreakdownPayload(
+              var configId = bundle.id ? String(bundle.id) : '';
+              var components = buildBundleComponentsPayload(
                 bundle,
                 state.selections,
                 state.variantChoice,
                 variantCache,
                 productJsonByHandle,
               );
-              var breakdownEncoded = encodeBreakdownForCart(breakdownRows);
+              var componentsJson =
+                serializeBundleComponentsProperty(components);
 
-              var items = [];
-              for (var gk in state.selections) {
-                if (!Object.prototype.hasOwnProperty.call(state.selections, gk))
-                  continue;
-                if (!state.selected[gk] || (state.selections[gk] || 0) <= 0)
-                  continue;
-                var egCart = state.variantChoice[gk] || gk;
-                var vid = variantGidToNumericId(egCart);
-                if (!vid) continue;
-                items.push({
-                  id: vid,
-                  quantity: state.selections[gk],
-                  properties: Object.assign({}, baseLineProps),
-                });
+              var lineProps = {
+                _sar_bundle_line: '1',
+                _sar_bundle_config_id: configId,
+                _sar_bundle_components: componentsJson,
+              };
+              if (bundle.name) {
+                lineProps._sar_bundle_name = String(bundle.name);
               }
 
-              if (!items.length) {
-                errBox.textContent = 'Sélectionnez au moins un produit.';
-                errBox.hidden = false;
-                return;
-              }
-
-              var masterProps = Object.assign({}, baseLineProps);
+              var masterProps = Object.assign({}, lineProps);
               for (var pk in propValues) {
                 if (!Object.prototype.hasOwnProperty.call(propValues, pk))
                   continue;
                 var val = propValues[pk];
                 if (val != null && val !== '') masterProps[pk] = String(val);
               }
-              if (breakdownEncoded) {
-                masterProps._sar_bundle_breakdown = breakdownEncoded;
-              }
-              items[0].properties = Object.assign(
-                {},
-                items[0].properties,
-                masterProps,
-              );
 
               fetch(joinRoot('cart/add.js'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: items }),
+                body: JSON.stringify({
+                  items: [
+                    {
+                      id: parentNumericId,
+                      quantity: 1,
+                      properties: masterProps,
+                    },
+                  ],
+                }),
               })
                 .then(function (res) {
                   return res.json().then(function (j) {

@@ -89,7 +89,7 @@ model Bundle {
   imageGid    String?
   /// Linked catalog product (GID) for SEO, collections, and theme metafield binding
   shopifyProductId String?
-  /// Default (first) variant of the shell product — used by Cart Transform linesMerge parentVariantId
+  /// Variante du produit « coque » bundle (prix fixe) — seule ligne ajoutée au panier
   shopifyParentVariantId String?
   /// URL slug: /products/{productHandle} (optional; défaut = dérivé du nom)
   productHandle    String?
