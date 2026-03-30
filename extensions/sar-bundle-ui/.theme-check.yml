@@ -1,0 +1,7 @@
+# À côté de shopify.extension.toml — évite l’échec de `shopify app dev` / theme check
+# quand le JS du tunnel bundle dépasse la limite « recommandée » (10 Ko compressés).
+# Idée long terme : charger un petit loader + import à l’interaction (voir doc Shopify).
+AssetSizeAppBlockJavaScript:
+  enabled: true
+  severity: suggestion
+  threshold_in_bytes: 131072
