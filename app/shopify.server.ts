@@ -7,11 +7,29 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 
+/**
+ * Doit rester aligné avec shopify.app.toml [access_scopes].scopes
+ * Si SCOPES n'est pas défini sur l'hébergement, l'app OAuth cassait (scopes = undefined).
+ */
+const DEFAULT_SCOPES_FROM_TOML = [
+  "write_files",
+  "read_orders",
+  "write_products",
+] as const;
+
+function appScopes(): string[] {
+  const raw = process.env.SCOPES?.trim();
+  if (!raw) {
+    return [...DEFAULT_SCOPES_FROM_TOML];
+  }
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.January25,
-  scopes: process.env.SCOPES?.split(","),
+  scopes: appScopes(),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
