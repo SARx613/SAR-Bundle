@@ -185,14 +185,46 @@
   function fetchBundleConfig(ref) {
     // App Proxy lives at shop domain root: /apps/sar-bundle/... (not under locale prefix).
     var url = PROXY_PATH + '/' + encodeURIComponent(ref);
-    return fetch(url, { headers: { Accept: 'application/json' } }).then(
-      function (res) {
-        if (!res.ok) return res.json().then(function (b) {
-          throw new Error((b && b.error) || res.statusText);
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer =
+      ctrl &&
+      setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (e) {}
+      }, 30000);
+    return fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then(function (res) {
+        return res.text().then(function (text) {
+          if (timer) clearTimeout(timer);
+          var data = null;
+          if (text) {
+            try {
+              data = JSON.parse(text);
+            } catch (e) {
+              throw new Error(
+                'Réponse proxy invalide (HTML ou non-JSON). Vérifiez l’URL de l’app et l’App Proxy.',
+              );
+            }
+          }
+          if (!res.ok) {
+            throw new Error(
+              (data && data.error) || res.statusText || 'Erreur proxy',
+            );
+          }
+          return data;
         });
-        return res.json();
-      },
-    );
+      })
+      .catch(function (err) {
+        if (timer) clearTimeout(timer);
+        if (err && err.name === 'AbortError') {
+          throw new Error('Délai dépassé en contactant le serveur du bundle.');
+        }
+        throw err;
+      });
   }
 
   function collectVariantIds(bundle) {
@@ -223,8 +255,17 @@
     var loading = el.querySelector('[data-sar-loading]');
     var inner = el.querySelector('[data-sar-inner]');
 
+    if (!loading) {
+      return Promise.resolve();
+    }
+
     if (!ref) {
       loading.textContent = "Ajoutez l'ID du bundle dans les paramètres du bloc.";
+      return Promise.resolve();
+    }
+
+    if (!inner) {
+      loading.textContent = 'Structure du bloc incomplète.';
       return Promise.resolve();
     }
 
@@ -857,10 +898,13 @@
           render();
         });
       })
-      .catch(function () {
-        loading.textContent =
+      .catch(function (err) {
+        var msg =
+          (err && err.message) ||
           'Impossible de charger le bundle (proxy, statut Actif, ou ID incorrect).';
+        loading.textContent = msg;
         loading.classList.add('sar-bundle__error');
+        console.error('[SAR Bundle]', err);
       });
   }
 
