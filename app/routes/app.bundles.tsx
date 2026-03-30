@@ -12,7 +12,6 @@ import {
   Badge,
   Button,
   Box,
-  InlineStack,
   Thumbnail,
   useIndexResourceState,
   INDEX_TABLE_SELECT_ALL_ITEMS,
@@ -26,6 +25,7 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 
 import prisma from "../db.server";
+import styles from "./app.bundles.module.css";
 import { authenticate } from "../shopify.server";
 import { duplicateBundle } from "../utils/bundle.server";
 import { deleteBundleShopifyProduct, syncBundleShopifyProduct } from "../utils/shopify-bundle-product.server";
@@ -39,7 +39,10 @@ type BundleRow = {
   imageUrl: string | null;
   shopifyProductId: string | null;
   productHandle: string | null;
+  /** Lien absolu (nouvel onglet) */
   storefrontProductUrl: string | null;
+  /** Affichage : chemin seul, ex. /products/mon-handle */
+  storefrontPath: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -81,6 +84,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       handle && handle.length > 0
         ? `https://${shop}/products/${handle}`
         : null;
+    const storefrontPath =
+      handle && handle.length > 0 ? `/products/${handle}` : null;
     return {
       id: b.id,
       name: b.name,
@@ -89,6 +94,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       shopifyProductId: b.shopifyProductId,
       productHandle: handle,
       storefrontProductUrl,
+      storefrontPath,
       createdAt: b.createdAt.toISOString(),
       updatedAt: b.updatedAt.toISOString(),
     };
@@ -236,13 +242,6 @@ export default function AppBundles() {
 
   const submitDelete = useCallback(
     (bundleId: string) => {
-      if (
-        !window.confirm(
-          "Supprimer ce bundle ? Le produit catalogue associé sera aussi retiré de Shopify.",
-        )
-      ) {
-        return;
-      }
       fetcher.submit(
         { intent: "delete", bundleId },
         { method: "post", action: "/app/bundles" },
@@ -263,13 +262,6 @@ export default function AppBundles() {
 
   const submitBulkDelete = useCallback(() => {
     if (selectedResources.length === 0) return;
-    if (
-      !window.confirm(
-        `Supprimer ${selectedResources.length} bundle(s) ? Les produits catalogue associés seront aussi retirés de Shopify.`,
-      )
-    ) {
-      return;
-    }
     const fd = new FormData();
     fd.append("intent", "bulk_delete");
     for (const id of selectedResources) {
@@ -308,9 +300,9 @@ export default function AppBundles() {
         </Button>
       </IndexTable.Cell>
       <IndexTable.Cell>
-        {b.storefrontProductUrl ? (
+        {b.storefrontPath ? (
           <Text as="span" variant="bodySm" breakWord>
-            {b.storefrontProductUrl}
+            {b.storefrontPath}
           </Text>
         ) : (
           <Text as="span" variant="bodySm" tone="subdued">
@@ -324,44 +316,61 @@ export default function AppBundles() {
         <Badge tone={statusTone[b.status] ?? "info"}>{b.status}</Badge>
       </IndexTable.Cell>
       <IndexTable.Cell>
-        <InlineStack gap="100" wrap={false}>
-          <Button
-            icon={EditIcon}
-            variant="plain"
-            onClick={() => navigate(`/app/bundle/${b.id}`)}
-            accessibilityLabel="Modifier"
-          />
-          <Button
-            icon={DuplicateIcon}
-            variant="plain"
-            onClick={() => submitDuplicate(b.id)}
-            accessibilityLabel="Dupliquer"
-          />
-          <Button
-            icon={DeleteIcon}
-            variant="plain"
-            tone="critical"
-            onClick={() => submitDelete(b.id)}
-            accessibilityLabel="Supprimer"
-          />
+        <div className={styles.actions}>
+          <span className={styles.actionWrap}>
+            <Button
+              icon={EditIcon}
+              variant="secondary"
+              size="large"
+              onClick={() => navigate(`/app/bundle/${b.id}`)}
+              accessibilityLabel="Modifier"
+            />
+          </span>
+          <span className={styles.actionWrap}>
+            <Button
+              icon={DuplicateIcon}
+              variant="secondary"
+              size="large"
+              onClick={() => submitDuplicate(b.id)}
+              accessibilityLabel="Dupliquer"
+            />
+          </span>
+          <span
+            className={`${styles.actionWrap} ${styles.actionWrapCritical}`}
+          >
+            <Button
+              icon={DeleteIcon}
+              variant="secondary"
+              size="large"
+              tone="critical"
+              onClick={() => submitDelete(b.id)}
+              accessibilityLabel="Supprimer"
+            />
+          </span>
           {b.storefrontProductUrl ? (
-            <Button
-              icon={ExternalIcon}
-              variant="plain"
-              url={b.storefrontProductUrl}
-              external
-              target="_blank"
-              accessibilityLabel="Voir la page produit sur la boutique"
-            />
+            <span className={styles.actionWrap}>
+              <Button
+                icon={ExternalIcon}
+                variant="secondary"
+                size="large"
+                url={b.storefrontProductUrl}
+                external
+                target="_blank"
+                accessibilityLabel="Voir la page produit sur la boutique"
+              />
+            </span>
           ) : (
-            <Button
-              icon={ExternalIcon}
-              variant="plain"
-              disabled
-              accessibilityLabel="Voir la page produit (indisponible)"
-            />
+            <span className={styles.actionWrap}>
+              <Button
+                icon={ExternalIcon}
+                variant="secondary"
+                size="large"
+                disabled
+                accessibilityLabel="Voir la page produit (indisponible)"
+              />
+            </span>
           )}
-        </InlineStack>
+        </div>
       </IndexTable.Cell>
       <IndexTable.Cell>
         <Text as="span" variant="bodyMd">
@@ -377,7 +386,7 @@ export default function AppBundles() {
   ));
 
   return (
-    <Page>
+    <Page fullWidth>
       <TitleBar title="SAR Bundles">
         <button
           type="button"
@@ -422,7 +431,7 @@ export default function AppBundles() {
                 headings={[
                   { title: "Image" },
                   { title: "Nom" },
-                  { title: "URL de la page" },
+                  { title: "Chemin URL" },
                   { title: "Statut" },
                   { title: "Actions" },
                   { title: "Créé le" },

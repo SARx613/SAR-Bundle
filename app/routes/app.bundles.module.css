@@ -1,0 +1,29 @@
+/* Actions ligne : cibles plus grandes + survol lisible */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--p-space-200);
+}
+
+.actionWrap {
+  display: inline-flex;
+  border-radius: var(--p-border-radius-200);
+  transition:
+    background-color 0.12s ease,
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+
+.actionWrap:hover {
+  background-color: var(--p-color-bg-surface-secondary-hover);
+  box-shadow: var(--p-shadow-100);
+}
+
+.actionWrap:active {
+  transform: scale(0.98);
+}
+
+.actionWrapCritical:hover {
+  background-color: var(--p-color-bg-surface-critical-hover);
+}
