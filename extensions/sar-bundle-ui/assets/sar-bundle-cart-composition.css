@@ -25,3 +25,10 @@
   font-weight: 600;
   margin-right: 0.15rem;
 }
+
+/* Fallback propriété `Composition` (texte) quand le JSON `_sar_bundle_components` est masqué par le thème */
+.sar-bundle-cart-composition--plain {
+  font-size: 0.85em;
+  line-height: 1.45;
+  color: inherit;
+}

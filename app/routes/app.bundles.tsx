@@ -28,7 +28,11 @@ import prisma from "../db.server";
 import styles from "../styles/app.bundles.module.css";
 import { authenticate } from "../shopify.server";
 import { duplicateBundle } from "../utils/bundle.server";
-import { deleteBundleShopifyProduct, syncBundleShopifyProduct } from "../utils/shopify-bundle-product.server";
+import {
+  deleteBundleShopifyProduct,
+  syncBundleShopifyProduct,
+  syncFixedPriceBoxCatalogVariantPrice,
+} from "../utils/shopify-bundle-product.server";
 import { slugifyProductHandle } from "../utils/storefront-design";
 import { fetchProductHandlesByGids } from "../utils/shopify-product-lookup.server";
 
@@ -198,6 +202,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               : {}),
           },
         });
+        const dupAfter = await prisma.bundle.findFirst({
+          where: { id: newId, shopDomain: session.shop },
+        });
+        if (dupAfter) {
+          try {
+            await syncFixedPriceBoxCatalogVariantPrice(admin, {
+              bundlePricingMode: dupAfter.bundlePricingMode,
+              flatDiscountValue: dupAfter.flatDiscountValue,
+              shopifyProductId: dupAfter.shopifyProductId,
+              shopifyParentVariantId: dupAfter.shopifyParentVariantId,
+            });
+          } catch (e) {
+            console.error("duplicate bundle catalog variant price", e);
+          }
+        }
       } catch (e) {
         console.error("duplicate bundle product sync", e);
       }

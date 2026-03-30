@@ -18,7 +18,11 @@ import {
   Divider,
   Box,
   Tabs,
+  RadioButton,
+  Tooltip,
+  Icon,
 } from "@shopify/polaris";
+import { InfoIcon } from "@shopify/polaris-icons";
 import { BundleStorefrontBlocksEditor } from "./bundle-editor/BundleStorefrontBlocksEditor";
 import {
   PRODUCT_LAYOUT_PRESETS,
@@ -56,9 +60,9 @@ const STATUS_OPTIONS = [
   { label: "Archivé", value: "ARCHIVED" },
 ];
 
-const SCOPE_OPTIONS = [
-  { label: "Réduction fixe (flat)", value: "FLAT" },
-  { label: "Réduction par paliers", value: "TIERED" },
+const STANDARD_DISCOUNT_OPTIONS = [
+  { label: "Pourcentage sur le total", value: "PERCENT" },
+  { label: "Montant fixe déduit", value: "FIXED_AMOUNT" },
 ];
 
 const DISCOUNT_TYPE_OPTIONS = [
@@ -66,6 +70,20 @@ const DISCOUNT_TYPE_OPTIONS = [
   { label: "Montant fixe", value: "FIXED_AMOUNT" },
   { label: "Prix fixe", value: "FIXED_PRICE" },
 ];
+
+function PricingModeHelp({
+  content,
+}: {
+  content: string;
+}) {
+  return (
+    <Tooltip content={content} width="wide">
+      <span style={{ display: "inline-flex", cursor: "help" }}>
+        <Icon source={InfoIcon} tone="subdued" />
+      </span>
+    </Tooltip>
+  );
+}
 
 const THRESHOLD_BASIS_OPTIONS = [
   { label: "Nombre d’articles", value: "ITEM_COUNT" },
@@ -858,47 +876,134 @@ export function BundleEditorForm({
                 <Text as="h2" variant="headingMd">
                   Tarification et réductions
                 </Text>
-                <Select
-                  label="Type de réduction"
-                  options={SCOPE_OPTIONS}
-                  value={form.pricingScope}
-                  onChange={(v) =>
-                    setForm((f) => {
-                      const scope = v as BundleFormState["pricingScope"];
-                      const tiers =
-                        scope === "TIERED" && f.pricingTiers.length === 0
-                          ? [emptyPricingTier(0)]
-                          : f.pricingTiers;
-                      return { ...f, pricingScope: scope, pricingTiers: tiers };
-                    })
-                  }
-                />
-                <Select
-                  label="Valeur"
-                  options={DISCOUNT_TYPE_OPTIONS}
-                  value={form.discountValueType}
-                  onChange={(v) =>
-                    setForm((f) => ({
-                      ...f,
-                      discountValueType:
-                        v as BundleFormState["discountValueType"],
-                    }))
-                  }
-                />
-                {form.pricingScope === "FLAT" ? (
-                  <TextField
-                    label="Valeur (%, montant ou prix selon le type)"
-                    value={form.flatDiscountValue}
-                    onChange={(v) =>
-                      setForm((f) => ({ ...f, flatDiscountValue: v }))
-                    }
-                    autoComplete="off"
-                    helpText="Ex. 10 pour 10 %, ou un montant décimal pour EUR."
-                  />
+                <BlockStack gap="200">
+                  <InlineStack gap="200" blockAlign="center" wrap={false}>
+                    <RadioButton
+                      label="Boîte standard"
+                      helpText="Somme des prix des articles ; remise globale optionnelle."
+                      checked={form.bundlePricingMode === "STANDARD"}
+                      id="bundle-pm-standard"
+                      name="bundlePricingMode"
+                      onChange={() =>
+                        setForm((f) => ({ ...f, bundlePricingMode: "STANDARD" }))
+                      }
+                    />
+                    <PricingModeHelp content="Le client compose sa boîte librement. Le prix affiché est la somme des prix des variantes choisies. Vous pouvez appliquer une remise en pourcentage ou un montant fixe déduit du total (optionnel)." />
+                  </InlineStack>
+                  <InlineStack gap="200" blockAlign="center" wrap={false}>
+                    <RadioButton
+                      label="Prix fixe de la boîte"
+                      helpText="Un prix catalogue unique pour exactement N articles."
+                      checked={form.bundlePricingMode === "FIXED_PRICE_BOX"}
+                      id="bundle-pm-fixed"
+                      name="bundlePricingMode"
+                      onChange={() =>
+                        setForm((f) => ({
+                          ...f,
+                          bundlePricingMode: "FIXED_PRICE_BOX",
+                        }))
+                      }
+                    />
+                    <PricingModeHelp content="Le bundle a un prix total fixe (devise de la boutique). Le client doit sélectionner exactement le nombre d’articles indiqué ; la validation bloque l’ajout au panier si le total diffère. Alignez vos règles d’étapes avec ce nombre." />
+                  </InlineStack>
+                  <InlineStack gap="200" blockAlign="center" wrap={false}>
+                    <RadioButton
+                      label="Remises par paliers"
+                      helpText="Seuils selon le nombre d’articles ou la valeur du panier."
+                      checked={form.bundlePricingMode === "TIERED"}
+                      id="bundle-pm-tiered"
+                      name="bundlePricingMode"
+                      onChange={() =>
+                        setForm((f) => ({
+                          ...f,
+                          bundlePricingMode: "TIERED",
+                          pricingTiers:
+                            f.pricingTiers.length === 0
+                              ? [emptyPricingTier(0)]
+                              : f.pricingTiers,
+                        }))
+                      }
+                    />
+                    <PricingModeHelp content="Définissez plusieurs paliers : selon le nombre total d’articles ou la valeur cumulée des articles du bundle, une remise (pourcentage, montant ou prix fixe cible selon le type choisi) s’applique au total." />
+                  </InlineStack>
+                </BlockStack>
+
+                <Banner tone="info">
+                  <p>
+                    <strong>Bientôt :</strong> tailles de boîte prédéfinies
+                    (ex. formats 4 / 6 / 8 articles à des prix différents) via
+                    plusieurs variantes Shopify — prévu en phase 2.
+                  </p>
+                </Banner>
+
+                {form.bundlePricingMode === "STANDARD" ? (
+                  <BlockStack gap="300">
+                    <Select
+                      label="Remise sur le total (optionnel)"
+                      options={STANDARD_DISCOUNT_OPTIONS}
+                      value={form.standardDiscountType}
+                      onChange={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          standardDiscountType:
+                            v as BundleFormState["standardDiscountType"],
+                        }))
+                      }
+                    />
+                    <TextField
+                      label="Valeur de la remise"
+                      value={form.flatDiscountValue}
+                      onChange={(v) =>
+                        setForm((f) => ({ ...f, flatDiscountValue: v }))
+                      }
+                      autoComplete="off"
+                      helpText={
+                        form.standardDiscountType === "PERCENT"
+                          ? "Ex. 10 pour 10 % sur la somme des articles. Laisser vide = pas de remise."
+                          : "Montant en devise déduit du total. Laisser vide = pas de remise."
+                      }
+                    />
+                  </BlockStack>
                 ) : null}
 
-                {form.pricingScope === "TIERED" ? (
+                {form.bundlePricingMode === "FIXED_PRICE_BOX" ? (
                   <BlockStack gap="300">
+                    <TextField
+                      label="Prix fixe du bundle"
+                      value={form.flatDiscountValue}
+                      onChange={(v) =>
+                        setForm((f) => ({ ...f, flatDiscountValue: v }))
+                      }
+                      autoComplete="off"
+                      helpText="Montant facturé pour la ligne bundle (devise de la boutique)."
+                    />
+                    <TextField
+                      label="Nombre exact d’articles"
+                      type="number"
+                      value={form.fixedBoxItemCount}
+                      onChange={(v) =>
+                        setForm((f) => ({ ...f, fixedBoxItemCount: v }))
+                      }
+                      autoComplete="off"
+                      helpText="Le client doit avoir exactement ce nombre d’articles pour valider. Vérifiez la cohérence avec vos règles sur l’étape finale."
+                    />
+                  </BlockStack>
+                ) : null}
+
+                {form.bundlePricingMode === "TIERED" ? (
+                  <BlockStack gap="300">
+                    <Select
+                      label="Type de valeur des paliers"
+                      options={DISCOUNT_TYPE_OPTIONS}
+                      value={form.discountValueType}
+                      onChange={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          discountValueType:
+                            v as BundleFormState["discountValueType"],
+                        }))
+                      }
+                    />
                     <InlineStack align="space-between" blockAlign="center">
                       <Text as="h3" variant="headingSm">
                         Paliers
@@ -944,7 +1049,9 @@ export function BundleEditorForm({
                               <TextField
                                 label="Min"
                                 value={tier.thresholdMin}
-                                onChange={(v) => updateTier(i, { thresholdMin: v })}
+                                onChange={(v) =>
+                                  updateTier(i, { thresholdMin: v })
+                                }
                                 autoComplete="off"
                               />
                             </div>
@@ -962,7 +1069,9 @@ export function BundleEditorForm({
                               <TextField
                                 label="Valeur du palier"
                                 value={tier.tierValue}
-                                onChange={(v) => updateTier(i, { tierValue: v })}
+                                onChange={(v) =>
+                                  updateTier(i, { tierValue: v })
+                                }
                                 autoComplete="off"
                               />
                             </div>

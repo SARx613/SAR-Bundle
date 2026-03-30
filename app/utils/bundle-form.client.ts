@@ -18,6 +18,9 @@ export type BundleSubmitPayload = {
   seoDescription?: string | null;
   storefrontDesign?: StorefrontDesignV1;
   status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
+  bundlePricingMode: string;
+  fixedBoxItemCount?: number | null;
+  pricingModeMedia?: Record<string, unknown> | null;
   pricingScope: string;
   discountValueType: string;
   flatDiscountValue?: string | number | null;
@@ -133,7 +136,10 @@ export type BundleFormState = {
   seoDescription: string;
   storefrontDesign: StorefrontDesignV1;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
-  pricingScope: "FLAT" | "TIERED";
+  bundlePricingMode: "STANDARD" | "FIXED_PRICE_BOX" | "TIERED";
+  /** Remise % ou montant (mode STANDARD uniquement) */
+  standardDiscountType: "PERCENT" | "FIXED_AMOUNT";
+  fixedBoxItemCount: string;
   discountValueType: "PERCENT" | "FIXED_AMOUNT" | "FIXED_PRICE";
   flatDiscountValue: string;
   showCompareAtPrice: boolean;
@@ -161,6 +167,9 @@ export type SerializedBundle = {
   seoDescription?: string | null;
   storefrontDesign?: unknown;
   status: string;
+  bundlePricingMode?: string | null;
+  fixedBoxItemCount?: number | null;
+  pricingModeMedia?: unknown;
   pricingScope: string;
   discountValueType: string;
   flatDiscountValue?: string | null;
@@ -243,9 +252,23 @@ export function emptyStep(sortOrder: number): UiStep {
   };
 }
 
+function inferBundlePricingMode(b: SerializedBundle): BundleFormState["bundlePricingMode"] {
+  const m = b.bundlePricingMode?.trim();
+  if (m === "FIXED_PRICE_BOX" || m === "TIERED" || m === "STANDARD") {
+    return m;
+  }
+  if (b.pricingScope === "TIERED") return "TIERED";
+  if (b.discountValueType === "FIXED_PRICE") return "FIXED_PRICE_BOX";
+  return "STANDARD";
+}
+
 export function toFormState(bundle: SerializedBundle): BundleFormState {
-  const tiers = bundle.pricingScope === "TIERED" ? bundle.pricingTiers ?? [] : [];
+  const mode = inferBundlePricingMode(bundle);
+  const tiers = mode === "TIERED" ? bundle.pricingTiers ?? [] : [];
   const steps = bundle.steps ?? [];
+
+  const standardDiscountType: BundleFormState["standardDiscountType"] =
+    bundle.discountValueType === "FIXED_AMOUNT" ? "FIXED_AMOUNT" : "PERCENT";
 
   return {
     name: bundle.name ?? "",
@@ -257,7 +280,10 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
     seoDescription: bundle.seoDescription ?? "",
     storefrontDesign: parseStorefrontDesign(bundle.storefrontDesign),
     status: (bundle.status as BundleFormState["status"]) || "DRAFT",
-    pricingScope: (bundle.pricingScope as BundleFormState["pricingScope"]) || "FLAT",
+    bundlePricingMode: mode,
+    standardDiscountType,
+    fixedBoxItemCount:
+      bundle.fixedBoxItemCount != null ? String(bundle.fixedBoxItemCount) : "",
     discountValueType:
       (bundle.discountValueType as BundleFormState["discountValueType"]) || "PERCENT",
     flatDiscountValue:
@@ -347,6 +373,14 @@ export function toApiPayload(form: BundleFormState): BundleSubmitPayload {
     return t.length ? t : null;
   };
 
+  const pricingScope = form.bundlePricingMode === "TIERED" ? "TIERED" : "FLAT";
+  const discountValueType =
+    form.bundlePricingMode === "FIXED_PRICE_BOX"
+      ? "FIXED_PRICE"
+      : form.bundlePricingMode === "STANDARD"
+        ? form.standardDiscountType
+        : form.discountValueType;
+
   return {
     name: form.name.trim(),
     description: form.description.trim() || null,
@@ -357,8 +391,14 @@ export function toApiPayload(form: BundleFormState): BundleSubmitPayload {
     seoDescription: form.seoDescription.trim() || null,
     storefrontDesign: form.storefrontDesign,
     status: form.status,
-    pricingScope: form.pricingScope,
-    discountValueType: form.discountValueType,
+    bundlePricingMode: form.bundlePricingMode,
+    fixedBoxItemCount:
+      form.bundlePricingMode === "FIXED_PRICE_BOX"
+        ? intOrNull(form.fixedBoxItemCount)
+        : null,
+    pricingModeMedia: null,
+    pricingScope,
+    discountValueType,
     flatDiscountValue: form.flatDiscountValue.trim() || null,
     showCompareAtPrice: form.showCompareAtPrice,
     showFixedPriceOnLoad: form.showFixedPriceOnLoad,
@@ -368,7 +408,7 @@ export function toApiPayload(form: BundleFormState): BundleSubmitPayload {
     minBundleCartValue: decimalOrNull(form.minBundleCartValue),
     maxBundleCartValue: decimalOrNull(form.maxBundleCartValue),
     pricingTiers:
-      form.pricingScope === "TIERED"
+      form.bundlePricingMode === "TIERED"
         ? form.pricingTiers.map((t, i) => ({
             sortOrder: i,
             thresholdBasis: t.thresholdBasis,

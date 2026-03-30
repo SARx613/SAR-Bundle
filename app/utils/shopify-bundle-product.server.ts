@@ -258,6 +258,56 @@ async function syncProductFeaturedImageFromBundleUrl(
   }
 }
 
+/**
+ * Met à jour le prix catalogue de la variante « coque » du bundle (ligne panier unique).
+ * À appeler après sync produit quand le mode est prix fixe pour que cart/add.js facture le bon montant.
+ */
+export async function syncFixedPriceBoxCatalogVariantPrice(
+  admin: AdminClient,
+  params: {
+    bundlePricingMode: string;
+    flatDiscountValue: string | number | { toString(): string } | null | undefined;
+    shopifyProductId: string | null | undefined;
+    shopifyParentVariantId: string | null | undefined;
+  },
+): Promise<void> {
+  if (params.bundlePricingMode !== "FIXED_PRICE_BOX") return;
+  const raw =
+    params.flatDiscountValue == null
+      ? ""
+      : typeof params.flatDiscountValue === "string"
+        ? params.flatDiscountValue
+        : String(params.flatDiscountValue);
+  const price = raw.trim();
+  if (!price || !params.shopifyProductId || !params.shopifyParentVariantId) return;
+
+  const res = await admin.graphql(
+    `#graphql
+      mutation SarBundleCatalogVariantPrice(
+        $productId: ID!
+        $variants: [ProductVariantsBulkInput!]!
+      ) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+    {
+      variables: {
+        productId: params.shopifyProductId,
+        variants: [{ id: params.shopifyParentVariantId, price }],
+      },
+    },
+  );
+  const body = await res.json();
+  const errs = body?.data?.productVariantsBulkUpdate?.userErrors;
+  if (Array.isArray(errs) && errs.length) {
+    throw new Error(errs.map((e: { message: string }) => e.message).join("; "));
+  }
+}
+
 async function fetchDefaultVariantGid(
   admin: AdminClient,
   productGid: string,

@@ -14,7 +14,10 @@ import {
   toPrismaBundleScalars,
 } from "../utils/bundle.server";
 import { slugifyProductHandle } from "../utils/storefront-design";
-import { syncBundleShopifyProduct } from "../utils/shopify-bundle-product.server";
+import {
+  syncBundleShopifyProduct,
+  syncFixedPriceBoxCatalogVariantPrice,
+} from "../utils/shopify-bundle-product.server";
 
 const emptyBundleState: SerializedBundle = {
   id: null,
@@ -30,6 +33,9 @@ const emptyBundleState: SerializedBundle = {
   seoDescription: null,
   storefrontDesign: null,
   status: "DRAFT",
+  bundlePricingMode: "STANDARD",
+  fixedBoxItemCount: null,
+  pricingModeMedia: null,
   pricingScope: "FLAT",
   discountValueType: "PERCENT",
   flatDiscountValue: null,
@@ -144,6 +150,21 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           (e instanceof Error ? e.message : String(e));
       }
 
+      try {
+        await syncFixedPriceBoxCatalogVariantPrice(admin, {
+          bundlePricingMode: payload.bundlePricingMode,
+          flatDiscountValue: out.flatDiscountValue,
+          shopifyProductId: out.shopifyProductId,
+          shopifyParentVariantId: out.shopifyParentVariantId,
+        });
+      } catch (e) {
+        console.error("Bundle catalog variant price (create)", e);
+        const w =
+          "Prix catalogue (boîte à prix fixe) non synchronisé : " +
+          (e instanceof Error ? e.message : String(e));
+        warning = warning ? `${warning} ${w}` : w;
+      }
+
       return json(
         { ok: true as const, bundle: serializeBundleTree(out), ...(warning ? { warning } : {}) },
         { status: 201 },
@@ -210,6 +231,21 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       warning =
         "Bundle enregistré, mais la synchronisation du produit Shopify a échoué : " +
         (e instanceof Error ? e.message : String(e));
+    }
+
+    try {
+      await syncFixedPriceBoxCatalogVariantPrice(admin, {
+        bundlePricingMode: payload.bundlePricingMode,
+        flatDiscountValue: updated.flatDiscountValue,
+        shopifyProductId: updated.shopifyProductId,
+        shopifyParentVariantId: updated.shopifyParentVariantId,
+      });
+    } catch (e) {
+      console.error("Bundle catalog variant price (update)", e);
+      const w =
+        "Prix catalogue (boîte à prix fixe) non synchronisé : " +
+        (e instanceof Error ? e.message : String(e));
+      warning = warning ? `${warning} ${w}` : w;
     }
 
     return json({

@@ -397,6 +397,139 @@
     return null;
   }
 
+  /** Rétrocompat si `bundlePricingMode` absent (anciens bundles). */
+  function resolveBundlePricingMode(bundle) {
+    var m = bundle.bundlePricingMode;
+    if (m === 'STANDARD' || m === 'FIXED_PRICE_BOX' || m === 'TIERED') return m;
+    if (bundle.pricingScope === 'TIERED') return 'TIERED';
+    if (bundle.discountValueType === 'FIXED_PRICE') return 'FIXED_PRICE_BOX';
+    return 'STANDARD';
+  }
+
+  function parseBundleDecimal(v) {
+    if (v == null || v === '') return null;
+    var n = parseFloat(String(v).replace(',', '.'));
+    return Number.isNaN(n) ? null : n;
+  }
+
+  function pickPrimaryCurrency(bundle, variantCache) {
+    var steps = bundle.steps || [];
+    for (var si = 0; si < steps.length; si++) {
+      var prods = steps[si].products || [];
+      for (var pi = 0; pi < prods.length; pi++) {
+        var row = prods[pi];
+        var sf = row.storefront;
+        if (sf && sf.currencyCode) return String(sf.currencyCode);
+        var gid = row.variantGid;
+        var m = variantCache[gid];
+        if (m && m.currencyCode) return String(m.currencyCode);
+      }
+    }
+    return 'EUR';
+  }
+
+  function findMatchingTier(bundle, totals) {
+    var tiers = bundle.pricingTiers || [];
+    var sorted = tiers.slice().sort(function (a, b) {
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
+    });
+    for (var i = 0; i < sorted.length; i++) {
+      var t = sorted[i];
+      var val =
+        t.thresholdBasis === 'CART_VALUE'
+          ? totals.bundlePrice
+          : totals.totalItemCount;
+      var min = parseFloat(String(t.thresholdMin).replace(',', '.'));
+      var maxRaw = t.thresholdMax;
+      var max =
+        maxRaw == null || maxRaw === ''
+          ? Infinity
+          : parseFloat(String(maxRaw).replace(',', '.'));
+      if (Number.isNaN(min)) min = 0;
+      if (Number.isNaN(max)) max = Infinity;
+      if (val >= min && val <= max) return t;
+    }
+    return null;
+  }
+
+  /** discountValueType admin : PERCENT | FIXED_AMOUNT | FIXED_PRICE (prix cible pour le total). */
+  function applyDiscountToBase(base, type, rawVal) {
+    var v = parseBundleDecimal(rawVal);
+    if (v == null) return base;
+    if (type === 'PERCENT') return Math.max(0, base * (1 - v / 100));
+    if (type === 'FIXED_AMOUNT') return Math.max(0, base - v);
+    if (type === 'FIXED_PRICE') return Math.max(0, v);
+    return base;
+  }
+
+  /**
+   * Prix total bundle affiché (cohérent avec les modes admin).
+   * compareAt : somme des articles (pour prix barré) si activé.
+   */
+  function getDisplayedBundlePrice(bundle, totals) {
+    var mode = resolveBundlePricingMode(bundle);
+    var base = totals.bundlePrice;
+    var showCompare = !!bundle.showCompareAtPrice;
+    if (mode === 'FIXED_PRICE_BOX') {
+      var fixed = parseBundleDecimal(bundle.flatDiscountValue);
+      var amt = fixed != null ? fixed : base;
+      var cmp = showCompare && base > amt + 1e-9 ? base : null;
+      return { amount: amt, compareAt: cmp };
+    }
+    if (mode === 'TIERED') {
+      var tier = findMatchingTier(bundle, totals);
+      var dt = bundle.discountValueType || 'PERCENT';
+      var after = tier
+        ? applyDiscountToBase(base, dt, tier.tierValue)
+        : base;
+      var cmp =
+        showCompare && tier && after < base - 1e-9 ? base : null;
+      return { amount: after, compareAt: cmp };
+    }
+    var flat = bundle.flatDiscountValue;
+    if (flat == null || String(flat).trim() === '') {
+      return { amount: base, compareAt: null };
+    }
+    var st = bundle.discountValueType || 'PERCENT';
+    var afterStd = applyDiscountToBase(base, st, flat);
+    var cmpStd =
+      showCompare && afterStd < base - 1e-9 ? base : null;
+    return { amount: afterStd, compareAt: cmpStd };
+  }
+
+  /**
+   * Nombre exact d’articles requis : `fixedBoxItemCount` (prix fixe) ou règle TOTAL_ITEM_COUNT EQ.
+   */
+  function requiredExactItemCountForBundle(bundle) {
+    var mode = resolveBundlePricingMode(bundle);
+    if (mode === 'FIXED_PRICE_BOX' && bundle.fixedBoxItemCount != null) {
+      var n = parseInt(String(bundle.fixedBoxItemCount), 10);
+      if (!Number.isNaN(n) && n >= 1) return n;
+    }
+    return getRequiredExactTotalItemCount(bundle);
+  }
+
+  /** Propriété panier lisible (thèmes qui masquent les clés `_…`). maxLen évite les limites Shopify. */
+  function formatCompositionVisibleLines(components, maxLen) {
+    maxLen = maxLen || 1200;
+    var lines = [];
+    for (var i = 0; i < components.length; i++) {
+      var c = components[i];
+      var qty = c.quantity != null ? c.quantity : 1;
+      var title = String(c.productTitle || '').trim();
+      var vt = String(c.variantTitle || '').trim();
+      var label = title;
+      if (vt && vt !== 'Default Title' && vt !== 'Default') {
+        label = label ? label + ' — ' + vt : vt;
+      }
+      if (!label) label = String(c.variantGid || 'Article');
+      lines.push(String(qty) + '× ' + label);
+    }
+    var s = lines.join('\n');
+    if (s.length > maxLen) s = s.slice(0, maxLen - 1) + '…';
+    return s;
+  }
+
   function fetchVariantJson(numericId) {
     return fetch(joinRoot('variants/' + numericId + '.js'), {
       headers: { Accept: 'application/json' },
@@ -958,6 +1091,37 @@
 
             inner.appendChild(body);
 
+            var totalsPreview = getTotals(
+              state.selections,
+              priceMap,
+              state.variantChoice,
+            );
+            var disp = getDisplayedBundlePrice(bundle, totalsPreview);
+            var cur = pickPrimaryCurrency(bundle, variantCache);
+            var totalBox = document.createElement('div');
+            totalBox.className = 'sar-bundle__bundle-total';
+            var totalLabel = document.createElement('span');
+            totalLabel.className = 'sar-bundle__bundle-total-label';
+            totalLabel.textContent = 'Total du pack';
+            var totalVal = document.createElement('span');
+            totalVal.className = 'sar-bundle__bundle-total-value';
+            if (disp.compareAt != null) {
+              var cmpEl = document.createElement('s');
+              cmpEl.className = 'sar-bundle__bundle-total-compare';
+              cmpEl.textContent = formatMoneyDisplay(
+                String(disp.compareAt),
+                cur,
+              );
+              totalVal.appendChild(cmpEl);
+              totalVal.appendChild(document.createTextNode(' '));
+            }
+            var mainEl = document.createElement('strong');
+            mainEl.textContent = formatMoneyDisplay(String(disp.amount), cur);
+            totalVal.appendChild(mainEl);
+            totalBox.appendChild(totalLabel);
+            totalBox.appendChild(totalVal);
+            inner.appendChild(totalBox);
+
             if (isLast && lineProps.length) {
               var fin = document.createElement('div');
               fin.className = 'sar-bundle__final';
@@ -1052,7 +1216,7 @@
                 priceMap,
                 state.variantChoice,
               );
-              var requiredExact = getRequiredExactTotalItemCount(bundle);
+              var requiredExact = requiredExactItemCountForBundle(bundle);
               if (requiredExact != null && !Number.isNaN(requiredExact)) {
                 if (totals.totalItemCount !== requiredExact) {
                   errBox.textContent =
@@ -1099,6 +1263,10 @@
               };
               if (bundle.name) {
                 lineProps._sar_bundle_name = String(bundle.name);
+              }
+              var compVisible = formatCompositionVisibleLines(components);
+              if (compVisible) {
+                lineProps.Composition = compVisible;
               }
 
               var masterProps = Object.assign({}, lineProps);

@@ -7,6 +7,7 @@ import {
 import {
   Prisma,
   type PrismaClient,
+  type BundlePricingMode,
   type BundleStatus,
   type DiscountValueType,
   type LineItemPropertyFieldType,
@@ -18,6 +19,13 @@ import {
 
 const BUNDLE_STATUSES: BundleStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
 const PRICING_SCOPES: PricingScope[] = ["FLAT", "TIERED"];
+const BUNDLE_PRICING_MODES: BundlePricingMode[] = [
+  "STANDARD",
+  "FIXED_PRICE_BOX",
+  "TIERED",
+  "PREDEFINED_SIZES",
+];
+const STANDARD_DISCOUNT_TYPES: DiscountValueType[] = ["PERCENT", "FIXED_AMOUNT"];
 const DISCOUNT_VALUE_TYPES: DiscountValueType[] = [
   "PERCENT",
   "FIXED_AMOUNT",
@@ -114,6 +122,9 @@ export type BundleWritePayload = {
   maxTotalItemCount?: number | null;
   minBundleCartValue?: string | number | null;
   maxBundleCartValue?: string | number | null;
+  bundlePricingMode: string;
+  fixedBoxItemCount?: number | null;
+  pricingModeMedia?: Prisma.InputJsonValue | null;
   pricingTiers?: PricingTierPayload[];
   steps?: StepPayload[];
 };
@@ -161,14 +172,93 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
   if (typeof o.name !== "string" || !o.name.trim()) {
     throw Response.json({ error: "name is required" }, { status: 400 });
   }
-  if (!isEnum(o.pricingScope, PRICING_SCOPES)) {
-    throw Response.json({ error: "Invalid pricingScope" }, { status: 400 });
-  }
-  if (!isEnum(o.discountValueType, DISCOUNT_VALUE_TYPES)) {
-    throw Response.json({ error: "Invalid discountValueType" }, { status: 400 });
-  }
   if (o.status !== undefined && !isEnum(o.status, BUNDLE_STATUSES)) {
     throw Response.json({ error: "Invalid status" }, { status: 400 });
+  }
+
+  const bundlePricingMode: BundlePricingMode = isEnum(
+    o.bundlePricingMode,
+    BUNDLE_PRICING_MODES,
+  )
+    ? o.bundlePricingMode
+    : o.pricingScope === "TIERED"
+      ? "TIERED"
+      : o.pricingScope === "FLAT" && o.discountValueType === "FIXED_PRICE"
+        ? "FIXED_PRICE_BOX"
+        : "STANDARD";
+
+  if (bundlePricingMode === "PREDEFINED_SIZES") {
+    throw Response.json(
+      {
+        error:
+          "Le mode « tailles de boîte prédéfinies » n'est pas encore disponible (phase 2).",
+      },
+      { status: 400 },
+    );
+  }
+
+  let pricingScope: PricingScope;
+  let discountValueType: DiscountValueType;
+
+  if (bundlePricingMode === "TIERED") {
+    pricingScope = "TIERED";
+    if (!isEnum(o.discountValueType, DISCOUNT_VALUE_TYPES)) {
+      throw Response.json({ error: "Invalid discountValueType" }, { status: 400 });
+    }
+    discountValueType = o.discountValueType;
+  } else if (bundlePricingMode === "FIXED_PRICE_BOX") {
+    pricingScope = "FLAT";
+    discountValueType = "FIXED_PRICE";
+  } else {
+    pricingScope = "FLAT";
+    if (isEnum(o.discountValueType, STANDARD_DISCOUNT_TYPES)) {
+      discountValueType = o.discountValueType;
+    } else if (isEnum(o.discountValueType, DISCOUNT_VALUE_TYPES)) {
+      discountValueType =
+        o.discountValueType === "FIXED_PRICE" ? "PERCENT" : o.discountValueType;
+    } else {
+      discountValueType = "PERCENT";
+    }
+  }
+
+  let fixedBoxItemCount: number | null = null;
+  if (bundlePricingMode === "FIXED_PRICE_BOX") {
+    const raw = o.fixedBoxItemCount;
+    const n =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string"
+          ? parseInt(raw, 10)
+          : NaN;
+    if (!Number.isInteger(n) || n < 1) {
+      throw Response.json(
+        {
+          error:
+            "Nombre d'articles (prix fixe) : indiquez un entier ≥ 1 pour ce mode.",
+        },
+        { status: 400 },
+      );
+    }
+    fixedBoxItemCount = n;
+    const priceVal = o.flatDiscountValue;
+    if (
+      priceVal === null ||
+      priceVal === undefined ||
+      priceVal === "" ||
+      (typeof priceVal === "string" && !priceVal.trim())
+    ) {
+      throw Response.json(
+        { error: "Prix fixe du pack : la valeur est requise pour ce mode." },
+        { status: 400 },
+      );
+    }
+  }
+
+  let pricingModeMedia: Prisma.InputJsonValue | null = null;
+  if (o.pricingModeMedia !== undefined && o.pricingModeMedia !== null) {
+    if (typeof o.pricingModeMedia === "object" && !Array.isArray(o.pricingModeMedia)) {
+      pricingModeMedia = o.pricingModeMedia as Prisma.InputJsonValue;
+    }
   }
 
   const pricingTiers = Array.isArray(o.pricingTiers)
@@ -176,7 +266,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     : [];
   const steps = Array.isArray(o.steps) ? (o.steps as StepPayload[]) : [];
 
-  if (o.pricingScope === "TIERED" && pricingTiers.length === 0) {
+  if (pricingScope === "TIERED" && pricingTiers.length === 0) {
     throw Response.json(
       {
         error:
@@ -322,8 +412,12 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
           ? null
           : undefined,
     status: o.status as BundleStatus | undefined,
-    pricingScope: o.pricingScope,
-    discountValueType: o.discountValueType,
+    bundlePricingMode,
+    fixedBoxItemCount:
+      bundlePricingMode === "FIXED_PRICE_BOX" ? fixedBoxItemCount : null,
+    pricingModeMedia,
+    pricingScope,
+    discountValueType,
     flatDiscountValue: o.flatDiscountValue as string | number | null | undefined,
     showCompareAtPrice:
       typeof o.showCompareAtPrice === "boolean" ? o.showCompareAtPrice : undefined,
@@ -377,6 +471,9 @@ export function toPrismaBundleScalars(
     seoDescription: data.seoDescription ?? null,
     storefrontDesign: data.storefrontDesign,
     status: data.status ?? "DRAFT",
+    bundlePricingMode: data.bundlePricingMode as BundlePricingMode,
+    fixedBoxItemCount: data.fixedBoxItemCount ?? null,
+    pricingModeMedia: data.pricingModeMedia ?? undefined,
     pricingScope: data.pricingScope as PricingScope,
     discountValueType: data.discountValueType as DiscountValueType,
     flatDiscountValue: toDecimal(data.flatDiscountValue, "flatDiscountValue"),
@@ -502,6 +599,12 @@ export function bundlePrismaToWritePayload(
     seoDescription: bundle.seoDescription,
     storefrontDesign: storefront,
     status: bundle.status,
+    bundlePricingMode: bundle.bundlePricingMode,
+    fixedBoxItemCount: bundle.fixedBoxItemCount,
+    pricingModeMedia:
+      bundle.pricingModeMedia != null
+        ? (bundle.pricingModeMedia as Prisma.InputJsonValue)
+        : null,
     pricingScope: bundle.pricingScope,
     discountValueType: bundle.discountValueType,
     flatDiscountValue: bundle.flatDiscountValue?.toString() ?? null,

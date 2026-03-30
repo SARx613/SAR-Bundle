@@ -77,6 +77,14 @@ enum BundleStatus {
   ARCHIVED
 }
 
+/// Mode métier affiché dans l’admin (Tarifs & panier). PREDEFINED_SIZES = phase 2.
+enum BundlePricingMode {
+  STANDARD
+  FIXED_PRICE_BOX
+  TIERED
+  PREDEFINED_SIZES
+}
+
 model Bundle {
   id         String @id @default(cuid())
   /// Stable id for storefront line item property `_sar_bundle_id`
@@ -99,6 +107,12 @@ model Bundle {
   storefrontDesign Json?
 
   status BundleStatus @default(DRAFT)
+
+  bundlePricingMode BundlePricingMode @default(STANDARD)
+  /// Nombre exact d’articles pour le mode prix fixe (FIXED_PRICE_BOX)
+  fixedBoxItemCount Int?
+  /// URLs d’illustration par mode (clé = mode) — usage futur
+  pricingModeMedia  Json?
 
   pricingScope       PricingScope
   discountValueType  DiscountValueType

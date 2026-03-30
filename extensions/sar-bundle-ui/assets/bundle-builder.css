@@ -20,6 +20,34 @@
   line-height: 1.5;
 }
 
+.sar-bundle__bundle-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--sar-radius, 8px);
+  border: 1px solid var(--sar-color-border, #e1e3e5);
+  background: var(--sar-color-bg-subtle, #f6f6f7);
+  font-size: 1.05rem;
+}
+
+.sar-bundle__bundle-total-label {
+  font-weight: 600;
+}
+
+.sar-bundle__bundle-total-value {
+  text-align: right;
+}
+
+.sar-bundle__bundle-total-compare {
+  color: var(--sar-color-muted, #6d7175);
+  font-weight: 400;
+  margin-right: 0.25rem;
+}
+
 .sar-bundle__steps {
   display: flex;
   gap: 0.5rem;
