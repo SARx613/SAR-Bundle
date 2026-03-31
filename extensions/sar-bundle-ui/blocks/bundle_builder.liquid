@@ -1,6 +1,7 @@
 {% comment %}
   SAR Bundle — Theme App Block (produit lié via metafields custom.sar_bundle_id, custom.sar_bundle_active)
-  Template recommandé : product.sar-bundle.json — ajoutez ce bloc à la place de la section produit classique.
+  IMPORTANT : ce bloc ne doit pas modifier le template global (main-product).
+  Ajoutez-le simplement dans l’éditeur de thème, sous la description / bouton d’achat.
 {% endcomment %}
 
 {% assign bundle_id = product.metafields.custom.sar_bundle_id.value %}
@@ -11,13 +12,15 @@
 {% assign bundle_active = product.metafields.custom.sar_bundle_active.value %}
 
 {% if bundle_id != blank and bundle_active != false %}
-  <style>
-    /* Masque le formulaire d’ajout au panier natif (Dawn / thèmes classiques). Ajustez si votre thème utilise d’autres sélecteurs. */
-    .product-form,
-    product-form {
-      display: none !important;
-    }
-  </style>
+  {% assign steps_align = block.settings.steps_align | default: 'center' %}
+  {% case steps_align %}
+    {% when 'left' %}
+      {% assign steps_justify = 'flex-start' %}
+    {% when 'right' %}
+      {% assign steps_justify = 'flex-end' %}
+    {% else %}
+      {% assign steps_justify = 'center' %}
+  {% endcase %}
 
   <div
     id="sar-bundle-root"
@@ -29,6 +32,8 @@
     data-shop="{{ shop.permanent_domain | escape }}"
     data-heading="{{ block.settings.heading | escape }}"
     data-show-progress="{{ block.settings.show_step_progress }}"
+    data-product-title="{{ product.title | escape }}"
+    data-product-image="{{ product.featured_image | image_url: width: 400 | escape }}"
     style="
       --sar-color-primary: {{ block.settings.color_primary }};
       --sar-color-border: {{ block.settings.color_border }};
@@ -40,6 +45,7 @@
       --sar-body-size: {{ block.settings.body_size }}px;
       --sar-padding: {{ block.settings.padding }}px;
       --sar-radius: {{ block.settings.border_radius }}px;
+      --sar-steps-justify: {{ steps_justify }};
     "
   >
     <div class="sar-bundle__loading" data-sar-loading>Chargement du bundle…</div>
@@ -72,6 +78,17 @@
       "id": "show_step_progress",
       "label": "Afficher la progression des étapes",
       "default": true
+    },
+    {
+      "type": "select",
+      "id": "steps_align",
+      "label": "Alignement des onglets d'étapes",
+      "options": [
+        { "value": "left", "label": "Gauche" },
+        { "value": "center", "label": "Centre" },
+        { "value": "right", "label": "Droite" }
+      ],
+      "default": "center"
     },
     {
       "type": "header",

@@ -636,6 +636,8 @@
         var priceMap = {};
         var variantCache = {};
         var productJsonByHandle = {};
+        var collectionProductsByHandle = {};
+        var collectionFetchInFlight = {};
         var ids = collectVariantIds(bundle);
 
         return Promise.all(
@@ -781,6 +783,137 @@
             wrapEl.appendChild(box);
           }
 
+          function renderStepBarBlock(wrapEl, b, ctx) {
+            if (!ctx || !ctx.steps || ctx.steps.length < 2) return;
+            var st = b.style || {};
+            var border = st.borderColor || 'var(--sar-color-border, #e1e3e5)';
+            var activeBg = st.activeBg || 'var(--sar-color-primary, #008060)';
+            var inactiveBg = st.inactiveBg || 'transparent';
+            var activeText = st.activeTextColor || '#fff';
+            var inactiveText = st.inactiveTextColor || 'var(--sar-color-text, #121212)';
+
+            var row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.justifyContent = 'center';
+            row.style.gap = '0';
+            row.style.marginBottom = '1rem';
+
+            for (var i = 0; i < ctx.steps.length; i++) {
+              var cell = document.createElement('div');
+              cell.style.display = 'flex';
+              cell.style.alignItems = 'center';
+              if (i < ctx.steps.length - 1) cell.style.flex = '1 1 0';
+
+              var dot = document.createElement('div');
+              dot.style.width = '32px';
+              dot.style.height = '32px';
+              dot.style.borderRadius = '50%';
+              dot.style.border = '2px solid ' + border;
+              dot.style.display = 'flex';
+              dot.style.alignItems = 'center';
+              dot.style.justifyContent = 'center';
+              dot.style.fontWeight = '600';
+              dot.style.fontSize = '0.85rem';
+              dot.style.flexShrink = '0';
+              var isDone = i <= ctx.stepIndex;
+              dot.style.background = isDone ? activeBg : inactiveBg;
+              dot.style.color = isDone ? activeText : inactiveText;
+              dot.textContent = String(i + 1);
+              cell.appendChild(dot);
+
+              if (i < ctx.steps.length - 1) {
+                var line = document.createElement('div');
+                line.style.flex = '1';
+                line.style.height = '2px';
+                line.style.minWidth = '8px';
+                line.style.background = border;
+                cell.appendChild(line);
+              }
+              row.appendChild(cell);
+            }
+            wrapEl.appendChild(row);
+          }
+
+          function fetchCollectionProducts(handle) {
+            if (!handle) return Promise.resolve(null);
+            if (collectionProductsByHandle[handle]) {
+              return Promise.resolve(collectionProductsByHandle[handle]);
+            }
+            if (collectionFetchInFlight[handle]) return collectionFetchInFlight[handle];
+            collectionFetchInFlight[handle] = fetch(
+              joinRoot('collections/' + encodeURIComponent(handle) + '/products.json?limit=24'),
+              { headers: { Accept: 'application/json' } },
+            )
+              .then(function (r) {
+                return r.ok ? r.json() : null;
+              })
+              .then(function (j) {
+                var arr = j && j.products ? j.products : null;
+                collectionProductsByHandle[handle] = arr;
+                return arr;
+              })
+              .catch(function () {
+                collectionProductsByHandle[handle] = null;
+                return null;
+              })
+              .finally(function () {
+                collectionFetchInFlight[handle] = null;
+              });
+            return collectionFetchInFlight[handle];
+          }
+
+          function renderProductListBlock(wrapEl, b, ctx) {
+            // Marqueur pour empêcher le rendu par défaut en-dessous.
+            ctx.__renderedProductList = true;
+
+            var source = b.source || 'step_pick';
+            if (source === 'collection' && b.collectionHandle) {
+              var container = document.createElement('div');
+              container.className = 'sar-bundle__products';
+              var loadingRow = document.createElement('div');
+              loadingRow.className = 'sar-bundle__product-grid-item';
+              loadingRow.textContent = 'Chargement des produits…';
+              container.appendChild(loadingRow);
+              wrapEl.appendChild(container);
+              fetchCollectionProducts(b.collectionHandle).then(function (products) {
+                container.innerHTML = '';
+                if (!products || !products.length) {
+                  var empty = document.createElement('div');
+                  empty.className = 'sar-bundle__product-grid-item';
+                  empty.textContent = 'Aucun produit trouvé dans cette collection.';
+                  container.appendChild(empty);
+                  return;
+                }
+                for (var i = 0; i < products.length; i++) {
+                  var pr = products[i];
+                  var card = document.createElement('div');
+                  card.className = 'sar-bundle__product';
+                  var img = document.createElement('img');
+                  img.loading = 'lazy';
+                  img.alt = pr && pr.title ? pr.title : '';
+                  img.src =
+                    (pr && pr.images && pr.images[0] && pr.images[0].src) ||
+                    'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
+                  card.appendChild(img);
+                  var t = document.createElement('p');
+                  t.className = 'sar-bundle__product-title';
+                  t.textContent = (pr && pr.title) || 'Produit';
+                  card.appendChild(t);
+                  container.appendChild(card);
+                }
+              });
+              return;
+            }
+
+            // step_pick (par défaut) : on garde le rendu standard des produits de l'étape,
+            // mais le bloc contrôle l'emplacement (donc on n'affiche pas une 2e grille plus bas).
+            var container = document.createElement('div');
+            container.className = 'sar-bundle__products';
+            ctx.__productListMount = container;
+            wrapEl.appendChild(container);
+          }
+
           function renderDesignBlocks(container, design, ctx, variantCache) {
             if (!design || (design.version !== 1 && design.version !== 2)) return;
             var g = design.global || {};
@@ -867,6 +1000,10 @@
                 wrap.appendChild(spl);
               } else if (b.type === 'product_grid') {
                 renderProductGridBlock(wrap, b, ctx, variantCache);
+              } else if (b.type === 'step_bar') {
+                renderStepBarBlock(wrap, b, ctx);
+              } else if (b.type === 'product_list') {
+                renderProductListBlock(wrap, b, ctx);
               }
             }
             if (wrap.childNodes.length) container.appendChild(wrap);
@@ -901,10 +1038,13 @@
             errBox.hidden = true;
             inner.appendChild(errBox);
 
-            renderDesignBlocks(inner, bundle.storefrontDesign, {
+            var designCtx = {
               steps: bundle.steps,
               stepIndex: state.stepIndex,
-            }, variantCache);
+              __renderedProductList: false,
+              __productListMount: null,
+            };
+            renderDesignBlocks(inner, bundle.storefrontDesign, designCtx, variantCache);
 
             var h = document.createElement('h2');
             h.className = 'sar-bundle__title';
@@ -942,11 +1082,14 @@
               body.appendChild(desc);
             }
 
-            var grid = document.createElement('div');
+            var grid = designCtx.__productListMount || document.createElement('div');
             grid.className = 'sar-bundle__products';
             var stepProds = step.products || [];
 
-            for (var pj = 0; pj < stepProds.length; pj++) {
+            // Si un bloc product_list est présent, il contrôle l'emplacement (et peut utiliser une collection).
+            // Pour source=step_pick, on remplit designCtx.__productListMount; sinon collection mode remplit lui-même.
+            if (!designCtx.__renderedProductList || designCtx.__productListMount) {
+              for (var pj = 0; pj < stepProds.length; pj++) {
               (function (prodRow) {
                 var originalGid = prodRow.variantGid;
                 var layout = prodRow.layoutPreset || 'STACK_ADD_TO_QTY';
@@ -1182,6 +1325,10 @@
 
                 grid.appendChild(card);
               })(stepProds[pj]);
+              }
+            }
+            if (!designCtx.__renderedProductList) {
+              body.appendChild(grid);
             }
 
             body.appendChild(grid);

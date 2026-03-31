@@ -50,7 +50,8 @@
 
 .sar-bundle__steps {
   display: flex;
-  gap: 0.5rem;
+  justify-content: var(--sar-steps-justify, center);
+  gap: 1rem;
   flex-wrap: wrap;
   margin-bottom: 1rem;
 }

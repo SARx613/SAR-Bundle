@@ -140,6 +140,9 @@ export type StepBarBlock = {
 export type ProductListBlock = {
   id: string;
   type: "product_list";
+  source?: "step_pick" | "collection";
+  /** Utilisé quand source = collection */
+  collectionHandle?: string;
 };
 
 export type StorefrontBlockV2 =
@@ -294,7 +297,16 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
       };
     }
     case "product_list": {
-      return { id, type: "product_list" };
+      const src = raw.source;
+      const source = src === "collection" || src === "step_pick" ? src : "step_pick";
+      const handle =
+        typeof raw.collectionHandle === "string" ? raw.collectionHandle.trim() : "";
+      return {
+        id,
+        type: "product_list",
+        source,
+        collectionHandle: source === "collection" && handle ? handle : undefined,
+      };
     }
     case "heading":
     case "text":

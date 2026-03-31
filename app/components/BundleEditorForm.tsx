@@ -229,7 +229,7 @@ export function BundleEditorForm({
 
   const handleSave = () => {
     const payload = toApiPayload(form);
-    saveFetcher.submit(payload, {
+    saveFetcher.submit(JSON.stringify(payload), {
       method: "POST",
       encType: "application/json",
     });

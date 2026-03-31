@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "@shopify/polaris";
 import { ArrowLeftIcon } from "@shopify/polaris-icons";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   type HeroBlock,
   type ProductGridBlock,
@@ -210,6 +211,7 @@ function BlockGeneralFields({
   onPatch: (patch: Partial<StorefrontBlockV2>) => void;
   onGoToSettings: () => void;
 }) {
+  const shopifyBridge = useAppBridge();
   if (block.type === "heading") {
     return (
       <BlockStack gap="300">
@@ -477,17 +479,68 @@ function BlockGeneralFields({
     );
   }
   if (block.type === "product_list") {
+    const source = block.source ?? "step_pick";
     const count = step?.products.length ?? 0;
     return (
       <BlockStack gap="300">
         <Box padding="300" background="bg-surface-secondary" borderRadius="200">
           <Text as="p" variant="bodySm">
-            {count} produit(s) assigné(s) à cette étape.
+            {source === "collection"
+              ? `Collection : ${block.collectionHandle || "—"}`
+              : `${count} produit(s) assigné(s) à cette étape.`}
           </Text>
         </Box>
+        <Select
+          label="Source des produits éligibles"
+          options={[
+            { label: "Produits sélectionnés (étape)", value: "step_pick" },
+            { label: "Collection", value: "collection" },
+          ]}
+          value={source}
+          onChange={(v) =>
+            onPatch({
+              source: v as "step_pick" | "collection",
+              ...(v === "collection" ? {} : { collectionHandle: undefined }),
+            } as Partial<StorefrontBlockV2>)
+          }
+        />
+        {source === "collection" ? (
+          <BlockStack gap="200">
+            <TextField
+              label="Handle de collection"
+              value={block.collectionHandle ?? ""}
+              onChange={(v) =>
+                onPatch({ collectionHandle: v.trim() || undefined } as Partial<StorefrontBlockV2>)
+              }
+              autoComplete="off"
+              helpText="Ex: /collections/mon-handle → mon-handle"
+            />
+            <Button
+              onClick={async () => {
+                const selected = await shopifyBridge.resourcePicker({
+                  type: "collection",
+                  multiple: false,
+                  action: "select",
+                });
+                const sel = (selected as { selection?: Array<{ handle?: string; title?: string; id?: string }> } | null)
+                  ?.selection?.[0];
+                const handle = sel?.handle;
+                if (handle) {
+                  onPatch({ collectionHandle: String(handle) } as Partial<StorefrontBlockV2>);
+                }
+              }}
+            >
+              Sélectionner une collection (Shopify)
+            </Button>
+          </BlockStack>
+        ) : (
+          <Text as="p" variant="bodySm" tone="subdued">
+            Ce bloc affiche automatiquement les produits éligibles de l'étape courante.
+            Pour ajouter ou retirer des produits, gérez-les dans l'onglet Paramètres.
+          </Text>
+        )}
         <Text as="p" variant="bodySm" tone="subdued">
-          Ce bloc affiche automatiquement les produits de l'étape courante.
-          Pour ajouter ou retirer des produits, gérez-les dans l'onglet Paramètres.
+          Sur la boutique, les titres et images sont récupérés via Shopify (handle/variants) pour éviter « Default Title ».
         </Text>
         <Button variant="plain" onClick={onGoToSettings}>
           Gérer les produits →

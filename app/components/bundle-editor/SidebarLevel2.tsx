@@ -25,6 +25,7 @@ import {
   ChevronRightIcon,
   DeleteIcon,
   DragHandleIcon,
+  SettingsIcon,
   SearchIcon,
 } from "@shopify/polaris-icons";
 import {
@@ -301,6 +302,59 @@ export function SidebarLevel2({
       });
     }
     onStepProductsChange([...step.products, ...additions]);
+  };
+
+  const openProductPicker = async () => {
+    const selected = await shopifyBridge.resourcePicker({
+      type: "product",
+      multiple: true,
+      action: "add",
+    });
+    const sel = (selected as { selection?: Array<Record<string, unknown>> } | null)?.selection;
+    if (!Array.isArray(sel) || sel.length === 0) return;
+
+    const existing = new Set(step.products.map((p) => p.variantGid));
+    const additions: UiStepProduct[] = [];
+    let sort = step.products.length;
+
+    for (const p of sel) {
+      const variants = Array.isArray(p.variants) ? (p.variants as Array<Record<string, unknown>>) : [];
+      const first = variants[0];
+      const firstId = first && typeof first.id === "string" ? first.id : null;
+      if (!firstId) continue;
+      // ResourcePicker returns numeric IDs; normalize to GID
+      const variantGid = firstId.startsWith("gid://")
+        ? firstId
+        : `gid://shopify/ProductVariant/${firstId}`;
+      if (existing.has(variantGid)) continue;
+      existing.add(variantGid);
+
+      const title =
+        (typeof p.title === "string" && p.title.trim()) ||
+        (typeof p.handle === "string" && p.handle.trim()) ||
+        variantGid;
+
+      const imageUrl =
+        (p.image && typeof (p.image as { url?: unknown }).url === "string"
+          ? ((p.image as { url: string }).url as string)
+          : null) || null;
+
+      additions.push({
+        variantGid,
+        sortOrder: sort++,
+        minQuantity: null,
+        maxQuantity: null,
+        displayName: title,
+        imageUrl,
+        productHandle: typeof p.handle === "string" ? (p.handle as string) : null,
+        layoutPreset: "STACK_ADD_TO_QTY",
+        styleOverrides: null,
+      });
+    }
+
+    if (additions.length) {
+      onStepProductsChange([...step.products, ...additions]);
+    }
   };
 
   const toggleCat = (cat: LibCategory) =>
@@ -671,9 +725,12 @@ export function SidebarLevel2({
       <Text as="h4" variant="headingSm">
         Produits éligibles
       </Text>
-      <Button onClick={openVariantPicker}>
-        Sélectionner des variants
-      </Button>
+      <InlineStack gap="200" wrap>
+        <Button onClick={openVariantPicker}>Sélectionner des variants</Button>
+        <Button onClick={openProductPicker} variant="secondary">
+          Sélectionner des produits
+        </Button>
+      </InlineStack>
       {step.products.length === 0 ? (
         <Text as="p" variant="bodySm" tone="subdued">
           Aucun variant sélectionné.
@@ -749,7 +806,12 @@ export function SidebarLevel2({
           },
           {
             id: "settings",
-            content: "Paramètres",
+            content: "",
+            icon: (
+              <Tooltip content="Paramètres">
+                <Icon source={SettingsIcon} />
+              </Tooltip>
+            ),
             accessibilityLabel: "Paramètres",
           },
         ]}
