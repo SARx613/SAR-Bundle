@@ -231,3 +231,92 @@
   text-align: center;
   opacity: 0.7;
 }
+
+/* Storefront design v2 — hero, split, product grid */
+.sar-bundle__hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.sar-bundle__hero--stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.sar-bundle__hero--image_right {
+  flex-direction: row-reverse;
+}
+
+.sar-bundle__hero-img {
+  max-width: 100%;
+  width: 320px;
+  border-radius: var(--sar-radius, 8px);
+  object-fit: cover;
+}
+
+.sar-bundle__hero-text h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.sar-bundle__hero-text p {
+  margin: 0;
+  opacity: 0.85;
+}
+
+.sar-bundle__split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.sar-bundle__split--img-right {
+  flex-direction: row-reverse;
+}
+
+.sar-bundle__split-img {
+  max-width: 200px;
+  width: 100%;
+  border-radius: var(--sar-radius, 8px);
+}
+
+.sar-bundle__split-body h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.sar-bundle__split-body p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.sar-bundle__product-grid {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px dashed var(--sar-color-border, #e1e3e5);
+  border-radius: var(--sar-radius, 8px);
+}
+
+.sar-bundle__product-grid-note {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.sar-bundle__product-grid--list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sar-bundle__product-grid-item {
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  background: var(--sar-color-bg-subtle, #f6f6f7);
+  font-size: 0.9rem;
+}

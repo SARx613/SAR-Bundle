@@ -31,4 +31,15 @@
   font-size: 0.85em;
   line-height: 1.45;
   color: inherit;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+/*
+  Thèmes qui affichent les propriétés en <dl><dd> sans ce snippet : ajoutez sur le <dd> de « Composition »
+  la classe ci-dessous (ou équivalent CSS) pour respecter les retours à la ligne.
+*/
+.sar-bundle-cart-composition-dd {
+  white-space: pre-line;
+  word-break: break-word;
 }

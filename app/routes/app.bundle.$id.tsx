@@ -15,6 +15,7 @@ import {
 } from "../utils/bundle.server";
 import { slugifyProductHandle } from "../utils/storefront-design";
 import {
+  galleryUrlsFromBundle,
   syncBundleShopifyProduct,
   syncFixedPriceBoxCatalogVariantPrice,
 } from "../utils/shopify-bundle-product.server";
@@ -26,6 +27,7 @@ const emptyBundleState: SerializedBundle = {
   description: null,
   imageUrl: null,
   imageGid: null,
+  bundleGallery: null,
   shopifyProductId: null,
   shopifyParentVariantId: null,
   productHandle: null,
@@ -123,7 +125,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           id: created.id,
           name: created.name,
           description: created.description,
-          imageUrl: created.imageUrl,
+          galleryUrls: galleryUrlsFromBundle({
+            bundleGallery: created.bundleGallery,
+            imageUrl: created.imageUrl,
+          }),
           shopifyProductId: null,
           handle:
             created.productHandle?.trim() ||
@@ -201,7 +206,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         id: updated.id,
         name: updated.name,
         description: updated.description,
-        imageUrl: updated.imageUrl,
+        galleryUrls: galleryUrlsFromBundle({
+          bundleGallery: updated.bundleGallery,
+          imageUrl: updated.imageUrl,
+        }),
         shopifyProductId: updated.shopifyProductId,
         handle:
           updated.productHandle?.trim() ||

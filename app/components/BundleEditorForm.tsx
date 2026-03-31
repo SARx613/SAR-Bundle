@@ -21,9 +21,15 @@ import {
   RadioButton,
   Tooltip,
   Icon,
+  Badge,
 } from "@shopify/polaris";
-import { InfoIcon } from "@shopify/polaris-icons";
-import { BundleStorefrontBlocksEditor } from "./bundle-editor/BundleStorefrontBlocksEditor";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  DeleteIcon,
+  InfoIcon,
+} from "@shopify/polaris-icons";
+import { BundleVisualEditor } from "./bundle-editor/BundleVisualEditor";
 import {
   PRODUCT_LAYOUT_PRESETS,
   slugifyProductHandle,
@@ -32,6 +38,7 @@ import {
 import {
   emptyPricingTier,
   emptyStep,
+  newGalleryItemKey,
   toApiPayload,
   toFormState,
   type BundleFormState,
@@ -55,8 +62,12 @@ type SaveActionJson =
   | { error: string; details?: string };
 
 const STATUS_OPTIONS = [
-  { label: "Brouillon", value: "DRAFT" },
-  { label: "Actif", value: "ACTIVE" },
+  { label: "Brouillon (non vendable)", value: "DRAFT" },
+  { label: "Actif (catalogue / recherche)", value: "ACTIVE" },
+  {
+    label: "Non répertorié (lien direct uniquement)",
+    value: "UNLISTED",
+  },
   { label: "Archivé", value: "ARCHIVED" },
 ];
 
@@ -141,6 +152,7 @@ export function BundleEditorForm({
 
   const [form, setForm] = useState<BundleFormState>(() => toFormState(bundle));
   const [selectedTab, setSelectedTab] = useState(0);
+  const [galleryUrlDraft, setGalleryUrlDraft] = useState("");
 
   useEffect(() => {
     setForm(toFormState(bundle));
@@ -170,11 +182,11 @@ export function BundleEditorForm({
   );
 
   const saveFetcher = useFetcher<SaveActionJson>();
-  const uploadFetcher = useFetcher<UploadJson>();
+  const uploadStepFetcher = useFetcher<UploadJson>();
+  const uploadBundleFetcher = useFetcher<UploadJson>();
 
-  const pendingUpload = useRef<
-    { kind: "bundle" } | { kind: "step"; stepIndex: number } | null
-  >(null);
+  const pendingStepUpload = useRef<number | null>(null);
+  const bundleFileQueue = useRef<File[]>([]);
 
   const saving = saveFetcher.state !== "idle";
 
@@ -202,39 +214,74 @@ export function BundleEditorForm({
   }, [saveFetcher.state, saveFetcher.data, isNew, navigate, shopifyBridge]);
 
   useEffect(() => {
-    if (uploadFetcher.state !== "idle" || !uploadFetcher.data) return;
-    const d = uploadFetcher.data;
-    const target = pendingUpload.current;
-    pendingUpload.current = null;
+    if (uploadStepFetcher.state !== "idle" || !uploadStepFetcher.data) return;
+    const d = uploadStepFetcher.data;
+    const stepIndex = pendingStepUpload.current;
+    pendingStepUpload.current = null;
     if (!d.ok) {
       shopifyBridge.toast.show(d.error ?? "Échec du téléversement", {
         isError: true,
       });
       return;
     }
-    if (!target) return;
-    if (target.kind === "bundle") {
-      setForm((f) => ({
-        ...f,
-        imageUrl: d.imageUrl ?? f.imageUrl,
-        imageGid: d.imageGid ?? null,
-      }));
+    if (stepIndex == null) return;
+    setForm((f) => ({
+      ...f,
+      steps: f.steps.map((s, i) =>
+        i === stepIndex
+          ? {
+              ...s,
+              imageUrl: d.imageUrl ?? s.imageUrl,
+              imageGid: d.imageGid ?? null,
+            }
+          : s,
+      ),
+    }));
+    shopifyBridge.toast.show("Image téléversée");
+  }, [uploadStepFetcher.state, uploadStepFetcher.data, shopifyBridge]);
+
+  useEffect(() => {
+    if (uploadBundleFetcher.state !== "idle" || !uploadBundleFetcher.data) {
+      return;
+    }
+    const d = uploadBundleFetcher.data;
+    if (!d.ok) {
+      shopifyBridge.toast.show(d.error ?? "Échec du téléversement", {
+        isError: true,
+      });
+      bundleFileQueue.current = [];
+      return;
+    }
+    const url = d.imageUrl?.trim();
+    if (!url) {
+      shopifyBridge.toast.show("Aucune URL d’image retournée", {
+        isError: true,
+      });
     } else {
       setForm((f) => ({
         ...f,
-        steps: f.steps.map((s, i) =>
-          i === target.stepIndex
-            ? {
-                ...s,
-                imageUrl: d.imageUrl ?? s.imageUrl,
-                imageGid: d.imageGid ?? null,
-              }
-            : s,
-        ),
+        bundleGallery: [
+          ...f.bundleGallery,
+          {
+            key: newGalleryItemKey(),
+            url,
+            mediaGid: d.imageGid ?? null,
+          },
+        ],
       }));
+      shopifyBridge.toast.show("Image ajoutée à la galerie");
     }
-    shopifyBridge.toast.show("Image téléversée");
-  }, [uploadFetcher.state, uploadFetcher.data, shopifyBridge]);
+    const next = bundleFileQueue.current.shift();
+    if (next) {
+      const fd = new FormData();
+      fd.append("file", next);
+      uploadBundleFetcher.submit(fd, {
+        method: "POST",
+        action: "/api/upload",
+        encType: "multipart/form-data",
+      });
+    }
+  }, [uploadBundleFetcher.state, uploadBundleFetcher.data, shopifyBridge]);
 
   const handleSave = () => {
     const payload = toApiPayload(form);
@@ -244,18 +291,81 @@ export function BundleEditorForm({
     });
   };
 
-  const submitFile = (
-    file: File,
-    target: { kind: "bundle" } | { kind: "step"; stepIndex: number },
-  ) => {
-    pendingUpload.current = target;
+  const enqueueBundleFiles = (files: File[]) => {
+    if (!files.length) return;
+    bundleFileQueue.current.push(...files);
+    if (uploadBundleFetcher.state !== "idle") return;
+    const next = bundleFileQueue.current.shift();
+    if (!next) return;
     const fd = new FormData();
-    fd.append("file", file);
-    uploadFetcher.submit(fd, {
+    fd.append("file", next);
+    uploadBundleFetcher.submit(fd, {
       method: "POST",
       action: "/api/upload",
       encType: "multipart/form-data",
     });
+  };
+
+  const submitStepFile = (file: File, stepIndex: number) => {
+    pendingStepUpload.current = stepIndex;
+    const fd = new FormData();
+    fd.append("file", file);
+    uploadStepFetcher.submit(fd, {
+      method: "POST",
+      action: "/api/upload",
+      encType: "multipart/form-data",
+    });
+  };
+
+  const submitGalleryByUrl = () => {
+    const u = galleryUrlDraft.trim();
+    if (!/^https?:\/\//i.test(u)) {
+      shopifyBridge.toast.show("Indiquez une URL commençant par http(s)://", {
+        isError: true,
+      });
+      return;
+    }
+    if (uploadBundleFetcher.state !== "idle") {
+      shopifyBridge.toast.show("Un autre téléversement est en cours", {
+        isError: true,
+      });
+      return;
+    }
+    if (bundleFileQueue.current.length > 0) {
+      shopifyBridge.toast.show("Attendez la fin des fichiers en file d’attente", {
+        isError: true,
+      });
+      return;
+    }
+    const fd = new FormData();
+    fd.append("imageUrl", u);
+    uploadBundleFetcher.submit(fd, {
+      method: "POST",
+      action: "/api/upload",
+      encType: "multipart/form-data",
+    });
+    setGalleryUrlDraft("");
+  };
+
+  const moveGalleryItem = (index: number, delta: number) => {
+    setForm((f) => {
+      const g = [...f.bundleGallery];
+      const j = index + delta;
+      if (j < 0 || j >= g.length) return f;
+      const t = g[index];
+      const u = g[j];
+      if (!t || !u) return f;
+      g[index] = u;
+      g[j] = t;
+      return { ...f, bundleGallery: g };
+    });
+  };
+
+  const removeGalleryItem = (key: string) => {
+    setForm((f) => ({
+      ...f,
+      bundleGallery: f.bundleGallery.filter((x) => x.key !== key),
+    }));
   };
 
   const openVariantPicker = async (stepIndex: number) => {
@@ -382,7 +492,7 @@ export function BundleEditorForm({
             <Tabs
               tabs={[
                 { id: "page", content: "Page & URL" },
-                { id: "design", content: "Design boutique" },
+                { id: "visual", content: "Éditeur visuel" },
                 { id: "steps", content: "Étapes & produits" },
                 { id: "pricing", content: "Tarifs & panier" },
               ]}
@@ -409,7 +519,7 @@ export function BundleEditorForm({
                   autoComplete="off"
                 />
                 <Select
-                  label="Statut"
+                  label="Statut (aligné sur le produit Shopify)"
                   options={STATUS_OPTIONS}
                   value={form.status}
                   onChange={(v) =>
@@ -418,33 +528,88 @@ export function BundleEditorForm({
                       status: v as BundleFormState["status"],
                     }))
                   }
+                  helpText="Enregistrer le bundle met à jour le produit catalogue ; une modification dans Shopify met à jour ce statut."
                 />
                 <Text as="h3" variant="headingSm">
-                  Image du bundle
+                  Galerie du bundle
                 </Text>
-                <InlineStack gap="400" blockAlign="start">
-                  {form.imageUrl ? (
-                    <Thumbnail
-                      source={form.imageUrl}
-                      alt="Bundle"
-                      size="large"
-                    />
-                  ) : null}
-                  <DropZone
-                    onDrop={(_d, accepted) => {
-                      const f = accepted[0];
-                      if (f) submitFile(f, { kind: "bundle" });
-                    }}
-                    allowMultiple={false}
-                  >
-                    <DropZone.FileUpload actionHint="PNG, JPG — max 5 Mo" />
-                  </DropZone>
-                </InlineStack>
-                {form.imageGid ? (
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    GID: {form.imageGid}
-                  </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  La première image sert de vignette dans la liste et d’image
+                  principale sur le produit Shopify. Glissez plusieurs fichiers
+                  pour les ajouter à la suite.
+                </Text>
+                {form.bundleGallery.length > 0 ? (
+                  <InlineStack gap="400" wrap blockAlign="start">
+                    {form.bundleGallery.map((item, index) => (
+                      <BlockStack key={item.key} gap="200" inlineAlign="center">
+                        <Box position="relative" padding="200">
+                          <Thumbnail
+                            source={item.url}
+                            alt=""
+                            size="large"
+                          />
+                          {index === 0 ? (
+                            <div
+                              style={{
+                                marginTop: 8,
+                                display: "flex",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Badge tone="info">Principale</Badge>
+                            </div>
+                          ) : null}
+                        </Box>
+                        <InlineStack gap="100" blockAlign="center">
+                          <Button
+                            icon={ArrowUpIcon}
+                            variant="plain"
+                            disabled={index === 0}
+                            onClick={() => moveGalleryItem(index, -1)}
+                            accessibilityLabel="Monter"
+                          />
+                          <Button
+                            icon={ArrowDownIcon}
+                            variant="plain"
+                            disabled={index === form.bundleGallery.length - 1}
+                            onClick={() => moveGalleryItem(index, 1)}
+                            accessibilityLabel="Descendre"
+                          />
+                          <Button
+                            icon={DeleteIcon}
+                            variant="plain"
+                            tone="critical"
+                            onClick={() => removeGalleryItem(item.key)}
+                            accessibilityLabel="Retirer"
+                          />
+                        </InlineStack>
+                      </BlockStack>
+                    ))}
+                  </InlineStack>
                 ) : null}
+                <DropZone
+                  onDrop={(_d, accepted) => {
+                    enqueueBundleFiles([...accepted]);
+                  }}
+                  allowMultiple
+                >
+                  <DropZone.FileUpload actionHint="PNG, JPG — max 5 Mo chacun" />
+                </DropZone>
+                <InlineStack gap="300" blockAlign="end" wrap>
+                  <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+                    <TextField
+                      label="Ajouter une image par URL (https)"
+                      value={galleryUrlDraft}
+                      onChange={setGalleryUrlDraft}
+                      autoComplete="off"
+                      connectedRight={
+                        <Button onClick={submitGalleryByUrl}>
+                          Ajouter
+                        </Button>
+                      }
+                    />
+                  </div>
+                </InlineStack>
                 <Divider />
                 <Text as="h3" variant="headingSm">
                   Page produit Shopify
@@ -477,23 +642,11 @@ export function BundleEditorForm({
             </Card>
               ) : null}
               {selectedTab === 1 ? (
-                <Card>
-                  <BlockStack gap="400">
-                    <Text as="h2" variant="headingMd">
-                      Mise en page (boutique)
-                    </Text>
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Blocs au-dessus du tunnel : titres, textes, images. Les
-                      produits par étape se configurent dans l’onglet suivant.
-                    </Text>
-                    <BundleStorefrontBlocksEditor
-                      design={form.storefrontDesign}
-                      onChange={(d) =>
-                        setForm((f) => ({ ...f, storefrontDesign: d }))
-                      }
-                    />
-                  </BlockStack>
-                </Card>
+                <BundleVisualEditor
+                  form={form}
+                  setForm={setForm}
+                  onOpenStepsTab={() => setSelectedTab(2)}
+                />
               ) : null}
               {selectedTab === 2 ? (
             <Card>
@@ -575,7 +728,7 @@ export function BundleEditorForm({
                         <DropZone
                           onDrop={(_d, accepted) => {
                             const f = accepted[0];
-                            if (f) submitFile(f, { kind: "step", stepIndex: si });
+                            if (f) submitStepFile(f, si);
                           }}
                           allowMultiple={false}
                         >

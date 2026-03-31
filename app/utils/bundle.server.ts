@@ -17,8 +17,7 @@ import {
   type ThresholdBasis,
 } from "@prisma/client";
 
-const BUNDLE_STATUSES: BundleStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
-const PRICING_SCOPES: PricingScope[] = ["FLAT", "TIERED"];
+const BUNDLE_STATUSES: BundleStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED", "UNLISTED"];
 const BUNDLE_PRICING_MODES: BundlePricingMode[] = [
   "STANDARD",
   "FIXED_PRICE_BOX",
@@ -101,11 +100,18 @@ export type PricingTierPayload = {
   tierValue: string | number;
 };
 
+export type BundleGalleryItem = {
+  url: string;
+  mediaGid: string | null;
+};
+
 export type BundleWritePayload = {
   name: string;
   description?: string | null;
   imageUrl?: string | null;
   imageGid?: string | null;
+  /** Médias ordonnés ; la première URL est aussi `imageUrl` / image principale. */
+  bundleGallery: BundleGalleryItem[];
   status?: BundleStatus;
   /** Slug /products/{handle} — toujours défini côté parse (défaut = nom slugifié) */
   productHandle: string;
@@ -148,6 +154,41 @@ function toDecimal(
   } catch {
     throw Response.json({ error: `Invalid decimal for ${field}` }, { status: 400 });
   }
+}
+
+function normalizeBundleGalleryFromBody(
+  o: Record<string, unknown>,
+): BundleGalleryItem[] {
+  const raw = o.bundleGallery;
+  const parsed: BundleGalleryItem[] = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!item || typeof item !== "object") continue;
+      const rec = item as Record<string, unknown>;
+      const url = typeof rec.url === "string" ? rec.url.trim() : "";
+      if (!/^https?:\/\//i.test(url)) continue;
+      let mediaGid: string | null = null;
+      if (typeof rec.mediaGid === "string" && rec.mediaGid.trim()) {
+        mediaGid = rec.mediaGid.trim();
+      } else if (rec.mediaGid === null) {
+        mediaGid = null;
+      }
+      parsed.push({ url, mediaGid });
+    }
+    if (parsed.length) return parsed;
+  }
+  const legacyUrl =
+    typeof o.imageUrl === "string" && /^https?:\/\//i.test(o.imageUrl.trim())
+      ? o.imageUrl.trim()
+      : null;
+  if (legacyUrl) {
+    const gid =
+      typeof o.imageGid === "string" && o.imageGid.trim()
+        ? o.imageGid.trim()
+        : null;
+    return [{ url: legacyUrl, mediaGid: gid }];
+  }
+  return [];
 }
 
 function requireDecimal(
@@ -391,6 +432,9 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     }
   }
 
+  const bundleGallery = normalizeBundleGalleryFromBody(o);
+  const primary = bundleGallery[0];
+
   return {
     name: nameTrim,
     description:
@@ -399,18 +443,9 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
         : o.description === null
           ? null
           : undefined,
-    imageUrl:
-      typeof o.imageUrl === "string"
-        ? o.imageUrl
-        : o.imageUrl === null
-          ? null
-          : undefined,
-    imageGid:
-      typeof o.imageGid === "string"
-        ? o.imageGid
-        : o.imageGid === null
-          ? null
-          : undefined,
+    bundleGallery,
+    imageUrl: primary?.url ?? null,
+    imageGid: primary?.mediaGid ?? null,
     status: o.status as BundleStatus | undefined,
     bundlePricingMode,
     fixedBoxItemCount:
@@ -466,6 +501,10 @@ export function toPrismaBundleScalars(
     description: data.description ?? null,
     imageUrl: data.imageUrl ?? null,
     imageGid: data.imageGid ?? null,
+    bundleGallery:
+      data.bundleGallery.length > 0
+        ? (data.bundleGallery as unknown as Prisma.InputJsonValue)
+        : null,
     productHandle: data.productHandle,
     seoTitle: data.seoTitle ?? null,
     seoDescription: data.seoDescription ?? null,
@@ -589,11 +628,37 @@ export function bundlePrismaToWritePayload(
     bundle.storefrontDesign != null
       ? (bundle.storefrontDesign as Prisma.InputJsonValue)
       : (defaultStorefrontDesign() as unknown as Prisma.InputJsonValue);
+  const galleryFromDb = bundle.bundleGallery;
+  const galleryItems: BundleGalleryItem[] = Array.isArray(galleryFromDb)
+    ? (galleryFromDb as unknown[]).flatMap((item): BundleGalleryItem[] => {
+        if (!item || typeof item !== "object") return [];
+        const rec = item as Record<string, unknown>;
+        const url = typeof rec.url === "string" ? rec.url.trim() : "";
+        if (!/^https?:\/\//i.test(url)) return [];
+        const gid =
+          typeof rec.mediaGid === "string" && rec.mediaGid.trim()
+            ? rec.mediaGid.trim()
+            : null;
+        return [{ url, mediaGid: gid }];
+      })
+    : [];
+
   return {
     name: bundle.name,
     description: bundle.description,
     imageUrl: bundle.imageUrl,
     imageGid: bundle.imageGid,
+    bundleGallery:
+      galleryItems.length > 0
+        ? galleryItems
+        : bundle.imageUrl && /^https?:\/\//i.test(bundle.imageUrl)
+          ? [
+              {
+                url: bundle.imageUrl,
+                mediaGid: bundle.imageGid ?? null,
+              },
+            ]
+          : [],
     productHandle: bundle.productHandle ?? slugifyProductHandle(bundle.name),
     seoTitle: bundle.seoTitle,
     seoDescription: bundle.seoDescription,

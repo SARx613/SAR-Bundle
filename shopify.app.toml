@@ -20,10 +20,14 @@ api_version = "2026-04"
   topics = [ "app/uninstalled" ]
   uri = "/webhooks/app/uninstalled"
 
+  [[webhooks.subscriptions]]
+  topics = [ "products/update" ]
+  uri = "/webhooks/products/update"
+
 [access_scopes]
 # Aligner avec la variable SCOPES sur l’hébergement si elle est définie.
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,write_files,read_orders"
+scopes = "read_products,write_products,write_files,read_orders"
 
 [auth]
 redirect_urls = ["https://sar-bundle.onrender.com/auth/callback"]

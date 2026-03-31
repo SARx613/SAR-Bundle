@@ -30,6 +30,7 @@ import { authenticate } from "../shopify.server";
 import { duplicateBundle } from "../utils/bundle.server";
 import {
   deleteBundleShopifyProduct,
+  galleryUrlsFromBundle,
   syncBundleShopifyProduct,
   syncFixedPriceBoxCatalogVariantPrice,
 } from "../utils/shopify-bundle-product.server";
@@ -183,7 +184,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           id: bundle.id,
           name: bundle.name,
           description: bundle.description,
-          imageUrl: bundle.imageUrl,
+          galleryUrls: galleryUrlsFromBundle({
+            bundleGallery: bundle.bundleGallery,
+            imageUrl: bundle.imageUrl,
+          }),
           shopifyProductId: null,
           handle:
             bundle.productHandle?.trim() ||
@@ -233,6 +237,7 @@ const statusTone: Record<
 > = {
   DRAFT: "info",
   ACTIVE: "success",
+  UNLISTED: "attention",
   ARCHIVED: "read-only",
 };
 

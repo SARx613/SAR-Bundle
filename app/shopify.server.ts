@@ -12,6 +12,7 @@ import prisma from "./db.server";
  * Si SCOPES n'est pas défini sur l'hébergement, l'app OAuth cassait (scopes = undefined).
  */
 const DEFAULT_SCOPES_FROM_TOML = [
+  "read_products",
   "write_files",
   "read_orders",
   "write_products",
@@ -28,7 +29,7 @@ function appScopes(): string[] {
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: ApiVersion.January25,
+  apiVersion: ApiVersion.October25,
   scopes: appScopes(),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
@@ -44,7 +45,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = ApiVersion.January25;
+export const apiVersion = ApiVersion.October25;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;

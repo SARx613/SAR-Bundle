@@ -5,11 +5,32 @@ type AdminClient = {
   ) => Promise<Response>;
 };
 
+export function galleryUrlsFromBundle(bundle: {
+  bundleGallery: unknown;
+  imageUrl: string | null;
+}): string[] {
+  if (Array.isArray(bundle.bundleGallery)) {
+    const urls: string[] = [];
+    for (const item of bundle.bundleGallery) {
+      if (item && typeof item === "object" && "url" in item) {
+        const u = String((item as { url: unknown }).url).trim();
+        if (/^https?:\/\//i.test(u)) urls.push(u);
+      }
+    }
+    if (urls.length) return urls;
+  }
+  if (bundle.imageUrl && /^https?:\/\//i.test(bundle.imageUrl)) {
+    return [bundle.imageUrl];
+  }
+  return [];
+}
+
 export type BundleProductSyncInput = {
   id: string;
   name: string;
   description: string | null;
-  imageUrl: string | null;
+  /** URLs publiques, ordre = galerie produit (1re = principale) */
+  galleryUrls: string[];
   shopifyProductId: string | null;
   /** Slug Shopify /products/{handle} */
   handle: string;
@@ -17,8 +38,19 @@ export type BundleProductSyncInput = {
   seoDescription: string | null;
   /** JSON éditeur visuel (metafield custom.sar_bundle_storefront) */
   storefrontDesign: unknown;
-  status: "DRAFT" | "ACTIVE" | "ARCHIVED";
+  status: "DRAFT" | "ACTIVE" | "ARCHIVED" | "UNLISTED";
 };
+
+/** ProductStatus Admin GraphQL — aligné sur le statut du bundle. */
+function shopifyProductStatus(
+  status: BundleProductSyncInput["status"],
+): "ACTIVE" | "DRAFT" | "ARCHIVED" | "UNLISTED" {
+  return status;
+}
+
+function bundleActiveForStorefront(status: BundleProductSyncInput["status"]): boolean {
+  return status === "ACTIVE" || status === "UNLISTED";
+}
 
 export type BundleProductSyncResult = {
   productId: string;
@@ -57,19 +89,17 @@ export async function syncBundleShopifyProduct(
       namespace: "custom",
       key: "sar_bundle_active",
       type: "boolean",
-      value: bundle.status === "ACTIVE" ? "true" : "false",
+      value: bundleActiveForStorefront(bundle.status) ? "true" : "false",
     },
   ];
 
-  const media =
-    bundle.imageUrl && /^https?:\/\//i.test(bundle.imageUrl)
-      ? [
-          {
-            originalSource: bundle.imageUrl,
-            mediaContentType: "IMAGE" as const,
-          },
-        ]
-      : undefined;
+  const mediaInputs = bundle.galleryUrls
+    .filter((u) => /^https?:\/\//i.test(u))
+    .map((originalSource) => ({
+      originalSource,
+      mediaContentType: "IMAGE" as const,
+    }));
+  const media = mediaInputs.length ? mediaInputs : undefined;
 
   const hasSeo = Boolean(
     (bundle.seoTitle && bundle.seoTitle.trim()) ||
@@ -104,6 +134,7 @@ export async function syncBundleShopifyProduct(
             title: bundle.name,
             handle: bundle.handle,
             descriptionHtml,
+            status: shopifyProductStatus(bundle.status),
             ...(seo ? { seo } : {}),
             metafields,
           },
@@ -117,7 +148,7 @@ export async function syncBundleShopifyProduct(
     }
     const pid = body?.data?.productUpdate?.product?.id;
     if (!pid) throw new Error("productUpdate returned no product id");
-    await syncProductFeaturedImageFromBundleUrl(admin, pid, bundle.imageUrl);
+    await syncProductGalleryMedia(admin, pid, bundle.galleryUrls);
     const defaultVariantId = await fetchDefaultVariantGid(admin, pid);
     return { productId: pid, defaultVariantId };
   }
@@ -142,6 +173,7 @@ export async function syncBundleShopifyProduct(
           title: bundle.name,
           handle: bundle.handle,
           descriptionHtml,
+          status: shopifyProductStatus(bundle.status),
           ...(seo ? { seo } : {}),
           metafields,
         },
@@ -163,17 +195,15 @@ export async function syncBundleShopifyProduct(
 }
 
 /**
- * Aligne l’image du produit catalogue sur l’image du bundle (app).
- * Supprime les anciennes images produit puis ajoute la nouvelle depuis l’URL publique.
+ * Réconcilie les images catalogue avec la galerie bundle : supprime les MediaImage
+ * existantes puis recrée depuis les URLs (ordre conservé).
  */
-async function syncProductFeaturedImageFromBundleUrl(
+async function syncProductGalleryMedia(
   admin: AdminClient,
   productGid: string,
-  imageUrl: string | null,
+  galleryUrls: string[],
 ): Promise<void> {
-  if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
-    return;
-  }
+  const urls = galleryUrls.filter((u) => /^https?:\/\//i.test(u));
 
   const listRes = await admin.graphql(
     `#graphql
@@ -223,6 +253,8 @@ async function syncProductFeaturedImageFromBundleUrl(
     }
   }
 
+  if (!urls.length) return;
+
   const createRes = await admin.graphql(
     `#graphql
       mutation ProductCreateMediaSync($productId: ID!, $media: [CreateMediaInput!]!) {
@@ -241,13 +273,11 @@ async function syncProductFeaturedImageFromBundleUrl(
     {
       variables: {
         productId: productGid,
-        media: [
-          {
-            originalSource: imageUrl,
-            mediaContentType: "IMAGE",
-            alt: "Bundle",
-          },
-        ],
+        media: urls.map((originalSource) => ({
+          originalSource,
+          mediaContentType: "IMAGE",
+          alt: "Bundle",
+        })),
       },
     },
   );

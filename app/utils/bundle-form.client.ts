@@ -3,21 +3,41 @@
  */
 import {
   defaultStorefrontDesign,
+  migrateStorefrontDesign,
   type ProductStyleOverrides,
-  type StorefrontDesignV1,
+  type StorefrontDesignV2,
 } from "./storefront-design";
+
+export type BundleGalleryItemApi = {
+  url: string;
+  mediaGid?: string | null;
+};
+
+export type UiBundleGalleryItem = {
+  key: string;
+  url: string;
+  mediaGid: string | null;
+};
+
+export function newGalleryItemKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `g-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
 
 export type BundleSubmitPayload = {
   name: string;
   description?: string | null;
   imageUrl?: string | null;
   imageGid?: string | null;
+  bundleGallery?: BundleGalleryItemApi[];
   /** Vide = slug dérivé du nom côté serveur */
   productHandle?: string;
   seoTitle?: string | null;
   seoDescription?: string | null;
-  storefrontDesign?: StorefrontDesignV1;
-  status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
+  storefrontDesign?: StorefrontDesignV2;
+  status?: "DRAFT" | "ACTIVE" | "ARCHIVED" | "UNLISTED";
   bundlePricingMode: string;
   fixedBoxItemCount?: number | null;
   pricingModeMedia?: Record<string, unknown> | null;
@@ -128,14 +148,13 @@ export type UiStep = {
 export type BundleFormState = {
   name: string;
   description: string;
-  imageUrl: string | null;
-  imageGid: string | null;
+  bundleGallery: UiBundleGalleryItem[];
   /** Laisser vide pour URL auto depuis le nom */
   productHandle: string;
   seoTitle: string;
   seoDescription: string;
-  storefrontDesign: StorefrontDesignV1;
-  status: "DRAFT" | "ACTIVE" | "ARCHIVED";
+  storefrontDesign: StorefrontDesignV2;
+  status: "DRAFT" | "ACTIVE" | "ARCHIVED" | "UNLISTED";
   bundlePricingMode: "STANDARD" | "FIXED_PRICE_BOX" | "TIERED";
   /** Remise % ou montant (mode STANDARD uniquement) */
   standardDiscountType: "PERCENT" | "FIXED_AMOUNT";
@@ -160,6 +179,7 @@ export type SerializedBundle = {
   description?: string | null;
   imageUrl?: string | null;
   imageGid?: string | null;
+  bundleGallery?: BundleGalleryItemApi[] | null;
   shopifyProductId?: string | null;
   shopifyParentVariantId?: string | null;
   productHandle?: string | null;
@@ -222,20 +242,11 @@ export type SerializedBundle = {
   }>;
 };
 
-function parseStorefrontDesign(raw: unknown): StorefrontDesignV1 {
-  if (
-    raw &&
-    typeof raw === "object" &&
-    (raw as StorefrontDesignV1).version === 1
-  ) {
-    const o = raw as StorefrontDesignV1;
-    return {
-      version: 1,
-      global: { ...defaultStorefrontDesign().global, ...o.global },
-      blocks: Array.isArray(o.blocks) ? o.blocks : [],
-    };
+function parseStorefrontDesign(raw: unknown): StorefrontDesignV2 {
+  if (raw === undefined || raw === null) {
+    return defaultStorefrontDesign();
   }
-  return defaultStorefrontDesign();
+  return migrateStorefrontDesign(raw);
 }
 
 export function emptyStep(sortOrder: number): UiStep {
@@ -262,6 +273,34 @@ function inferBundlePricingMode(b: SerializedBundle): BundleFormState["bundlePri
   return "STANDARD";
 }
 
+function bundleGalleryToUi(bundle: SerializedBundle): UiBundleGalleryItem[] {
+  const raw = bundle.bundleGallery;
+  if (Array.isArray(raw) && raw.length > 0) {
+    const out: UiBundleGalleryItem[] = [];
+    for (const item of raw) {
+      if (!item || typeof item !== "object") continue;
+      const url = typeof item.url === "string" ? item.url.trim() : "";
+      if (!/^https?:\/\//i.test(url)) continue;
+      const mediaGid =
+        typeof item.mediaGid === "string" && item.mediaGid.trim()
+          ? item.mediaGid.trim()
+          : null;
+      out.push({ key: newGalleryItemKey(), url, mediaGid });
+    }
+    if (out.length) return out;
+  }
+  if (bundle.imageUrl && /^https?:\/\//i.test(bundle.imageUrl.trim())) {
+    const gid =
+      typeof bundle.imageGid === "string" && bundle.imageGid.trim()
+        ? bundle.imageGid.trim()
+        : null;
+    return [
+      { key: newGalleryItemKey(), url: bundle.imageUrl.trim(), mediaGid: gid },
+    ];
+  }
+  return [];
+}
+
 export function toFormState(bundle: SerializedBundle): BundleFormState {
   const mode = inferBundlePricingMode(bundle);
   const tiers = mode === "TIERED" ? bundle.pricingTiers ?? [] : [];
@@ -273,8 +312,7 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
   return {
     name: bundle.name ?? "",
     description: bundle.description ?? "",
-    imageUrl: bundle.imageUrl ?? null,
-    imageGid: bundle.imageGid ?? null,
+    bundleGallery: bundleGalleryToUi(bundle),
     productHandle: bundle.productHandle ?? "",
     seoTitle: bundle.seoTitle ?? "",
     seoDescription: bundle.seoDescription ?? "",
@@ -381,11 +419,16 @@ export function toApiPayload(form: BundleFormState): BundleSubmitPayload {
         ? form.standardDiscountType
         : form.discountValueType;
 
+  const primary = form.bundleGallery[0];
   return {
     name: form.name.trim(),
     description: form.description.trim() || null,
-    imageUrl: form.imageUrl,
-    imageGid: form.imageGid,
+    imageUrl: primary?.url ?? null,
+    imageGid: primary?.mediaGid ?? null,
+    bundleGallery: form.bundleGallery.map(({ url, mediaGid }) => ({
+      url,
+      mediaGid: mediaGid ?? null,
+    })),
     productHandle: form.productHandle.trim(),
     seoTitle: form.seoTitle.trim() || null,
     seoDescription: form.seoDescription.trim() || null,

@@ -482,9 +482,9 @@
       var after = tier
         ? applyDiscountToBase(base, dt, tier.tierValue)
         : base;
-      var cmp =
+      var cmpTier =
         showCompare && tier && after < base - 1e-9 ? base : null;
-      return { amount: after, compareAt: cmp };
+      return { amount: after, compareAt: cmpTier };
     }
     var flat = bundle.flatDiscountValue;
     if (flat == null || String(flat).trim() === '') {
@@ -728,8 +728,61 @@
             return state.variantChoice[originalGid] || originalGid;
           }
 
-          function renderDesignBlocks(container, design) {
-            if (!design || design.version !== 1) return;
+          function renderProductGridBlock(wrapEl, b, ctx, variantCache) {
+            var box = document.createElement('div');
+            box.className =
+              'sar-bundle__product-grid sar-bundle__product-grid--' +
+              String(b.display || 'list').replace(/_/g, '-');
+            var src = b.source || 'pick';
+            if (src === 'collection') {
+              var ph = document.createElement('p');
+              ph.className = 'sar-bundle__product-grid-note';
+              ph.textContent =
+                'Collection : ' + (b.collectionHandle || '—') + ' (chargée sur la boutique)';
+              box.appendChild(ph);
+              wrapEl.appendChild(box);
+              return;
+            }
+            if (src === 'all') {
+              var pa = document.createElement('p');
+              pa.className = 'sar-bundle__product-grid-note';
+              pa.textContent = 'Affichage de tout le catalogue (widget)';
+              box.appendChild(pa);
+              wrapEl.appendChild(box);
+              return;
+            }
+            var gids = b.variantGids || [];
+            if (
+              (!gids || !gids.length) &&
+              ctx &&
+              ctx.steps &&
+              typeof ctx.stepIndex === 'number'
+            ) {
+              var stp = ctx.steps[ctx.stepIndex];
+              if (stp && stp.products) {
+                gids = stp.products
+                  .map(function (p) {
+                    return p.variantGid;
+                  })
+                  .filter(Boolean);
+              }
+            }
+            var maxN =
+              typeof b.maxItems === 'number' && b.maxItems > 0 ? b.maxItems : 24;
+            for (var gi = 0; gi < gids.length && gi < maxN; gi++) {
+              var gid = gids[gi];
+              var meta = (variantCache && variantCache[gid]) || {};
+              var row = document.createElement('div');
+              row.className = 'sar-bundle__product-grid-item';
+              var t = meta.title || meta.name || String(gid).split('/').pop() || gid;
+              row.textContent = t;
+              box.appendChild(row);
+            }
+            wrapEl.appendChild(box);
+          }
+
+          function renderDesignBlocks(container, design, ctx, variantCache) {
+            if (!design || (design.version !== 1 && design.version !== 2)) return;
             var g = design.global || {};
             if (g.fontBody) container.style.fontFamily = g.fontBody;
             var wrap = document.createElement('div');
@@ -765,6 +818,55 @@
                 var sp = document.createElement('div');
                 sp.style.height = (b.height || 8) + 'px';
                 wrap.appendChild(sp);
+              } else if (b.type === 'hero') {
+                var hero = document.createElement('section');
+                hero.className =
+                  'sar-bundle__hero sar-bundle__hero--' + (b.layout || 'stack');
+                if (b.imageUrl) {
+                  var him = document.createElement('img');
+                  him.src = b.imageUrl;
+                  him.alt = '';
+                  him.loading = 'lazy';
+                  him.className = 'sar-bundle__hero-img';
+                  hero.appendChild(him);
+                }
+                var hcol = document.createElement('div');
+                hcol.className = 'sar-bundle__hero-text';
+                var hh = document.createElement('h2');
+                hh.textContent = b.headline || '';
+                hcol.appendChild(hh);
+                if (b.subtext) {
+                  var hs = document.createElement('p');
+                  hs.textContent = b.subtext;
+                  hcol.appendChild(hs);
+                }
+                hero.appendChild(hcol);
+                wrap.appendChild(hero);
+              } else if (b.type === 'split') {
+                var spl = document.createElement('section');
+                spl.className =
+                  'sar-bundle__split sar-bundle__split--img-' +
+                  (b.imageSide === 'right' ? 'right' : 'left');
+                if (b.imageUrl) {
+                  var sim = document.createElement('img');
+                  sim.src = b.imageUrl;
+                  sim.alt = '';
+                  sim.loading = 'lazy';
+                  sim.className = 'sar-bundle__split-img';
+                  spl.appendChild(sim);
+                }
+                var scol = document.createElement('div');
+                scol.className = 'sar-bundle__split-body';
+                var sh = document.createElement('h3');
+                sh.textContent = b.title || '';
+                scol.appendChild(sh);
+                var sbody = document.createElement('p');
+                sbody.textContent = b.body || '';
+                scol.appendChild(sbody);
+                spl.appendChild(scol);
+                wrap.appendChild(spl);
+              } else if (b.type === 'product_grid') {
+                renderProductGridBlock(wrap, b, ctx, variantCache);
               }
             }
             if (wrap.childNodes.length) container.appendChild(wrap);
@@ -799,7 +901,10 @@
             errBox.hidden = true;
             inner.appendChild(errBox);
 
-            renderDesignBlocks(inner, bundle.storefrontDesign);
+            renderDesignBlocks(inner, bundle.storefrontDesign, {
+              steps: bundle.steps,
+              stepIndex: state.stepIndex,
+            }, variantCache);
 
             var h = document.createElement('h2');
             h.className = 'sar-bundle__title';

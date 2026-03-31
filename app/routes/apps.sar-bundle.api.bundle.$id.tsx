@@ -27,7 +27,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const bundle = await prisma.bundle.findFirst({
       where: {
         shopDomain: shop,
-        status: "ACTIVE",
+        status: { in: ["ACTIVE", "UNLISTED"] },
         OR: [{ id }, { bundleUid: id }],
       },
       include: bundleDetailInclude,

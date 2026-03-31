@@ -10,6 +10,9 @@
 
   Liez `sar-bundle-cart-composition.css` dans `theme.liquid` (ou la feuille du thème) pour le style liste.
 
+  Sans ce snippet, si le thème affiche « Composition » dans un <dd> : utilisez
+  `{{ composition_value | newline_to_br }}` ou la classe `.sar-bundle-cart-composition-dd` sur le <dd>.
+
   JSON (tableau) : variantGid, variantId, productTitle, variantTitle, imageUrl, quantity
 
   Exemple React (Hydrogen / panier custom) :

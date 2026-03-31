@@ -75,6 +75,8 @@ enum BundleStatus {
   DRAFT
   ACTIVE
   ARCHIVED
+  /// Aligné sur ProductStatus Shopify (produit actif, lien direct uniquement)
+  UNLISTED
 }
 
 /// Mode métier affiché dans l’admin (Tarifs & panier). PREDEFINED_SIZES = phase 2.
@@ -95,6 +97,8 @@ model Bundle {
   description String?
   imageUrl    String?
   imageGid    String?
+  /// Galerie produit (ordre = ordre Shopify). Première entrée = image principale / liste admin.
+  bundleGallery Json?
   /// Linked catalog product (GID) for SEO, collections, and theme metafield binding
   shopifyProductId String?
   /// Variante du produit « coque » bundle (prix fixe) — seule ligne ajoutée au panier
