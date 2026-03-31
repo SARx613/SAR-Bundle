@@ -730,71 +730,6 @@
             return state.variantChoice[originalGid] || originalGid;
           }
 
-          function renderProductGridBlock(wrapEl, b, ctx, variantCache) {
-            var box = document.createElement('div');
-            box.className =
-              'sar-bundle__product-grid sar-bundle__product-grid--' +
-              String(b.display || 'list').replace(/_/g, '-');
-            var src = b.source || 'pick';
-            if (src === 'collection') {
-              var ph = document.createElement('p');
-              ph.className = 'sar-bundle__product-grid-note';
-              ph.textContent =
-                'Collection : ' + (b.collectionHandle || '—') + ' (chargée sur la boutique)';
-              box.appendChild(ph);
-              wrapEl.appendChild(box);
-              return;
-            }
-            if (src === 'all') {
-              var pa = document.createElement('p');
-              pa.className = 'sar-bundle__product-grid-note';
-              pa.textContent = 'Affichage de tout le catalogue (widget)';
-              box.appendChild(pa);
-              wrapEl.appendChild(box);
-              return;
-            }
-            var gids = b.variantGids || [];
-            if (
-              (!gids || !gids.length) &&
-              ctx &&
-              ctx.steps &&
-              typeof ctx.stepIndex === 'number'
-            ) {
-              var stp = ctx.steps[ctx.stepIndex];
-              if (stp && stp.products) {
-                gids = stp.products
-                  .map(function (p) {
-                    return p.variantGid;
-                  })
-                  .filter(Boolean);
-              }
-            }
-            var maxN =
-              typeof b.maxItems === 'number' && b.maxItems > 0 ? b.maxItems : 24;
-            var rowByGid = buildProductRowByVariantGid(bundle);
-            for (var gi = 0; gi < gids.length && gi < maxN; gi++) {
-              var gid = gids[gi];
-              var meta = (variantCache && variantCache[gid]) || {};
-              var row = document.createElement('div');
-              row.className = 'sar-bundle__product-grid-item';
-              var prodRow = rowByGid[gid];
-              var sf = prodRow && prodRow.storefront;
-              var t =
-                (sf && (sf.displayTitle || sf.productTitle)) ||
-                meta.title ||
-                meta.name ||
-                (prodRow && prodRow.displayName) ||
-                String(gid).split('/').pop() ||
-                gid;
-              if (String(t).toLowerCase() === 'default title') {
-                t = (sf && sf.productTitle) || (prodRow && prodRow.displayName) || 'Produit';
-              }
-              row.textContent = t;
-              box.appendChild(row);
-            }
-            wrapEl.appendChild(box);
-          }
-
           function renderStepBarBlock(wrapEl, b, ctx) {
             if (!ctx || !ctx.steps || ctx.steps.length < 2) return;
             var st = b.style || {};
@@ -899,9 +834,7 @@
                   var img = document.createElement('img');
                   img.loading = 'lazy';
                   img.alt = pr && pr.title ? pr.title : '';
-                  img.src =
-                    (pr && pr.images && pr.images[0] && pr.images[0].src) ||
-                    'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
+                  img.src = (pr && pr.images && pr.images[0] && pr.images[0].src) || '';
                   card.appendChild(img);
                   var t = document.createElement('p');
                   t.className = 'sar-bundle__product-title';
@@ -1005,8 +938,6 @@
                 scol.appendChild(sbody);
                 spl.appendChild(scol);
                 wrap.appendChild(spl);
-              } else if (b.type === 'product_grid') {
-                renderProductGridBlock(wrap, b, ctx, variantCache);
               } else if (b.type === 'step_bar') {
                 renderStepBarBlock(wrap, b, ctx);
               } else if (b.type === 'product_list') {
@@ -1155,8 +1086,7 @@
                   } else if (typeof m.featured_image === 'string') {
                     img.src = m.featured_image;
                   } else {
-                    img.src =
-                      'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
+                    img.removeAttribute('src');
                   }
                   img.alt = (m.title && m.title !== 'Default Title' ? m.title : '') || '';
                 }

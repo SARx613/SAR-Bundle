@@ -19,6 +19,57 @@ import {
   syncBundleShopifyProduct,
   syncFixedPriceBoxCatalogVariantPrice,
 } from "../utils/shopify-bundle-product.server";
+import { PRODUCT_DISPLAY_FIELDS, VARIANT_DISPLAY_FIELDS } from "../utils/shopify-graphql-fragments";
+
+async function enrichPayloadProductHandles(
+  admin: { graphql: (query: string, opts?: unknown) => Promise<Response> },
+  payload: SerializedBundle,
+): Promise<void> {
+  const ids: string[] = [];
+  for (const s of payload.steps) {
+    for (const p of s.products) {
+      if (p?.variantGid && typeof p.variantGid === "string") ids.push(p.variantGid);
+    }
+  }
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) return;
+
+  const res = await admin.graphql(
+    `#graphql
+      query BundleSaveVariantHandles($ids: [ID!]!) {
+        ${PRODUCT_DISPLAY_FIELDS}
+        ${VARIANT_DISPLAY_FIELDS}
+        nodes(ids: $ids) {
+          ... on ProductVariant {
+            ...VariantDisplayFields
+          }
+        }
+      }`,
+    { variables: { ids: uniqueIds } },
+  );
+  const body = await res.json();
+  const nodes = Array.isArray(body?.data?.nodes) ? body.data.nodes : [];
+  const handleByVariantId = new Map<string, string>();
+  for (const n of nodes) {
+    const id = n?.id;
+    const h = n?.product?.handle;
+    if (typeof id === "string" && typeof h === "string" && h.trim()) {
+      handleByVariantId.set(id, h.trim());
+    }
+  }
+
+  for (const s of payload.steps) {
+    s.products = s.products.map((p) => {
+      if (!p?.variantGid) return p;
+      const handle = handleByVariantId.get(p.variantGid) ?? null;
+      if (!handle) return p;
+      return {
+        ...p,
+        productHandle: p.productHandle?.trim() ? p.productHandle : handle,
+      };
+    });
+  }
+}
 
 const emptyBundleState: SerializedBundle = {
   id: null,
@@ -102,6 +153,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   try {
     const payload = parseBundlePayload(body);
+    await enrichPayloadProductHandles(admin, payload);
     const scalars = toPrismaBundleScalars(session.shop, payload);
     const { pricingTiers, steps } = buildNestedCreates(payload);
 

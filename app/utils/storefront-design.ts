@@ -106,25 +106,6 @@ export type SplitBlock = {
   imageSide: "left" | "right";
 };
 
-export type ProductGridRule = {
-  metric: "BUNDLE_PRICE" | "TOTAL_ITEM_COUNT" | "VARIANT_QUANTITY" | "DISTINCT_VARIANT_COUNT";
-  operator: "LT" | "LTE" | "EQ" | "GTE" | "GT";
-  value: string;
-  targetVariantGid?: string | null;
-};
-
-export type ProductGridBlock = {
-  id: string;
-  type: "product_grid";
-  source: "collection" | "pick" | "all";
-  collectionHandle?: string;
-  /** GIDs variants pour source « pick » */
-  variantGids?: string[];
-  maxItems?: number;
-  display: "list" | "carousel" | "tabs" | "accordion";
-  rules?: ProductGridRule[];
-};
-
 export type StepBarBlock = {
   id: string;
   type: "step_bar";
@@ -149,7 +130,6 @@ export type StorefrontBlockV2 =
   | StorefrontBlock
   | HeroBlock
   | SplitBlock
-  | ProductGridBlock
   | StepBarBlock
   | ProductListBlock;
 
@@ -189,34 +169,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object";
 }
 
-function normalizeProductGridRule(raw: unknown): ProductGridRule | null {
-  if (!isRecord(raw)) return null;
-  const metrics = [
-    "BUNDLE_PRICE",
-    "TOTAL_ITEM_COUNT",
-    "VARIANT_QUANTITY",
-    "DISTINCT_VARIANT_COUNT",
-  ] as const;
-  const ops = ["LT", "LTE", "EQ", "GTE", "GT"] as const;
-  const m = raw.metric;
-  const op = raw.operator;
-  if (typeof m !== "string" || !metrics.includes(m as (typeof metrics)[number])) {
-    return null;
-  }
-  if (typeof op !== "string" || !ops.includes(op as (typeof ops)[number])) {
-    return null;
-  }
-  const value = typeof raw.value === "string" ? raw.value : String(raw.value ?? "");
-  const targetVariantGid =
-    typeof raw.targetVariantGid === "string" ? raw.targetVariantGid : null;
-  return {
-    metric: m as ProductGridRule["metric"],
-    operator: op as ProductGridRule["operator"],
-    value,
-    targetVariantGid,
-  };
-}
-
 function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
   if (!isRecord(raw) || typeof raw.type !== "string") return null;
   const id = typeof raw.id === "string" ? raw.id : newBlockId();
@@ -251,36 +203,9 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
       };
     }
     case "product_grid": {
-      const src = raw.source;
-      const source =
-        src === "collection" || src === "all" || src === "pick" ? src : "pick";
-      const disp = raw.display;
-      const display =
-        disp === "carousel" || disp === "tabs" || disp === "accordion"
-          ? disp
-          : "list";
-      let variantGids: string[] | undefined;
-      if (Array.isArray(raw.variantGids)) {
-        variantGids = raw.variantGids.filter((x): x is string => typeof x === "string");
-      }
-      const rulesRaw = raw.rules;
-      const rules = Array.isArray(rulesRaw)
-        ? rulesRaw.map(normalizeProductGridRule).filter((r): r is ProductGridRule => r != null)
-        : undefined;
-      return {
-        id,
-        type: "product_grid",
-        source,
-        collectionHandle:
-          typeof raw.collectionHandle === "string" ? raw.collectionHandle : undefined,
-        variantGids,
-        maxItems:
-          typeof raw.maxItems === "number" && raw.maxItems > 0
-            ? Math.min(50, raw.maxItems)
-            : undefined,
-        display,
-        rules: rules?.length ? rules : undefined,
-      };
+      // Deprecated. Do not migrate legacy product grids to v2.
+      // The permanent products block is `product_list`, driven by step settings.
+      return null;
     }
     case "step_bar": {
       const style = isRecord(raw.style) ? raw.style : {};
@@ -401,8 +326,6 @@ export function blockDisplayLabel(block: StorefrontBlockV2): string {
       return block.headline.trim().slice(0, 35) || "Hero";
     case "split":
       return block.title.trim().slice(0, 35) || "Section split";
-    case "product_grid":
-      return block.collectionHandle?.trim().slice(0, 35) || "Grille produits";
     case "step_bar":
       return "Barre d'étape";
     case "product_list":

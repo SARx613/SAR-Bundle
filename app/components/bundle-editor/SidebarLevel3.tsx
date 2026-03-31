@@ -13,8 +13,6 @@ import { ArrowLeftIcon } from "@shopify/polaris-icons";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   type HeroBlock,
-  type ProductGridBlock,
-  type ProductGridRule,
   type StepBarBlock,
   type StorefrontBlockV2,
   type StorefrontDesignV2,
@@ -28,21 +26,6 @@ const HEADING_TAGS = [
   { label: "H2", value: "h2" },
   { label: "H3", value: "h3" },
 ] as const;
-
-const GRID_RULE_METRICS: { label: string; value: ProductGridRule["metric"] }[] = [
-  { label: "Prix du bundle", value: "BUNDLE_PRICE" },
-  { label: "Nombre total d'articles", value: "TOTAL_ITEM_COUNT" },
-  { label: "Quantité d'un variant", value: "VARIANT_QUANTITY" },
-  { label: "Variants distincts", value: "DISTINCT_VARIANT_COUNT" },
-];
-
-const GRID_RULE_OPS: { label: string; value: ProductGridRule["operator"] }[] = [
-  { label: "<", value: "LT" },
-  { label: "≤", value: "LTE" },
-  { label: "=", value: "EQ" },
-  { label: "≥", value: "GTE" },
-  { label: ">", value: "GT" },
-];
 
 const CSS_VAR_HINT = "Laisser vide = valeur du thème. Ex. : var(--p-color-text)";
 
@@ -343,138 +326,6 @@ function BlockGeneralFields({
           value={block.imageSide}
           onChange={(v) => onPatch({ imageSide: v as "left" | "right" })}
         />
-      </BlockStack>
-    );
-  }
-  if (block.type === "product_grid") {
-    const rules = block.rules ?? [];
-
-    const patchGrid = (patch: Partial<ProductGridBlock>) => {
-      onPatch({ ...block, ...patch } as Partial<StorefrontBlockV2>);
-    };
-
-    return (
-      <BlockStack gap="300">
-        <Select
-          label="Source des produits"
-          options={[
-            { label: "Sélection manuelle (GIDs)", value: "pick" },
-            { label: "Collection (handle)", value: "collection" },
-            { label: "Tout le catalogue", value: "all" },
-          ]}
-          value={block.source}
-          onChange={(v) => patchGrid({ source: v as ProductGridBlock["source"] })}
-        />
-        {block.source === "collection" ? (
-          <TextField
-            label="Handle collection"
-            value={block.collectionHandle ?? ""}
-            onChange={(v) => patchGrid({ collectionHandle: v.trim() || undefined })}
-            autoComplete="off"
-          />
-        ) : null}
-        {block.source === "pick" ? (
-          <TextField
-            label="Variants (GIDs, un par ligne)"
-            value={(block.variantGids ?? []).join("\n")}
-            onChange={(v) =>
-              patchGrid({
-                variantGids: v
-                  .split(/[\n,]+/)
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              })
-            }
-            multiline={4}
-            autoComplete="off"
-          />
-        ) : null}
-        <TextField
-          label="Nombre max d'articles (optionnel)"
-          value={block.maxItems != null ? String(block.maxItems) : ""}
-          onChange={(v) => {
-            const t = v.trim();
-            patchGrid({ maxItems: t ? Math.min(50, parseInt(t, 10) || 0) : undefined });
-          }}
-          autoComplete="off"
-        />
-        <Select
-          label="Présentation"
-          options={[
-            { label: "Liste", value: "list" },
-            { label: "Carrousel", value: "carousel" },
-            { label: "Onglets", value: "tabs" },
-            { label: "Accordéon", value: "accordion" },
-          ]}
-          value={block.display}
-          onChange={(v) => patchGrid({ display: v as ProductGridBlock["display"] })}
-        />
-        <Text as="h4" variant="headingSm">
-          Règles d'affichage
-        </Text>
-        {rules.map((r, ri) => (
-          <Box
-            key={ri}
-            padding="300"
-            background="bg-surface-secondary"
-            borderRadius="200"
-          >
-            <BlockStack gap="200">
-              <Select
-                label="Métrique"
-                options={GRID_RULE_METRICS}
-                value={r.metric}
-                onChange={(v) => {
-                  const next = [...rules];
-                  const cur = next[ri];
-                  if (cur) next[ri] = { ...cur, metric: v as ProductGridRule["metric"] };
-                  patchGrid({ rules: next });
-                }}
-              />
-              <Select
-                label="Opérateur"
-                options={GRID_RULE_OPS}
-                value={r.operator}
-                onChange={(v) => {
-                  const next = [...rules];
-                  const cur = next[ri];
-                  if (cur) next[ri] = { ...cur, operator: v as ProductGridRule["operator"] };
-                  patchGrid({ rules: next });
-                }}
-              />
-              <TextField
-                label="Valeur"
-                value={r.value}
-                onChange={(v) => {
-                  const next = [...rules];
-                  const cur = next[ri];
-                  if (cur) next[ri] = { ...cur, value: v };
-                  patchGrid({ rules: next });
-                }}
-                autoComplete="off"
-              />
-              <Button
-                tone="critical"
-                variant="plain"
-                onClick={() => patchGrid({ rules: rules.filter((_, j) => j !== ri) })}
-              >
-                Supprimer la règle
-              </Button>
-            </BlockStack>
-          </Box>
-        ))}
-        <Button
-          onClick={() =>
-            patchGrid({
-              rules: [
-                ...rules,
-                { metric: "BUNDLE_PRICE", operator: "GTE", value: "0", targetVariantGid: null },
-              ],
-            })
-          }
-        >
-          + Ajouter une règle
-        </Button>
       </BlockStack>
     );
   }

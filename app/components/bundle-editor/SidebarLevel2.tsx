@@ -103,7 +103,7 @@ function ruleLabel(r: UiStepRule): string {
   return `${m} ${o} ${r.value}`;
 }
 
-type LibCategory = "mep" | "products" | "text" | "media";
+type LibCategory = "mep" | "text" | "media";
 
 function ensurePermanentProductBlock(design: StorefrontDesignV2): StorefrontDesignV2 {
   const has = (design.blocks ?? []).some((b) => b.type === "product_list");
@@ -266,7 +266,6 @@ export function SidebarLevel2({
   const [libTab, setLibTab] = useState<"elements" | "sections">("elements");
   const [openCats, setOpenCats] = useState<Record<LibCategory, boolean>>({
     mep: true,
-    products: true,
     text: false,
     media: false,
   });
@@ -550,19 +549,6 @@ export function SidebarLevel2({
                   Espacement
                 </Button>
               )}
-            </BlockStack>
-          </CategoryRow>
-
-          <CategoryRow
-            id="cat-products"
-            label="Produits"
-            isOpen={openCats.products}
-            onToggle={() => toggleCat("products")}
-          >
-            <BlockStack gap="100">
-              <Text as="p" variant="bodySm" tone="subdued">
-                Le bloc Produits est permanent. Configurez la source dans l’onglet Paramètres et déplacez le bloc dans la page.
-              </Text>
             </BlockStack>
           </CategoryRow>
 
