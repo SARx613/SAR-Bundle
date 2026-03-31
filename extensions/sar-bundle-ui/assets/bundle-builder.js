@@ -834,7 +834,15 @@
                   var img = document.createElement('img');
                   img.loading = 'lazy';
                   img.alt = pr && pr.title ? pr.title : '';
-                  img.src = (pr && pr.images && pr.images[0] && pr.images[0].src) || '';
+                  // Shopify collections/products.json returns `images` as an array of URL strings.
+                  // Some contexts may return objects; support both.
+                  var img0 = pr && pr.images && pr.images.length ? pr.images[0] : null;
+                  img.src =
+                    (typeof img0 === 'string'
+                      ? img0
+                      : img0 && img0.src
+                        ? img0.src
+                        : '') || '';
                   card.appendChild(img);
                   var t = document.createElement('p');
                   t.className = 'sar-bundle__product-title';
@@ -982,8 +990,7 @@
               __renderedProductList: false,
               __productListMount: null,
             };
-            renderDesignBlocks(inner, bundle.storefrontDesign, designCtx, variantCache);
-
+            // Title (block setting on product page)
             var h = document.createElement('h2');
             h.className = 'sar-bundle__title';
             h.textContent = heading;
@@ -991,6 +998,15 @@
 
             var step = bundle.steps[state.stepIndex];
             var isLast = state.stepIndex === bundle.steps.length - 1;
+
+            // Step bar (block) — rendered before other design blocks
+            var blocks = (bundle.storefrontDesign && bundle.storefrontDesign.blocks) || [];
+            for (var sbi = 0; sbi < blocks.length; sbi++) {
+              var sb = blocks[sbi];
+              if (sb && sb.type === 'step_bar') {
+                renderStepBarBlock(inner, sb, designCtx);
+              }
+            }
 
             if (showProgress) {
               var pills = document.createElement('div');
@@ -1010,6 +1026,22 @@
                 pills.appendChild(pill);
               }
               inner.appendChild(pills);
+            }
+
+            // Design blocks (editor order), excluding step bar + product_list marker
+            if (bundle.storefrontDesign) {
+              var designMount = document.createElement('div');
+              renderDesignBlocks(designMount, bundle.storefrontDesign, designCtx, variantCache);
+              // Drop any nested step bars or product_list containers from the design mount
+              var toRemove = designMount.querySelectorAll('.sar-stepbar, .sar-bundle__products');
+              for (var ri = 0; ri < toRemove.length; ri++) {
+                var n = toRemove[ri];
+                if (n && n.parentNode) n.parentNode.removeChild(n);
+              }
+              // Append remaining design blocks
+              while (designMount.firstChild) {
+                inner.appendChild(designMount.firstChild);
+              }
             }
 
             var body = document.createElement('div');
@@ -1073,12 +1105,36 @@
                     ph &&
                     productJsonByHandle[ph] &&
                     productJsonByHandle[ph].images &&
-                    productJsonByHandle[ph].images[0] &&
-                    productJsonByHandle[ph].images[0].src
+                    productJsonByHandle[ph].images[0]
                   ) {
-                    img.src = productJsonByHandle[ph].images[0].src;
-                    img.alt = productJsonByHandle[ph].title || '';
-                    return;
+                    var im0 = productJsonByHandle[ph].images[0];
+                    // Shopify product.js returns `images` as an array of URL strings.
+                    // Some contexts may return objects; support both.
+                    var imUrl =
+                      typeof im0 === 'string'
+                        ? im0
+                        : im0 && im0.src
+                          ? im0.src
+                          : '';
+                    if (imUrl) {
+                      img.src = imUrl;
+                      img.alt = productJsonByHandle[ph].title || '';
+                      return;
+                    }
+                  }
+                  if (ph && productJsonByHandle[ph] && productJsonByHandle[ph].featured_image) {
+                    var fim = productJsonByHandle[ph].featured_image;
+                    var fimUrl =
+                      typeof fim === 'string'
+                        ? fim
+                        : fim && fim.src
+                          ? fim.src
+                          : '';
+                    if (fimUrl) {
+                      img.src = fimUrl;
+                      img.alt = productJsonByHandle[ph].title || '';
+                      return;
+                    }
                   }
                   var m = getMeta();
                   if (m.featured_image && m.featured_image.src) {
@@ -1318,7 +1374,6 @@
             totalVal.appendChild(mainEl);
             totalBox.appendChild(totalLabel);
             totalBox.appendChild(totalVal);
-            inner.appendChild(totalBox);
 
             if (isLast && lineProps.length) {
               var fin = document.createElement('div');
@@ -1531,7 +1586,17 @@
                 });
             });
             nav.appendChild(next);
-            inner.appendChild(nav);
+
+            // Footer: total + nav on same line
+            var footer = document.createElement('div');
+            footer.className = 'sar-bundle__footer';
+            footer.style.display = 'flex';
+            footer.style.alignItems = 'center';
+            footer.style.justifyContent = 'space-between';
+            footer.style.gap = '1rem';
+            footer.appendChild(totalBox);
+            footer.appendChild(nav);
+            inner.appendChild(footer);
           }
 
           render();

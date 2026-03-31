@@ -153,7 +153,15 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   try {
     const payload = parseBundlePayload(body);
-    await enrichPayloadProductHandles(admin, payload);
+    let warning: string | undefined;
+    try {
+      await enrichPayloadProductHandles(admin, payload);
+    } catch (e) {
+      console.warn("bundle save: productHandle enrich failed", e);
+      warning =
+        "Bundle enregistré, mais l’enrichissement des produits (handles/images) a échoué. " +
+        "Les images peuvent mettre du temps à s’afficher côté boutique.";
+    }
     const scalars = toPrismaBundleScalars(session.shop, payload);
     const { pricingTiers, steps } = buildNestedCreates(payload);
 
@@ -171,7 +179,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       });
 
       let out = created;
-      let warning: string | undefined;
+      let syncWarning: string | undefined;
       try {
         const sync = await syncBundleShopifyProduct(admin, {
           id: created.id,
@@ -202,7 +210,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         });
       } catch (e) {
         console.error("Bundle product sync (create)", e);
-        warning =
+        syncWarning =
           "Bundle enregistré, mais la création du produit Shopify a échoué : " +
           (e instanceof Error ? e.message : String(e));
       }
@@ -219,11 +227,16 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         const w =
           "Prix catalogue (boîte à prix fixe) non synchronisé : " +
           (e instanceof Error ? e.message : String(e));
-        warning = warning ? `${warning} ${w}` : w;
+        syncWarning = syncWarning ? `${syncWarning} ${w}` : w;
       }
 
+      const finalWarning = [warning, syncWarning].filter(Boolean).join(" ") || undefined;
       return json(
-        { ok: true as const, bundle: serializeBundleTree(out), ...(warning ? { warning } : {}) },
+        {
+          ok: true as const,
+          bundle: serializeBundleTree(out),
+          ...(finalWarning ? { warning: finalWarning } : {}),
+        },
         { status: 201 },
       );
     }
@@ -252,7 +265,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       include: bundleDetailInclude,
     });
 
-    let warning: string | undefined;
+    let syncWarning: string | undefined;
     try {
       const sync = await syncBundleShopifyProduct(admin, {
         id: updated.id,
@@ -288,7 +301,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       }
     } catch (e) {
       console.error("Bundle product sync (update)", e);
-      warning =
+      syncWarning =
         "Bundle enregistré, mais la synchronisation du produit Shopify a échoué : " +
         (e instanceof Error ? e.message : String(e));
     }
@@ -305,13 +318,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       const w =
         "Prix catalogue (boîte à prix fixe) non synchronisé : " +
         (e instanceof Error ? e.message : String(e));
-      warning = warning ? `${warning} ${w}` : w;
+      syncWarning = syncWarning ? `${syncWarning} ${w}` : w;
     }
 
+    const finalWarning = [warning, syncWarning].filter(Boolean).join(" ") || undefined;
     return json({
       ok: true as const,
       bundle: serializeBundleTree(updated),
-      ...(warning ? { warning } : {}),
+      ...(finalWarning ? { warning: finalWarning } : {}),
     });
   } catch (e) {
     if (e instanceof Response) throw e;
