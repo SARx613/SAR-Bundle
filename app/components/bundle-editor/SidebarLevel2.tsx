@@ -58,6 +58,15 @@ type UploadJson = {
   imageGid?: string | null;
 };
 
+type VariantsMetaJson = {
+  items: Array<{
+    id: string;
+    displayTitle: string;
+    imageUrl: string | null;
+    productHandle: string | null;
+  }>;
+};
+
 type PickerVariant = {
   id: string;
   displayName?: string;
@@ -96,14 +105,29 @@ function ruleLabel(r: UiStepRule): string {
 
 type LibCategory = "mep" | "products" | "text" | "media";
 
+function ensurePermanentProductBlock(design: StorefrontDesignV2): StorefrontDesignV2 {
+  const has = (design.blocks ?? []).some((b) => b.type === "product_list");
+  if (has) return design;
+  return {
+    ...design,
+    version: 2,
+    blocks: [
+      ...(design.blocks ?? []),
+      { id: newBlockId(), type: "product_list", source: "step_pick" },
+    ],
+  };
+}
+
 function SortableBlockRow({
   block,
   onClick,
   onDelete,
+  isLocked,
 }: {
   block: StorefrontBlockV2;
   onClick: () => void;
   onDelete: () => void;
+  isLocked?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id });
@@ -144,6 +168,7 @@ function SortableBlockRow({
               tone="critical"
               onClick={onDelete}
               accessibilityLabel="Supprimer"
+              disabled={isLocked}
             />
           </Tooltip>
         </InlineStack>
@@ -223,10 +248,18 @@ export function SidebarLevel2({
   onTabChange: (t: number) => void;
 }) {
   const shopifyBridge = useAppBridge();
+  const safeDesign = ensurePermanentProductBlock(design);
+  useEffect(() => {
+    if (safeDesign !== design) {
+      onDesignChange(safeDesign);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeDesign.version, safeDesign.blocks.length]);
 
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
   const [draftRules, setDraftRules] = useState<UiStepRule[]>(step.rules);
   const uploadFetcher = useFetcher<UploadJson>();
+  const variantsMetaFetcher = useFetcher<VariantsMetaJson>();
 
   const [showLibrary, setShowLibrary] = useState(false);
   const [libSearch, setLibSearch] = useState("");
@@ -252,6 +285,31 @@ export function SidebarLevel2({
       });
     }
   }, [uploadFetcher.state, uploadFetcher.data, onStepPatch]);
+
+  useEffect(() => {
+    if (variantsMetaFetcher.state !== "idle" || !variantsMetaFetcher.data) return;
+    const byId = new Map(variantsMetaFetcher.data.items.map((x) => [x.id, x]));
+    if (byId.size === 0) return;
+    onStepProductsChange(
+      step.products.map((p) => {
+        const meta = byId.get(p.variantGid);
+        if (!meta) return p;
+        return {
+          ...p,
+          displayName: meta.displayTitle || p.displayName,
+          imageUrl: meta.imageUrl ?? p.imageUrl,
+          productHandle: meta.productHandle ?? p.productHandle,
+        };
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantsMetaFetcher.state, variantsMetaFetcher.data]);
+
+  const enrichVariants = (gids: string[]) => {
+    const params = new URLSearchParams();
+    for (const id of gids) params.append("ids", id);
+    variantsMetaFetcher.load(`/api/shopify-variants?${params.toString()}`);
+  };
 
   const openModal = () => {
     setDraftRules(step.rules);
@@ -302,6 +360,10 @@ export function SidebarLevel2({
       });
     }
     onStepProductsChange([...step.products, ...additions]);
+    const missing = additions
+      .filter((a) => !a.imageUrl || !a.displayName || a.displayName.includes("Default Title"))
+      .map((a) => a.variantGid);
+    if (missing.length) enrichVariants(missing);
   };
 
   const openProductPicker = async () => {
@@ -354,6 +416,10 @@ export function SidebarLevel2({
 
     if (additions.length) {
       onStepProductsChange([...step.products, ...additions]);
+      const missing = additions
+        .filter((a) => !a.imageUrl || !a.displayName)
+        .map((a) => a.variantGid);
+      if (missing.length) enrichVariants(missing);
     }
   };
 
@@ -362,31 +428,33 @@ export function SidebarLevel2({
 
   const addBlock = (block: StorefrontBlockV2) => {
     onDesignChange({
-      ...design,
+      ...safeDesign,
       version: 2,
-      blocks: [...design.blocks, block],
+      blocks: [...safeDesign.blocks, block],
     });
     setShowLibrary(false);
   };
 
   const deleteBlock = (blockId: string) => {
+    const cur = safeDesign.blocks.find((b) => b.id === blockId);
+    if (cur?.type === "product_list") return; // permanent
     onDesignChange({
-      ...design,
+      ...safeDesign,
       version: 2,
-      blocks: design.blocks.filter((b) => b.id !== blockId),
+      blocks: safeDesign.blocks.filter((b) => b.id !== blockId),
     });
   };
 
   const handleBlockDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = design.blocks.findIndex((b) => b.id === active.id);
-    const newIndex = design.blocks.findIndex((b) => b.id === over.id);
+    const oldIndex = safeDesign.blocks.findIndex((b) => b.id === active.id);
+    const newIndex = safeDesign.blocks.findIndex((b) => b.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     onDesignChange({
-      ...design,
+      ...safeDesign,
       version: 2,
-      blocks: arrayMove(design.blocks, oldIndex, newIndex),
+      blocks: arrayMove(safeDesign.blocks, oldIndex, newIndex),
     });
   };
 
@@ -492,18 +560,9 @@ export function SidebarLevel2({
             onToggle={() => toggleCat("products")}
           >
             <BlockStack gap="100">
-              {(libSearch === "" || "liste de produits".includes(libSearch.toLowerCase())) && (
-                <Button
-                  variant="plain"
-                  fullWidth
-                  textAlign="left"
-                  onClick={() =>
-                    addBlock({ id: newBlockId(), type: "product_list" })
-                  }
-                >
-                  Liste de produits
-                </Button>
-              )}
+              <Text as="p" variant="bodySm" tone="subdued">
+                Le bloc Produits est permanent. Configurez la source dans l’onglet Paramètres et déplacez le bloc dans la page.
+              </Text>
             </BlockStack>
           </CategoryRow>
 
@@ -624,7 +683,7 @@ export function SidebarLevel2({
         </BlockStack>
       ) : (
         <BlockStack gap="200">
-          {design.blocks.length === 0 ? (
+          {safeDesign.blocks.length === 0 ? (
             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
               <Text as="p" variant="bodySm" tone="subdued">
                 Aucun bloc. Cliquez sur "+ Ajouter une section".
@@ -637,16 +696,17 @@ export function SidebarLevel2({
               onDragEnd={handleBlockDragEnd}
             >
               <SortableContext
-                items={design.blocks.map((b) => b.id)}
+                items={safeDesign.blocks.map((b) => b.id)}
                 strategy={verticalListSortingStrategy}
               >
                 <BlockStack gap="150">
-                  {design.blocks.map((block) => (
+                  {safeDesign.blocks.map((block) => (
                     <SortableBlockRow
                       key={block.id}
                       block={block}
                       onClick={() => onBlockClick(block.id)}
                       onDelete={() => deleteBlock(block.id)}
+                      isLocked={block.type === "product_list"}
                     />
                   ))}
                 </BlockStack>

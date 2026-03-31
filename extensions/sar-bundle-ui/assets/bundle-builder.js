@@ -786,53 +786,46 @@
           function renderStepBarBlock(wrapEl, b, ctx) {
             if (!ctx || !ctx.steps || ctx.steps.length < 2) return;
             var st = b.style || {};
-            var border = st.borderColor || 'var(--sar-color-border, #e1e3e5)';
-            var activeBg = st.activeBg || 'var(--sar-color-primary, #008060)';
-            var inactiveBg = st.inactiveBg || 'transparent';
-            var activeText = st.activeTextColor || '#fff';
-            var inactiveText = st.inactiveTextColor || 'var(--sar-color-text, #121212)';
+            // CSS variables consumed by .sar-stepbar*
+            wrapEl.style.setProperty('--sar-stepbar-border', st.borderColor || '');
+            wrapEl.style.setProperty('--sar-stepbar-active-bg', st.activeBg || '');
+            wrapEl.style.setProperty('--sar-stepbar-inactive-bg', st.inactiveBg || '');
+            wrapEl.style.setProperty('--sar-stepbar-active-text', st.activeTextColor || '');
+            wrapEl.style.setProperty('--sar-stepbar-inactive-text', st.inactiveTextColor || '');
 
-            var row = document.createElement('div');
-            row.style.display = 'flex';
-            row.style.alignItems = 'center';
-            row.style.justifyContent = 'center';
-            row.style.gap = '0';
-            row.style.marginBottom = '1rem';
+            var bar = document.createElement('div');
+            bar.className = 'sar-stepbar';
 
             for (var i = 0; i < ctx.steps.length; i++) {
-              var cell = document.createElement('div');
-              cell.style.display = 'flex';
-              cell.style.alignItems = 'center';
-              if (i < ctx.steps.length - 1) cell.style.flex = '1 1 0';
+              var item = document.createElement('div');
+              item.className = 'sar-stepbar__item';
+
+              var top = document.createElement('div');
+              top.className = 'sar-stepbar__top';
 
               var dot = document.createElement('div');
-              dot.style.width = '32px';
-              dot.style.height = '32px';
-              dot.style.borderRadius = '50%';
-              dot.style.border = '2px solid ' + border;
-              dot.style.display = 'flex';
-              dot.style.alignItems = 'center';
-              dot.style.justifyContent = 'center';
-              dot.style.fontWeight = '600';
-              dot.style.fontSize = '0.85rem';
-              dot.style.flexShrink = '0';
-              var isDone = i <= ctx.stepIndex;
-              dot.style.background = isDone ? activeBg : inactiveBg;
-              dot.style.color = isDone ? activeText : inactiveText;
+              dot.className =
+                'sar-stepbar__dot' + (i <= ctx.stepIndex ? ' sar-stepbar__dot--active' : '');
               dot.textContent = String(i + 1);
-              cell.appendChild(dot);
+              top.appendChild(dot);
 
               if (i < ctx.steps.length - 1) {
                 var line = document.createElement('div');
-                line.style.flex = '1';
-                line.style.height = '2px';
-                line.style.minWidth = '8px';
-                line.style.background = border;
-                cell.appendChild(line);
+                line.className = 'sar-stepbar__line';
+                top.appendChild(line);
               }
-              row.appendChild(cell);
+
+              var label = document.createElement('div');
+              label.className = 'sar-stepbar__label';
+              var nm = ctx.steps[i] && (ctx.steps[i].name || '');
+              label.textContent = (nm || 'Étape ' + (i + 1)).slice(0, 24);
+
+              item.appendChild(top);
+              item.appendChild(label);
+              bar.appendChild(item);
             }
-            wrapEl.appendChild(row);
+
+            wrapEl.appendChild(bar);
           }
 
           function fetchCollectionProducts(handle) {

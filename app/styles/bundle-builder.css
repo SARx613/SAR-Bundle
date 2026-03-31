@@ -1,0 +1,123 @@
+.sar-bundle {
+  font-family: var(--sar-font-body, inherit);
+  color: var(--sar-color-text, #121212);
+  background: var(--sar-color-bg, transparent);
+  border: 1px solid var(--sar-color-border, #e1e3e5);
+  border-radius: var(--sar-radius, 8px);
+  padding: var(--sar-padding, 1.25rem);
+  max-width: 100%;
+}
+
+.sar-bundle__title {
+  font-family: var(--sar-font-heading, inherit);
+  font-size: var(--sar-heading-size, 1.5rem);
+  font-weight: 600;
+  margin: 0 0 1rem;
+}
+
+.sar-bundle__steps {
+  display: flex;
+  justify-content: var(--sar-steps-justify, center);
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+/* Step Bar (nouveau design) */
+.sar-stepbar {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: 0 0 1rem;
+}
+
+.sar-stepbar__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+
+.sar-stepbar__top {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.sar-stepbar__dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--sar-stepbar-border, var(--sar-color-border, #e1e3e5));
+  background: var(--sar-stepbar-inactive-bg, transparent);
+  color: var(--sar-stepbar-inactive-text, var(--sar-color-text, #121212));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.sar-stepbar__dot--active {
+  background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #008060));
+  color: var(--sar-stepbar-active-text, #fff);
+}
+
+.sar-stepbar__line {
+  flex: 1;
+  border-top: 2px solid var(--sar-stepbar-border, var(--sar-color-border, #e1e3e5));
+  margin: 0 0.5rem;
+  height: 0;
+}
+
+.sar-stepbar__label {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--sar-color-text, #121212);
+}
+
+.sar-bundle__step-pill {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--sar-color-border, #e1e3e5);
+  font-size: 0.85rem;
+}
+
+.sar-bundle__step-pill--active {
+  background: var(--sar-color-primary, #008060);
+  color: #fff;
+  border-color: var(--sar-color-primary, #008060);
+}
+
+.sar-bundle__products {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.sar-bundle__product {
+  border: 2px solid var(--sar-color-border, #e1e3e5);
+  border-radius: var(--sar-radius, 8px);
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.sar-bundle__product img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.sar-bundle__product-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 0 0 0.35rem;
+}
+
+.sar-bundle__product-price {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}

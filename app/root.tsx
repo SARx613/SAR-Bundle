@@ -5,6 +5,10 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
+import type { LinksFunction } from "@remix-run/node";
+import bundleBuilderCss from "./styles/bundle-builder.css?url";
+
+export const links: LinksFunction = () => [{ rel: "stylesheet", href: bundleBuilderCss }];
 
 export default function App() {
   return (

@@ -212,55 +212,35 @@ function StepBarPreview({
   activeStepIndex: number;
 }) {
   if (steps.length < 2) return null;
-  const { borderColor, activeBg, inactiveBg, activeTextColor, inactiveTextColor } =
-    block.style ?? {};
+  const st = block.style ?? {};
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: "1rem",
-        gap: 0,
+        ["--sar-stepbar-border" as any]: st.borderColor ?? "",
+        ["--sar-stepbar-active-bg" as any]: st.activeBg ?? "",
+        ["--sar-stepbar-inactive-bg" as any]: st.inactiveBg ?? "",
+        ["--sar-stepbar-active-text" as any]: st.activeTextColor ?? "",
+        ["--sar-stepbar-inactive-text" as any]: st.inactiveTextColor ?? "",
       }}
+      className="sar-stepbar"
     >
       {steps.map((s, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", flex: i < steps.length - 1 ? "1 1 0" : undefined }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "50%",
-              border: `2px solid ${borderColor ?? "var(--p-color-border)"}`,
-              background:
-                i <= activeStepIndex
-                  ? (activeBg ?? "var(--p-color-bg-fill-brand)")
-                  : (inactiveBg ?? "var(--p-color-bg-fill-secondary, #e4e5e7)"),
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color:
-                i <= activeStepIndex
-                  ? (activeTextColor ?? "var(--p-color-text-on-color)")
-                  : (inactiveTextColor ?? "var(--p-color-text)"),
-              fontWeight: 600,
-              fontSize: "0.85rem",
-              flexShrink: 0,
-            }}
-            title={s.name || `Étape ${i + 1}`}
-          >
-            {i + 1}
-          </div>
-          {i < steps.length - 1 && (
+        <div className="sar-stepbar__item" key={i}>
+          <div className="sar-stepbar__top">
             <div
-              style={{
-                flex: 1,
-                height: 2,
-                background: borderColor ?? "var(--p-color-border)",
-                minWidth: 8,
-              }}
-            />
-          )}
+              className={
+                "sar-stepbar__dot" +
+                (i <= activeStepIndex ? " sar-stepbar__dot--active" : "")
+              }
+              title={s.name || `Étape ${i + 1}`}
+            >
+              {i + 1}
+            </div>
+            {i < steps.length - 1 ? <div className="sar-stepbar__line" /> : null}
+          </div>
+          <div className="sar-stepbar__label">
+            {(s.name || `Étape ${i + 1}`).slice(0, 24)}
+          </div>
         </div>
       ))}
     </div>
@@ -287,26 +267,11 @@ function ProductCard({ product }: { product: UiStepProduct }) {
   };
 
   return (
-    <div
-      style={{
-        border: "1px solid var(--p-color-border)",
-        borderRadius: 8,
-        padding: 8,
-        fontSize: "0.8rem",
-        background: "var(--p-color-bg-surface)",
-      }}
-    >
+    <div className="sar-bundle__product">
       {product.imageUrl ? (
         <img
           src={product.imageUrl}
           alt=""
-          style={{
-            width: "100%",
-            height: 72,
-            objectFit: "cover",
-            borderRadius: 4,
-            marginBottom: 6,
-          }}
         />
       ) : (
         <div
@@ -327,14 +292,7 @@ function ProductCard({ product }: { product: UiStepProduct }) {
           Aucune image
         </div>
       )}
-      <div
-        style={{
-          fontWeight: 500,
-          lineHeight: 1.3,
-          color: "var(--p-color-text)",
-          marginBottom: 2,
-        }}
-      >
+      <div className="sar-bundle__product-title">
         {product.displayName}
       </div>
 
@@ -417,13 +375,11 @@ export function BundleStorefrontPreview({
 
   return (
     <div
+      className="sar-bundle"
       style={{
         fontFamily: g.fontBody || "var(--p-font-family-sans, system-ui, sans-serif)",
         background: g.pageBackground || "var(--p-color-bg-surface, #fafafa)",
         minHeight: 280,
-        padding: "1rem",
-        borderRadius: 12,
-        border: "1px solid var(--p-color-border)",
         overflow: "auto",
       }}
     >
@@ -458,13 +414,7 @@ export function BundleStorefrontPreview({
                     {step.description}
                   </p>
                 ) : null}
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 8,
-                    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-                  }}
-                >
+                <div className="sar-bundle__products">
                   {step.products.length === 0 ? (
                     <div
                       style={{
@@ -511,13 +461,7 @@ export function BundleStorefrontPreview({
                 {step.description}
               </p>
             ) : null}
-            <div
-              style={{
-                display: "grid",
-                gap: 8,
-                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-              }}
-            >
+            <div className="sar-bundle__products">
               {step.products.length === 0 ? (
                 <div
                   style={{
