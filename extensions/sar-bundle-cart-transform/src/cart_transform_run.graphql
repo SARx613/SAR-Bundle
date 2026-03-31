@@ -2,6 +2,16 @@ query CartTransformRunInput {
   cart {
     lines {
       id
+      quantity
+      attributes {
+        key
+        value
+      }
+      merchandise {
+        ... on ProductVariant {
+          id
+        }
+      }
     }
   }
 }

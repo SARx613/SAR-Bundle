@@ -10,7 +10,6 @@
 
 .sar-bundle__title {
   font-family: var(--sar-font-heading, inherit);
-  font-size: var(--sar-heading-size, 1.5rem);
   font-weight: 600;
   margin: 0 0 1rem;
 }
@@ -114,7 +113,6 @@
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   border: 1px solid var(--sar-color-border, #e1e3e5);
-  font-size: 0.85rem;
 }
 
 .sar-bundle__step-pill--active {
@@ -193,13 +191,12 @@
 }
 
 .sar-bundle__product-title {
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: bold;
   margin: 0 0 0.35rem;
 }
 
 .sar-bundle__product-price {
-  font-size: 0.8rem;
+  font-weight: normal;
   opacity: 0.85;
 }
 

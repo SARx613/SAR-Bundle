@@ -771,12 +771,24 @@
             }
             var maxN =
               typeof b.maxItems === 'number' && b.maxItems > 0 ? b.maxItems : 24;
+            var rowByGid = buildProductRowByVariantGid(bundle);
             for (var gi = 0; gi < gids.length && gi < maxN; gi++) {
               var gid = gids[gi];
               var meta = (variantCache && variantCache[gid]) || {};
               var row = document.createElement('div');
               row.className = 'sar-bundle__product-grid-item';
-              var t = meta.title || meta.name || String(gid).split('/').pop() || gid;
+              var prodRow = rowByGid[gid];
+              var sf = prodRow && prodRow.storefront;
+              var t =
+                (sf && (sf.displayTitle || sf.productTitle)) ||
+                meta.title ||
+                meta.name ||
+                (prodRow && prodRow.displayName) ||
+                String(gid).split('/').pop() ||
+                gid;
+              if (String(t).toLowerCase() === 'default title') {
+                t = (sf && sf.productTitle) || (prodRow && prodRow.displayName) || 'Produit';
+              }
               row.textContent = t;
               box.appendChild(row);
             }
@@ -1124,6 +1136,17 @@
                     img.alt = sf.productTitle || sf.displayTitle || '';
                     return;
                   }
+                  if (
+                    ph &&
+                    productJsonByHandle[ph] &&
+                    productJsonByHandle[ph].images &&
+                    productJsonByHandle[ph].images[0] &&
+                    productJsonByHandle[ph].images[0].src
+                  ) {
+                    img.src = productJsonByHandle[ph].images[0].src;
+                    img.alt = productJsonByHandle[ph].title || '';
+                    return;
+                  }
                   var m = getMeta();
                   if (m.featured_image && m.featured_image.src) {
                     img.src = m.featured_image.src;
@@ -1324,8 +1347,6 @@
               body.appendChild(grid);
             }
 
-            body.appendChild(grid);
-
             if (step.rules && step.rules.length) {
               var rh = document.createElement('div');
               rh.className = 'sar-bundle__rules';
@@ -1522,17 +1543,40 @@
                 if (val != null && val !== '') masterProps[pk] = String(val);
               }
 
+              // Inventory-safe: add parent + component lines, then Cart Transform merges.
+              var groupKey = 'sar-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+
+              var items = [];
+              // Parent line (pricing / display)
+              items.push({
+                id: parentNumericId,
+                quantity: 1,
+                properties: Object.assign({}, masterProps, {
+                  _sar_bundle_group: groupKey,
+                  _sar_bundle_parent: '1',
+                }),
+              });
+
+              // Component lines (inventory deduction)
+              for (var ci = 0; ci < components.length; ci++) {
+                var comp = components[ci];
+                if (!comp || !comp.variantId || !comp.quantity) continue;
+                items.push({
+                  id: comp.variantId,
+                  quantity: comp.quantity,
+                  properties: {
+                    _sar_bundle_group: groupKey,
+                    _sar_bundle_child: '1',
+                    _sar_bundle_config_id: configId,
+                  },
+                });
+              }
+
               fetch(joinRoot('cart/add.js'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  items: [
-                    {
-                      id: parentNumericId,
-                      quantity: 1,
-                      properties: masterProps,
-                    },
-                  ],
+                  items: items,
                 }),
               })
                 .then(function (res) {
