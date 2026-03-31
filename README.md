@@ -100,6 +100,19 @@ Here's a short list of databases providers that provide a free tier to get start
 
 To use one of these, you can use a different [datasource provider](https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#datasource) in your `schema.prisma` file, or a different [SessionStorage adapter package](https://github.com/Shopify/shopify-api-js/blob/main/packages/shopify-api/docs/guides/session-storage.md).
 
+### PostgreSQL and `DATABASE_URL` (this project)
+
+The Prisma schema uses **PostgreSQL**. Running `shopify app env pull` updates API keys and scopes in `.env` but **does not** create or inject `DATABASE_URL` — you must add it yourself:
+
+1. Create a PostgreSQL database (e.g. [Neon](https://neon.tech), [Supabase](https://supabase.com), or your host’s managed Postgres).
+2. Append a line to your root `.env` file (same folder as `prisma/schema.prisma`):
+
+   `DATABASE_URL="postgresql://…"`
+
+3. Run migrations: `npx prisma migrate deploy` (or `npx prisma db push` for a quick local schema sync without migration history).
+
+Until `DATABASE_URL` is set, Prisma commands fail with **P1012**.
+
 ### Build
 
 Remix handles building the app for you, by running the command below with the package manager of your choice:
