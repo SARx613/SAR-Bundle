@@ -81,8 +81,12 @@ export async function enrichBundleStepProductsForStorefront(
       const g = p.variantGid?.trim();
       const fromAdmin = g ? byVariantId.get(g) : undefined;
       if (fromAdmin) {
-        (p as unknown as { storefront?: StepProductStorefrontMeta }).storefront =
-          fromAdmin;
+        (p as unknown as { storefront?: StepProductStorefrontMeta }).storefront = fromAdmin;
+        // Backfill handle for downstream fallbacks (/products/{handle}.js) when DB value is missing.
+        const cur = (p as unknown as { productHandle?: string | null }).productHandle;
+        if (!cur?.trim() && fromAdmin.productHandle?.trim()) {
+          (p as unknown as { productHandle?: string | null }).productHandle = fromAdmin.productHandle;
+        }
       }
     }
   }
