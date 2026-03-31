@@ -13,6 +13,7 @@
 
 {% if bundle_id != blank and bundle_active != false %}
   {% assign steps_align = block.settings.steps_align | default: 'center' %}
+  {% assign asset_version = block.settings.asset_version | default: '' %}
   {% case steps_align %}
     {% when 'left' %}
       {% assign steps_justify = 'flex-start' %}
@@ -26,7 +27,7 @@
     id="sar-bundle-root"
     class="sar-bundle"
     data-sar-bundle-root
-    data-sar-main-js="{{ 'bundle-builder.js' | asset_url }}"
+    data-sar-main-js="{% if asset_version != blank %}{{ 'bundle-builder.js' | asset_url }}?v={{ asset_version | escape }}{% else %}{{ 'bundle-builder.js' | asset_url }}{% endif %}"
     data-bundle-ref="{{ bundle_id | escape }}"
     data-bundle-id="{{ bundle_id | escape }}"
     data-shop="{{ shop.permanent_domain | escape }}"
@@ -108,6 +109,13 @@
         { "value": "right", "label": "Droite" }
       ],
       "default": "center"
+    },
+    {
+      "type": "text",
+      "id": "asset_version",
+      "label": "Version assets (cache busting)",
+      "default": "21",
+      "info": "Changer cette valeur force le rechargement de bundle-builder.js côté client (utile si Shopify sert un ancien fichier)."
     },
     {
       "type": "header",

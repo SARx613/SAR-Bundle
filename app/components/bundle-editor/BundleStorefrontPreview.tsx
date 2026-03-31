@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type {
   StepBarBlock,
@@ -56,141 +56,44 @@ function RenderBlock({ block }: { block: StorefrontBlockV2 }) {
       return <div style={{ height: block.height }} />;
     case "hero": {
       const layout = block.layout ?? "stack";
-      const img = block.imageUrl ? (
-        <img
-          src={block.imageUrl}
-          alt=""
-          style={{
-            width: "100%",
-            maxWidth: 320,
-            borderRadius: 8,
-            objectFit: "cover",
-          }}
-        />
-      ) : null;
-      const textCol = (
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2
-            style={{
-              margin: "0 0 0.5rem",
-              fontSize: "1.5rem",
-              color: "var(--p-color-text)",
-            }}
-          >
-            {block.headline}
-          </h2>
-          {block.subtext ? (
-            <p style={{ margin: 0, opacity: 0.85, color: "var(--p-color-text)" }}>
-              {block.subtext}
-            </p>
-          ) : null}
-        </div>
-      );
-      if (layout === "stack") {
-        return (
-          <section style={{ marginBottom: "1rem" }}>
-            {img}
-            {textCol}
-          </section>
-        );
-      }
       return (
-        <section
-          style={{
-            display: "flex",
-            gap: "1rem",
-            alignItems: "center",
-            marginBottom: "1rem",
-            flexDirection:
-              layout === "image_right" ? "row-reverse" : "row",
-            flexWrap: "wrap",
-          }}
-        >
-          {img}
-          {textCol}
+        <section className={`sar-bundle__hero sar-bundle__hero--${layout}`}>
+          {block.imageUrl ? (
+            <img
+              src={block.imageUrl}
+              alt=""
+              loading="lazy"
+              className="sar-bundle__hero-img"
+            />
+          ) : null}
+          <div className="sar-bundle__hero-text">
+            <h2>{block.headline}</h2>
+            {block.subtext ? <p>{block.subtext}</p> : null}
+          </div>
         </section>
       );
     }
     case "split": {
-      const imgSide = block.imageSide === "right" ? "row-reverse" : "row";
       return (
         <section
-          style={{
-            display: "flex",
-            gap: "1rem",
-            marginBottom: "1rem",
-            flexDirection: imgSide,
-            flexWrap: "wrap",
-            alignItems: "flex-start",
-          }}
+          className={
+            "sar-bundle__split sar-bundle__split--img-" +
+            (block.imageSide === "right" ? "right" : "left")
+          }
         >
           {block.imageUrl ? (
             <img
               src={block.imageUrl}
               alt=""
-              style={{
-                width: "100%",
-                maxWidth: 200,
-                borderRadius: 8,
-              }}
+              loading="lazy"
+              className="sar-bundle__split-img"
             />
           ) : null}
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <h3 style={{ margin: "0 0 0.35rem", color: "var(--p-color-text)" }}>
-              {block.title}
-            </h3>
-            <p
-              style={{
-                margin: 0,
-                whiteSpace: "pre-wrap",
-                color: "var(--p-color-text)",
-              }}
-            >
-              {block.body}
-            </p>
+          <div className="sar-bundle__split-body">
+            <h3>{block.title}</h3>
+            <p>{block.body}</p>
           </div>
         </section>
-      );
-    }
-    case "product_grid": {
-      const label =
-        block.source === "collection"
-          ? `Collection « ${block.collectionHandle || "…"} »`
-          : block.source === "all"
-            ? "Tout le catalogue"
-            : "Sélection manuelle";
-      return (
-        <div
-          style={{
-            marginBottom: "1rem",
-            padding: "0.75rem",
-            border: "1px dashed var(--p-color-border)",
-            borderRadius: 8,
-            background: "var(--p-color-bg-surface-secondary, rgba(0,0,0,0.02))",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "0.8rem",
-              marginBottom: 8,
-              fontWeight: 600,
-              color: "var(--p-color-text)",
-            }}
-          >
-            Bloc produits ({block.display}) — {label}
-          </div>
-          {block.rules?.length ? (
-            <div
-              style={{
-                fontSize: "0.75rem",
-                opacity: 0.8,
-                color: "var(--p-color-text-secondary, #6d7175)",
-              }}
-            >
-              {block.rules.length} règle(s) d'affichage
-            </div>
-          ) : null}
-        </div>
       );
     }
     case "step_bar":
@@ -274,44 +177,16 @@ function ProductCard({ product }: { product: UiStepProduct }) {
   };
 
   return (
-    <div className="sar-bundle__product">
+    <div className="sar-bundle__product sar-bundle__product--stack-add-to-qty">
       {product.imageUrl ? (
-        <img
-          src={product.imageUrl}
-          alt=""
-        />
+        <img className="sar-bundle__product-img" src={product.imageUrl} alt="" loading="lazy" />
       ) : (
-        <div
-          style={{
-            width: "100%",
-            height: 72,
-            background:
-              "var(--p-color-bg-fill-secondary, #f6f6f7)",
-            borderRadius: 4,
-            marginBottom: 6,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.7rem",
-            color: "var(--p-color-text-secondary, #6d7175)",
-          }}
-        >
-          Aucune image
-        </div>
+        <img className="sar-bundle__product-img" alt="" loading="lazy" />
       )}
-      <div className="sar-bundle__product-title">
-        {product.displayName}
-      </div>
+      <p className="sar-bundle__product-title">{product.displayName || product.variantGid}</p>
+      <div className="sar-bundle__product-price">—</div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          marginTop: 8,
-          justifyContent: "center",
-        }}
-      >
+      <div className="sar-bundle__product-controls">
         <button
           type="button"
           onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -338,25 +213,10 @@ function ProductCard({ product }: { product: UiStepProduct }) {
         >
           +
         </button>
+        <button type="button" className="sar-bundle__btn sar-bundle__btn--primary sar-bundle__add">
+          Ajouter
+        </button>
       </div>
-
-      <button
-        type="button"
-        style={{
-          marginTop: 8,
-          width: "100%",
-          padding: "6px 0",
-          background: "var(--p-color-bg-fill-brand)",
-          color: "var(--p-color-text-on-color)",
-          border: "none",
-          borderRadius: 4,
-          cursor: "pointer",
-          fontWeight: 600,
-          fontSize: "0.8rem",
-        }}
-      >
-        Ajouter au panier
-      </button>
     </div>
   );
 }
@@ -373,30 +233,26 @@ export function BundleStorefrontPreview({
   bundleTitle: string;
 }) {
   const g = design.global;
-  const step = steps[activeStepIndex];
   const safeIndex = Math.min(
     Math.max(0, activeStepIndex),
     Math.max(0, steps.length - 1),
   );
+  const step = steps[safeIndex];
   const hasProductListBlock = design.blocks.some((b) => b.type === "product_list");
+  const blocks = useMemo(() => design.blocks ?? [], [design.blocks]);
 
   return (
-    <div
-      className="sar-bundle"
-      style={{
-        fontFamily: g.fontBody || "var(--p-font-family-sans, system-ui, sans-serif)",
-        background: g.pageBackground || "var(--p-color-bg-surface, #fafafa)",
-        minHeight: 280,
-        overflow: "auto",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: g.contentMaxWidth || "720px",
-          margin: "0 auto",
-        }}
-      >
-        {design.blocks.map((b) => {
+    <div className="sar-bundle" style={{ overflow: "auto" }}>
+      <div style={{ maxWidth: g.contentMaxWidth || "720px", margin: "0 auto" }}>
+        <div
+          className="sar-bundle__design"
+          style={{
+            maxWidth: g.contentMaxWidth || "720px",
+            background: g.pageBackground || "transparent",
+            marginBottom: "1rem",
+          }}
+        >
+          {blocks.map((b) => {
           if (b.type === "step_bar") {
             return (
               <StepBarPreview
@@ -407,83 +263,32 @@ export function BundleStorefrontPreview({
               />
             );
           }
-          if (b.type === "product_list") {
-            return step ? (
-              <div key={b.id}>
-                {step.description ? (
-                  <p
-                    style={{
-                      margin: "0 0 0.75rem",
-                      fontSize: "0.9rem",
-                      color: "var(--p-color-text)",
-                    }}
-                  >
-                    {step.description}
-                  </p>
-                ) : null}
-                <div className="sar-bundle__products">
-                  {step.products.length === 0 ? (
-                    <div
-                      style={{
-                        fontSize: "0.85rem",
-                        color: "var(--p-color-text-secondary, #6d7175)",
-                        padding: "0.5rem 0",
-                      }}
-                    >
-                      Aucun produit sur cette étape (aperçu).
-                    </div>
-                  ) : (
-                    step.products.map((p) => (
-                      <ProductCard key={p.variantGid} product={p} />
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : null;
-          }
-          return <RenderBlock key={b.id} block={b} />;
-        })}
+            if (b.type === "product_list") return null;
+            return <RenderBlock key={b.id} block={b} />;
+          })}
+        </div>
 
-        <h2
-          style={{
-            fontFamily: g.fontHeading || "var(--p-font-family-sans, system-ui, sans-serif)",
-            fontSize: "1.25rem",
-            margin: "0.75rem 0",
-            color: "var(--p-color-text)",
-          }}
-        >
-          {bundleTitle.trim() || "Bundle"}
-        </h2>
+        <h2 className="sar-bundle__title">{bundleTitle.trim() || "Bundle"}</h2>
+
+        <div className="sar-bundle__steps">
+          {steps.map((s, i) => (
+            <span
+              key={i}
+              className={
+                "sar-bundle__step-pill" + (i === safeIndex ? " sar-bundle__step-pill--active" : "")
+              }
+            >
+              {(s.name || `Étape ${i + 1}`).slice(0, 48)}
+            </span>
+          ))}
+        </div>
 
         {!hasProductListBlock && step ? (
-          <div style={{ marginTop: 8 }}>
-            {step.description ? (
-              <p
-                style={{
-                  margin: "0 0 0.75rem",
-                  fontSize: "0.9rem",
-                  color: "var(--p-color-text)",
-                }}
-              >
-                {step.description}
-              </p>
-            ) : null}
+          <div className="sar-bundle__body">
             <div className="sar-bundle__products">
-              {step.products.length === 0 ? (
-                <div
-                  style={{
-                    fontSize: "0.85rem",
-                    color: "var(--p-color-text-secondary, #6d7175)",
-                    padding: "0.5rem 0",
-                  }}
-                >
-                  Aucun produit sur cette étape (aperçu).
-                </div>
-              ) : (
-                step.products.map((p) => (
-                  <ProductCard key={p.variantGid} product={p} />
-                ))
-              )}
+              {step.products.map((p) => (
+                <ProductCard key={p.variantGid} product={p} />
+              ))}
             </div>
           </div>
         ) : null}

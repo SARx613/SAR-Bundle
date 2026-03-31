@@ -360,7 +360,17 @@ export function SidebarLevel2({
     }
     onStepProductsChange([...step.products, ...additions]);
     const missing = additions
-      .filter((a) => !a.imageUrl || !a.displayName || a.displayName.includes("Default Title"))
+      .filter((a) => {
+        const name = (a.displayName ?? "").trim();
+        const looksLikeId = /^\d{8,}$/.test(name);
+        return (
+          !a.imageUrl ||
+          !name ||
+          looksLikeId ||
+          name.toLowerCase() === "default title" ||
+          !a.productHandle
+        );
+      })
       .map((a) => a.variantGid);
     if (missing.length) enrichVariants(missing);
   };
@@ -416,7 +426,11 @@ export function SidebarLevel2({
     if (additions.length) {
       onStepProductsChange([...step.products, ...additions]);
       const missing = additions
-        .filter((a) => !a.imageUrl || !a.displayName)
+        .filter((a) => {
+          const name = (a.displayName ?? "").trim();
+          const looksLikeId = /^\d{8,}$/.test(name);
+          return !a.imageUrl || !name || looksLikeId || !a.productHandle;
+        })
         .map((a) => a.variantGid);
       if (missing.length) enrichVariants(missing);
     }
