@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import { useFetcher } from "@remix-run/react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   BlockStack,
   Box,
   Button,
+  Checkbox,
+  Collapsible,
   Divider,
   DropZone,
+  Icon,
   InlineStack,
   Modal,
   Select,
@@ -13,14 +17,38 @@ import {
   Text,
   TextField,
   Thumbnail,
+  Tooltip,
 } from "@shopify/polaris";
-import { DeleteIcon } from "@shopify/polaris-icons";
+import {
+  ArrowLeftIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  DeleteIcon,
+  DragHandleIcon,
+  SearchIcon,
+} from "@shopify/polaris-icons";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   blockDisplayLabel,
   newBlockId,
+  type StorefrontBlockV2,
   type StorefrontDesignV2,
 } from "../../utils/storefront-design";
-import type { UiStep, UiStepRule } from "../../utils/bundle-form.client";
+import type { UiStep, UiStepProduct, UiStepRule } from "../../utils/bundle-form.client";
 
 type UploadJson = {
   ok?: boolean;
@@ -28,6 +56,21 @@ type UploadJson = {
   imageUrl?: string | null;
   imageGid?: string | null;
 };
+
+type PickerVariant = {
+  id: string;
+  displayName?: string;
+  image?: { url?: string | null } | null;
+  product?: { handle?: string | null };
+};
+
+function variantsFromPickerSafe(payload: unknown): PickerVariant[] {
+  if (!payload) return [];
+  const p = payload as PickerVariant[] & { selection?: PickerVariant[] };
+  if (Array.isArray(p.selection)) return p.selection;
+  if (Array.isArray(p)) return [...p];
+  return [];
+}
 
 const STEP_RULE_METRICS = [
   { label: "Quantité", value: "TOTAL_ITEM_COUNT" },
@@ -50,12 +93,117 @@ function ruleLabel(r: UiStepRule): string {
   return `${m} ${o} ${r.value}`;
 }
 
+type LibCategory = "mep" | "products" | "text" | "media";
+
+function SortableBlockRow({
+  block,
+  onClick,
+  onDelete,
+}: {
+  block: StorefrontBlockV2;
+  onClick: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: block.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Box
+        padding="200"
+        borderWidth="025"
+        borderColor="border"
+        borderRadius="200"
+        background="bg-surface"
+      >
+        <InlineStack gap="200" blockAlign="center" wrap={false}>
+          <div
+            {...attributes}
+            {...listeners}
+            style={{ cursor: "grab", color: "var(--p-color-icon-subdued)", flexShrink: 0 }}
+            aria-label="Réordonner"
+          >
+            <Icon source={DragHandleIcon} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+            <Button variant="plain" onClick={onClick} fullWidth textAlign="left">
+              {blockDisplayLabel(block)}
+            </Button>
+          </div>
+          <Tooltip content="Supprimer ce bloc">
+            <Button
+              icon={DeleteIcon}
+              variant="plain"
+              tone="critical"
+              onClick={onDelete}
+              accessibilityLabel="Supprimer"
+            />
+          </Tooltip>
+        </InlineStack>
+      </Box>
+    </div>
+  );
+}
+
+function CategoryRow({
+  label,
+  isOpen,
+  onToggle,
+  children,
+  id,
+}: {
+  label: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  id: string;
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          padding: "6px 4px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "var(--p-color-text)",
+          fontWeight: 500,
+          fontSize: "0.8rem",
+        }}
+        aria-expanded={isOpen}
+      >
+        <span>{label}</span>
+        <Icon source={isOpen ? ChevronDownIcon : ChevronRightIcon} />
+      </button>
+      <Collapsible id={id} open={isOpen}>
+        <div style={{ paddingLeft: 4, paddingBottom: 4 }}>
+          {children}
+        </div>
+      </Collapsible>
+    </div>
+  );
+}
+
 export function SidebarLevel2({
   stepIndex,
   step,
+  stepsCount,
   design,
   onDesignChange,
   onStepPatch,
+  onStepProductsChange,
   onBack,
   onBlockClick,
   activeTab,
@@ -63,17 +211,33 @@ export function SidebarLevel2({
 }: {
   stepIndex: number;
   step: UiStep;
+  stepsCount: number;
   design: StorefrontDesignV2;
   onDesignChange: (d: StorefrontDesignV2) => void;
   onStepPatch: (patch: Partial<UiStep>) => void;
+  onStepProductsChange: (products: UiStepProduct[]) => void;
   onBack: () => void;
   onBlockClick: (blockId: string) => void;
   activeTab: number;
   onTabChange: (t: number) => void;
 }) {
+  const shopifyBridge = useAppBridge();
+
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
   const [draftRules, setDraftRules] = useState<UiStepRule[]>(step.rules);
   const uploadFetcher = useFetcher<UploadJson>();
+
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libSearch, setLibSearch] = useState("");
+  const [libTab, setLibTab] = useState<"elements" | "sections">("elements");
+  const [openCats, setOpenCats] = useState<Record<LibCategory, boolean>>({
+    mep: true,
+    products: true,
+    text: false,
+    media: false,
+  });
+
+  const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
     if (
@@ -110,72 +274,351 @@ export function SidebarLevel2({
     });
   };
 
+  const openVariantPicker = async () => {
+    const selected = await shopifyBridge.resourcePicker({
+      type: "variant",
+      multiple: true,
+      action: "add",
+    });
+    const variants = variantsFromPickerSafe(selected);
+    if (variants.length === 0) return;
+    const existing = new Set(step.products.map((p) => p.variantGid));
+    const additions: UiStepProduct[] = [];
+    let sort = step.products.length;
+    for (const v of variants) {
+      if (existing.has(v.id)) continue;
+      existing.add(v.id);
+      additions.push({
+        variantGid: v.id,
+        sortOrder: sort++,
+        minQuantity: null,
+        maxQuantity: null,
+        displayName: v.displayName ?? v.id.split("/").pop() ?? v.id,
+        imageUrl: v.image?.url ?? null,
+        productHandle: v.product?.handle ?? null,
+        layoutPreset: "STACK_ADD_TO_QTY",
+        styleOverrides: null,
+      });
+    }
+    onStepProductsChange([...step.products, ...additions]);
+  };
+
+  const toggleCat = (cat: LibCategory) =>
+    setOpenCats((c) => ({ ...c, [cat]: !c[cat] }));
+
+  const addBlock = (block: StorefrontBlockV2) => {
+    onDesignChange({
+      ...design,
+      version: 2,
+      blocks: [...design.blocks, block],
+    });
+    setShowLibrary(false);
+  };
+
+  const deleteBlock = (blockId: string) => {
+    onDesignChange({
+      ...design,
+      version: 2,
+      blocks: design.blocks.filter((b) => b.id !== blockId),
+    });
+  };
+
+  const handleBlockDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = design.blocks.findIndex((b) => b.id === active.id);
+    const newIndex = design.blocks.findIndex((b) => b.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onDesignChange({
+      ...design,
+      version: 2,
+      blocks: arrayMove(design.blocks, oldIndex, newIndex),
+    });
+  };
+
+  const backBtn = (
+    <Tooltip content="Retour aux étapes">
+      <Button
+        icon={ArrowLeftIcon}
+        variant="plain"
+        onClick={onBack}
+        accessibilityLabel="Retour aux étapes"
+      />
+    </Tooltip>
+  );
+
   const layoutTab = (
     <BlockStack gap="300">
-      <Button variant="plain" onClick={onBack}>
-        ← Étapes
-      </Button>
-      <Text as="h3" variant="headingSm">
-        Blocs de la page
-      </Text>
-      {design.blocks.length === 0 ? (
-        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-          <Text as="p" variant="bodySm" tone="subdued">
-            Aucun bloc. Utilisez le bouton ci-dessous pour ajouter une section.
-          </Text>
-        </Box>
-      ) : (
-        <BlockStack gap="150">
-          {design.blocks.map((block) => (
-            <Box
-              key={block.id}
-              padding="200"
-              borderWidth="025"
-              borderColor="border"
-              borderRadius="200"
+      <InlineStack gap="200" blockAlign="center">
+        {backBtn}
+        <Text as="h3" variant="headingSm">
+          {step.name.trim() || `Étape ${stepIndex + 1}`}
+        </Text>
+      </InlineStack>
+
+      {showLibrary ? (
+        <BlockStack gap="200">
+          <InlineStack align="space-between" blockAlign="center">
+            <Text as="h4" variant="headingSm">
+              Ajouter un bloc
+            </Text>
+            <Button variant="plain" onClick={() => setShowLibrary(false)}>
+              ✕
+            </Button>
+          </InlineStack>
+
+          <TextField
+            label=""
+            labelHidden
+            placeholder="Rechercher un bloc…"
+            value={libSearch}
+            onChange={setLibSearch}
+            prefix={<Icon source={SearchIcon} />}
+            autoComplete="off"
+          />
+
+          <div style={{ display: "flex", gap: 4 }}>
+            <Button
+              pressed={libTab === "elements"}
+              onClick={() => setLibTab("elements")}
+              size="slim"
             >
-              <Button variant="plain" onClick={() => onBlockClick(block.id)}>
-                <Text as="span" variant="bodySm">
-                  {blockDisplayLabel(block)}
-                </Text>
-              </Button>
+              Éléments
+            </Button>
+            <Button
+              pressed={libTab === "sections"}
+              onClick={() => setLibTab("sections")}
+              size="slim"
+            >
+              Sections
+            </Button>
+          </div>
+
+          <Divider />
+
+          <CategoryRow
+            id="cat-mep"
+            label="Mise en page"
+            isOpen={openCats.mep}
+            onToggle={() => toggleCat("mep")}
+          >
+            <BlockStack gap="100">
+              {(libSearch === "" || "barre d'étape".includes(libSearch.toLowerCase())) && (
+                <Button
+                  variant="plain"
+                  fullWidth
+                  textAlign="left"
+                  onClick={() =>
+                    addBlock({ id: newBlockId(), type: "step_bar", style: {} })
+                  }
+                  disabled={stepsCount < 2}
+                >
+                  Barre d'étape{stepsCount < 2 ? " (≥2 étapes)" : ""}
+                </Button>
+              )}
+              {(libSearch === "" || "espacement".includes(libSearch.toLowerCase())) && (
+                <Button
+                  variant="plain"
+                  fullWidth
+                  textAlign="left"
+                  onClick={() =>
+                    addBlock({ id: newBlockId(), type: "spacer", height: 24 })
+                  }
+                >
+                  Espacement
+                </Button>
+              )}
+            </BlockStack>
+          </CategoryRow>
+
+          <CategoryRow
+            id="cat-products"
+            label="Produits"
+            isOpen={openCats.products}
+            onToggle={() => toggleCat("products")}
+          >
+            <BlockStack gap="100">
+              {(libSearch === "" || "liste de produits".includes(libSearch.toLowerCase())) && (
+                <Button
+                  variant="plain"
+                  fullWidth
+                  textAlign="left"
+                  onClick={() =>
+                    addBlock({ id: newBlockId(), type: "product_list" })
+                  }
+                >
+                  Liste de produits
+                </Button>
+              )}
+            </BlockStack>
+          </CategoryRow>
+
+          <CategoryRow
+            id="cat-text"
+            label="Texte"
+            isOpen={openCats.text}
+            onToggle={() => toggleCat("text")}
+          >
+            <BlockStack gap="100">
+              {(libSearch === "" || "titre".includes(libSearch.toLowerCase())) && (
+                <Button
+                  variant="plain"
+                  fullWidth
+                  textAlign="left"
+                  onClick={() =>
+                    addBlock({
+                      id: newBlockId(),
+                      type: "heading",
+                      text: "Nouveau titre",
+                      tag: "h2",
+                      style: {
+                        fontSize: "1.25rem",
+                        color: "var(--p-color-text)",
+                        marginBottom: "0.5rem",
+                      },
+                    })
+                  }
+                >
+                  Titre
+                </Button>
+              )}
+              {(libSearch === "" || "texte".includes(libSearch.toLowerCase())) && (
+                <Button
+                  variant="plain"
+                  fullWidth
+                  textAlign="left"
+                  onClick={() =>
+                    addBlock({
+                      id: newBlockId(),
+                      type: "text",
+                      text: "Nouveau texte",
+                      style: { color: "var(--p-color-text)" },
+                    })
+                  }
+                >
+                  Texte
+                </Button>
+              )}
+            </BlockStack>
+          </CategoryRow>
+
+          <CategoryRow
+            id="cat-media"
+            label="Médias"
+            isOpen={openCats.media}
+            onToggle={() => toggleCat("media")}
+          >
+            <BlockStack gap="100">
+              {(libSearch === "" || "image".includes(libSearch.toLowerCase())) && (
+                <Button
+                  variant="plain"
+                  fullWidth
+                  textAlign="left"
+                  onClick={() =>
+                    addBlock({
+                      id: newBlockId(),
+                      type: "image",
+                      url: null,
+                      alt: "",
+                      style: { maxWidth: "100%" },
+                    })
+                  }
+                >
+                  Image
+                </Button>
+              )}
+              {(libSearch === "" || "hero bannière".includes(libSearch.toLowerCase())) && (
+                <Button
+                  variant="plain"
+                  fullWidth
+                  textAlign="left"
+                  onClick={() =>
+                    addBlock({
+                      id: newBlockId(),
+                      type: "hero",
+                      headline: "Titre principal",
+                      subtext: "",
+                      imageUrl: null,
+                      layout: "stack",
+                    })
+                  }
+                >
+                  Bannière (Hero)
+                </Button>
+              )}
+              {(libSearch === "" || "split".includes(libSearch.toLowerCase())) && (
+                <Button
+                  variant="plain"
+                  fullWidth
+                  textAlign="left"
+                  onClick={() =>
+                    addBlock({
+                      id: newBlockId(),
+                      type: "split",
+                      title: "Titre",
+                      body: "Texte descriptif",
+                      imageUrl: null,
+                      imageSide: "left",
+                    })
+                  }
+                >
+                  Section Split
+                </Button>
+              )}
+            </BlockStack>
+          </CategoryRow>
+        </BlockStack>
+      ) : (
+        <BlockStack gap="200">
+          {design.blocks.length === 0 ? (
+            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+              <Text as="p" variant="bodySm" tone="subdued">
+                Aucun bloc. Cliquez sur "+ Ajouter une section".
+              </Text>
             </Box>
-          ))}
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleBlockDragEnd}
+            >
+              <SortableContext
+                items={design.blocks.map((b) => b.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <BlockStack gap="150">
+                  {design.blocks.map((block) => (
+                    <SortableBlockRow
+                      key={block.id}
+                      block={block}
+                      onClick={() => onBlockClick(block.id)}
+                      onDelete={() => deleteBlock(block.id)}
+                    />
+                  ))}
+                </BlockStack>
+              </SortableContext>
+            </DndContext>
+          )}
+          <Button
+            onClick={() => setShowLibrary(true)}
+            fullWidth
+          >
+            + Ajouter une section
+          </Button>
         </BlockStack>
       )}
-      <Button
-        onClick={() => {
-          const id = newBlockId();
-          onDesignChange({
-            ...design,
-            version: 2,
-            blocks: [
-              ...design.blocks,
-              {
-                id,
-                type: "heading",
-                text: "Nouveau titre",
-                tag: "h2",
-                style: {
-                  fontSize: "1.25rem",
-                  color: "var(--p-color-text)",
-                  marginBottom: "0.5rem",
-                },
-              },
-            ],
-          });
-        }}
-      >
-        + Ajouter une section
-      </Button>
     </BlockStack>
   );
 
   const settingsTab = (
     <BlockStack gap="300">
-      <Button variant="plain" onClick={onBack}>
-        ← Étapes
-      </Button>
+      <InlineStack gap="200" blockAlign="center">
+        {backBtn}
+        <Text as="h3" variant="headingSm">
+          {step.name.trim() || `Étape ${stepIndex + 1}`}
+        </Text>
+      </InlineStack>
+
       <TextField
         label="Nom de l'étape"
         value={step.name}
@@ -189,6 +632,12 @@ export function SidebarLevel2({
         multiline={3}
         autoComplete="off"
       />
+      <Checkbox
+        label="Étape finale (options additionnelles)"
+        checked={step.isFinalStep}
+        onChange={(v) => onStepPatch({ isFinalStep: v })}
+      />
+
       <Divider />
       <Text as="h4" variant="headingSm">
         Icône d'étape
@@ -217,6 +666,54 @@ export function SidebarLevel2({
           <DropZone.FileUpload actionHint="JPEG, PNG, WebP, SVG" />
         </DropZone>
       )}
+
+      <Divider />
+      <Text as="h4" variant="headingSm">
+        Produits éligibles
+      </Text>
+      <Button onClick={openVariantPicker}>
+        Sélectionner des variants
+      </Button>
+      {step.products.length === 0 ? (
+        <Text as="p" variant="bodySm" tone="subdued">
+          Aucun variant sélectionné.
+        </Text>
+      ) : (
+        <BlockStack gap="200">
+          {step.products.map((p, pi) => (
+            <Box
+              key={p.variantGid}
+              padding="200"
+              borderWidth="025"
+              borderColor="border"
+              borderRadius="200"
+              background="bg-surface"
+            >
+              <InlineStack gap="200" blockAlign="center" wrap={false}>
+                {p.imageUrl ? (
+                  <Thumbnail source={p.imageUrl} alt="" size="small" />
+                ) : null}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text as="p" variant="bodySm" truncate>
+                    {p.displayName}
+                  </Text>
+                </div>
+                <Button
+                  variant="plain"
+                  tone="critical"
+                  onClick={() =>
+                    onStepProductsChange(step.products.filter((_, k) => k !== pi))
+                  }
+                  accessibilityLabel="Retirer"
+                >
+                  ✕
+                </Button>
+              </InlineStack>
+            </Box>
+          ))}
+        </BlockStack>
+      )}
+
       <Divider />
       <Text as="h4" variant="headingSm">
         Sélections requises
@@ -243,9 +740,18 @@ export function SidebarLevel2({
   return (
     <>
       <Tabs
+        fitted
         tabs={[
-          { id: "layout", content: "Mise en page" },
-          { id: "settings", content: "Paramètres" },
+          {
+            id: "layout",
+            content: "Mise en page",
+            accessibilityLabel: "Mise en page",
+          },
+          {
+            id: "settings",
+            content: "Paramètres",
+            accessibilityLabel: "Paramètres",
+          },
         ]}
         selected={activeTab}
         onSelect={onTabChange}
@@ -352,4 +858,3 @@ export function SidebarLevel2({
     </>
   );
 }
-

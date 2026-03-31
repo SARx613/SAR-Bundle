@@ -10,13 +10,35 @@ import {
   Box,
   Button,
   Card,
-  Divider,
+  InlineStack,
   Text,
+  Tooltip,
+  Icon,
 } from "@shopify/polaris";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { DragHandleIcon, DeleteIcon, PlusIcon } from "@shopify/polaris-icons";
 import { BundleStorefrontPreview } from "./BundleStorefrontPreview";
 import { SidebarLevel2 } from "./SidebarLevel2";
 import { SidebarLevel3 } from "./SidebarLevel3";
-import type { BundleFormState, UiStep } from "../../utils/bundle-form.client";
+import {
+  emptyStep,
+  type BundleFormState,
+  type UiStep,
+} from "../../utils/bundle-form.client";
 import type { StorefrontDesignV2 } from "../../utils/storefront-design";
 
 type SidebarLevel =
@@ -24,16 +46,79 @@ type SidebarLevel =
   | { level: 2; stepIndex: number; activeTab: number }
   | { level: 3; stepIndex: number; blockId: string; activeTab: number };
 
+function SortableStepRow({
+  step,
+  index,
+  onClick,
+  onDelete,
+}: {
+  step: UiStep;
+  index: number;
+  onClick: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: String(index) });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Box
+        padding="200"
+        borderWidth="025"
+        borderColor="border"
+        borderRadius="200"
+        background="bg-surface"
+      >
+        <InlineStack gap="200" blockAlign="center" wrap={false}>
+          <div
+            {...attributes}
+            {...listeners}
+            style={{ cursor: "grab", color: "var(--p-color-icon-subdued)", flexShrink: 0 }}
+            aria-label="Réordonner"
+          >
+            <Icon source={DragHandleIcon} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+            <Button
+              variant="plain"
+              onClick={onClick}
+              fullWidth
+              textAlign="left"
+            >
+              {step.name.trim() || `Étape ${index + 1}`}
+            </Button>
+          </div>
+          <Tooltip content="Supprimer l'étape">
+            <Button
+              icon={DeleteIcon}
+              variant="plain"
+              tone="critical"
+              onClick={onDelete}
+              accessibilityLabel="Supprimer"
+            />
+          </Tooltip>
+        </InlineStack>
+      </Box>
+    </div>
+  );
+}
+
 export function BundleVisualEditor({
   form,
   setForm,
-  onOpenStepsTab,
 }: {
   form: BundleFormState;
   setForm: Dispatch<SetStateAction<BundleFormState>>;
-  onOpenStepsTab: () => void;
 }) {
   const [nav, setNav] = useState<SidebarLevel>({ level: 1 });
+
+  const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
     if (nav.level !== 1) {
@@ -73,14 +158,44 @@ export function BundleVisualEditor({
           blocks: f.storefrontDesign.blocks.filter((b) => b.id !== blockId),
         },
       }));
-      setNav((n) => (n.level === 3 ? { level: 2, stepIndex: n.stepIndex, activeTab: 0 } : n));
+      setNav((n) =>
+        n.level === 3 ? { level: 2, stepIndex: n.stepIndex, activeTab: 0 } : n,
+      );
     },
     [setForm],
   );
 
-  const activeStepIndex =
-    nav.level === 1 ? 0 : nav.stepIndex;
+  const addStep = () => {
+    setForm((f) => ({ ...f, steps: [...f.steps, emptyStep(f.steps.length)] }));
+  };
 
+  const deleteStep = (i: number) => {
+    setForm((f) => ({ ...f, steps: f.steps.filter((_, j) => j !== i) }));
+    setNav((n) => {
+      if (n.level === 1) return n;
+      if (n.stepIndex === i) return { level: 1 };
+      if (n.stepIndex > i) return { ...n, stepIndex: n.stepIndex - 1 };
+      return n;
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = Number(active.id);
+    const newIndex = Number(over.id);
+    setForm((f) => ({
+      ...f,
+      steps: arrayMove(f.steps, oldIndex, newIndex),
+    }));
+    setNav((n) => {
+      if (n.level === 1) return n;
+      if (n.stepIndex === oldIndex) return { ...n, stepIndex: newIndex };
+      return n;
+    });
+  };
+
+  const activeStepIndex = nav.level === 1 ? 0 : nav.stepIndex;
   const currentStep = form.steps[activeStepIndex];
   const productCount = currentStep?.products.length ?? 0;
 
@@ -88,45 +203,53 @@ export function BundleVisualEditor({
     if (nav.level === 1) {
       return (
         <BlockStack gap="300">
-          <Text as="h2" variant="headingMd">
-            Étapes
-          </Text>
+          <InlineStack align="space-between" blockAlign="center">
+            <Text as="h2" variant="headingMd">
+              Étapes
+            </Text>
+            <Tooltip content="Ajouter une étape">
+              <Button
+                icon={PlusIcon}
+                variant="plain"
+                onClick={addStep}
+                accessibilityLabel="Ajouter une étape"
+              />
+            </Tooltip>
+          </InlineStack>
+
           {form.steps.length === 0 ? (
             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
               <Text as="p" variant="bodySm" tone="subdued">
-                Aucune étape. Cliquez sur "Ouvrir Étapes & produits" pour en
-                ajouter.
+                Aucune étape. Cliquez sur "+" pour en ajouter une.
               </Text>
             </Box>
           ) : (
-            <BlockStack gap="150">
-              {form.steps.map((s, i) => (
-                <Box
-                  key={i}
-                  padding="200"
-                  borderWidth="025"
-                  borderColor="border"
-                  borderRadius="200"
-                >
-                  <Button
-                    variant="plain"
-                    onClick={() =>
-                      setNav({ level: 2, stepIndex: i, activeTab: 0 })
-                    }
-                    fullWidth
-                    textAlign="left"
-                  >
-                    <Text as="span" variant="bodySm">
-                      {s.name.trim() || `Étape ${i + 1}`}
-                    </Text>
-                  </Button>
-                </Box>
-              ))}
-            </BlockStack>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={form.steps.map((_, i) => String(i))}
+                strategy={verticalListSortingStrategy}
+              >
+                <BlockStack gap="150">
+                  {form.steps.map((s, i) => (
+                    <SortableStepRow
+                      key={i}
+                      step={s}
+                      index={i}
+                      onClick={() => setNav({ level: 2, stepIndex: i, activeTab: 0 })}
+                      onDelete={() => deleteStep(i)}
+                    />
+                  ))}
+                </BlockStack>
+              </SortableContext>
+            </DndContext>
           )}
-          <Divider />
-          <Button variant="secondary" onClick={onOpenStepsTab}>
-            Ouvrir « Étapes & produits »
+
+          <Button variant="primary" onClick={addStep} fullWidth>
+            + Ajouter une étape
           </Button>
         </BlockStack>
       );
@@ -142,9 +265,13 @@ export function BundleVisualEditor({
         <SidebarLevel2
           stepIndex={nav.stepIndex}
           step={step}
+          stepsCount={form.steps.length}
           design={form.storefrontDesign}
           onDesignChange={patchDesign}
           onStepPatch={(patch) => patchStep(nav.stepIndex, patch)}
+          onStepProductsChange={(products) =>
+            patchStep(nav.stepIndex, { products })
+          }
           onBack={() => setNav({ level: 1 })}
           onBlockClick={(blockId) =>
             setNav({
@@ -155,9 +282,7 @@ export function BundleVisualEditor({
             })
           }
           activeTab={nav.activeTab}
-          onTabChange={(t) =>
-            setNav({ ...nav, activeTab: t })
-          }
+          onTabChange={(t) => setNav({ ...nav, activeTab: t })}
         />
       );
     }
@@ -169,10 +294,15 @@ export function BundleVisualEditor({
         <SidebarLevel3
           blockId={nav.blockId}
           stepName={stepName}
+          stepIndex={nav.stepIndex}
+          step={step}
           design={form.storefrontDesign}
           onDesignChange={patchDesign}
           onBack={() =>
             setNav({ level: 2, stepIndex: nav.stepIndex, activeTab: 0 })
+          }
+          onGoToSettings={() =>
+            setNav({ level: 2, stepIndex: nav.stepIndex, activeTab: 1 })
           }
           activeTab={nav.activeTab}
           onTabChange={(t) => setNav({ ...nav, activeTab: t })}
@@ -192,7 +322,7 @@ export function BundleVisualEditor({
         alignItems: "flex-start",
       }}
     >
-      {/* Sidebar 30% — fixe, remplace son contenu selon le niveau */}
+      {/* Sidebar 30% */}
       <div
         style={{
           flex: "0 0 30%",
@@ -202,13 +332,11 @@ export function BundleVisualEditor({
         }}
       >
         <Card>
-          <BlockStack gap="300">
-            {renderSidebar()}
-          </BlockStack>
+          <BlockStack gap="300">{renderSidebar()}</BlockStack>
         </Card>
       </div>
 
-      {/* Aperçu 70% — toujours visible, ne bouge jamais */}
+      {/* Aperçu 70% */}
       <div style={{ flex: "1 1 0", minWidth: 280 }}>
         <Card>
           <BlockStack gap="300">
@@ -229,13 +357,9 @@ export function BundleVisualEditor({
               <Text as="p" variant="bodySm" tone="subdued">
                 Étape affichée :{" "}
                 <strong>
-                  {currentStep.name.trim() ||
-                    `Étape ${activeStepIndex + 1}`}
+                  {currentStep.name.trim() || `Étape ${activeStepIndex + 1}`}
                 </strong>{" "}
-                — {productCount} produit(s).{" "}
-                <Button variant="plain" onClick={onOpenStepsTab}>
-                  Modifier
-                </Button>
+                — {productCount} produit(s).
               </Text>
             ) : null}
           </BlockStack>

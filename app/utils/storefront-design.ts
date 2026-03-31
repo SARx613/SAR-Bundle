@@ -125,11 +125,30 @@ export type ProductGridBlock = {
   rules?: ProductGridRule[];
 };
 
+export type StepBarBlock = {
+  id: string;
+  type: "step_bar";
+  style?: {
+    borderColor?: string;
+    activeBg?: string;
+    inactiveBg?: string;
+    activeTextColor?: string;
+    inactiveTextColor?: string;
+  };
+};
+
+export type ProductListBlock = {
+  id: string;
+  type: "product_list";
+};
+
 export type StorefrontBlockV2 =
   | StorefrontBlock
   | HeroBlock
   | SplitBlock
-  | ProductGridBlock;
+  | ProductGridBlock
+  | StepBarBlock
+  | ProductListBlock;
 
 export type StorefrontDesignV2 = {
   version: 2;
@@ -260,6 +279,23 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
         rules: rules?.length ? rules : undefined,
       };
     }
+    case "step_bar": {
+      const style = isRecord(raw.style) ? raw.style : {};
+      return {
+        id,
+        type: "step_bar",
+        style: {
+          borderColor: typeof style.borderColor === "string" ? style.borderColor : undefined,
+          activeBg: typeof style.activeBg === "string" ? style.activeBg : undefined,
+          inactiveBg: typeof style.inactiveBg === "string" ? style.inactiveBg : undefined,
+          activeTextColor: typeof style.activeTextColor === "string" ? style.activeTextColor : undefined,
+          inactiveTextColor: typeof style.inactiveTextColor === "string" ? style.inactiveTextColor : undefined,
+        },
+      };
+    }
+    case "product_list": {
+      return { id, type: "product_list" };
+    }
     case "heading":
     case "text":
     case "image":
@@ -355,6 +391,10 @@ export function blockDisplayLabel(block: StorefrontBlockV2): string {
       return block.title.trim().slice(0, 35) || "Section split";
     case "product_grid":
       return block.collectionHandle?.trim().slice(0, 35) || "Grille produits";
+    case "step_bar":
+      return "Barre d'étape";
+    case "product_list":
+      return "Liste de produits";
     default:
       return "Bloc";
   }

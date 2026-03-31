@@ -2,20 +2,25 @@ import {
   BlockStack,
   Box,
   Button,
+  InlineStack,
   Select,
   Tabs,
   Text,
   TextField,
+  Tooltip,
 } from "@shopify/polaris";
+import { ArrowLeftIcon } from "@shopify/polaris-icons";
 import {
   type HeroBlock,
   type ProductGridBlock,
   type ProductGridRule,
+  type StepBarBlock,
   type StorefrontBlockV2,
   type StorefrontDesignV2,
   type TextStyleBlock,
 } from "../../utils/storefront-design";
 import { blockDisplayLabel } from "../../utils/storefront-design";
+import type { UiStep } from "../../utils/bundle-form.client";
 
 const HEADING_TAGS = [
   { label: "H1", value: "h1" },
@@ -23,13 +28,12 @@ const HEADING_TAGS = [
   { label: "H3", value: "h3" },
 ] as const;
 
-const GRID_RULE_METRICS: { label: string; value: ProductGridRule["metric"] }[] =
-  [
-    { label: "Prix du bundle", value: "BUNDLE_PRICE" },
-    { label: "Nombre total d'articles", value: "TOTAL_ITEM_COUNT" },
-    { label: "Quantité d'un variant", value: "VARIANT_QUANTITY" },
-    { label: "Variants distincts", value: "DISTINCT_VARIANT_COUNT" },
-  ];
+const GRID_RULE_METRICS: { label: string; value: ProductGridRule["metric"] }[] = [
+  { label: "Prix du bundle", value: "BUNDLE_PRICE" },
+  { label: "Nombre total d'articles", value: "TOTAL_ITEM_COUNT" },
+  { label: "Quantité d'un variant", value: "VARIANT_QUANTITY" },
+  { label: "Variants distincts", value: "DISTINCT_VARIANT_COUNT" },
+];
 
 const GRID_RULE_OPS: { label: string; value: ProductGridRule["operator"] }[] = [
   { label: "<", value: "LT" },
@@ -39,8 +43,7 @@ const GRID_RULE_OPS: { label: string; value: ProductGridRule["operator"] }[] = [
   { label: ">", value: "GT" },
 ];
 
-const CSS_VAR_HINT =
-  "Laisser vide = valeur du thème. Ex. : var(--p-color-text)";
+const CSS_VAR_HINT = "Laisser vide = valeur du thème. Ex. : var(--p-color-text)";
 
 function StyleFields({
   style,
@@ -68,9 +71,7 @@ function StyleFields({
       <TextField
         label="Fond"
         value={style.backgroundColor ?? ""}
-        onChange={(v) =>
-          onChange({ ...style, backgroundColor: v || undefined })
-        }
+        onChange={(v) => onChange({ ...style, backgroundColor: v || undefined })}
         autoComplete="off"
         helpText={CSS_VAR_HINT + " — var(--p-color-bg-surface)"}
       />
@@ -83,10 +84,7 @@ function StyleFields({
         ]}
         value={style.textAlign ?? "left"}
         onChange={(v) =>
-          onChange({
-            ...style,
-            textAlign: v as TextStyleBlock["textAlign"],
-          })
+          onChange({ ...style, textAlign: v as TextStyleBlock["textAlign"] })
         }
       />
       <TextField
@@ -149,12 +147,68 @@ function StyleFields({
   );
 }
 
-function BlockGeneralFields({
+function StepBarStyleFields({
   block,
   onPatch,
 }: {
+  block: StepBarBlock;
+  onPatch: (patch: Partial<StepBarBlock>) => void;
+}) {
+  const style = block.style ?? {};
+  const patchStyle = (s: Partial<StepBarBlock["style"]>) =>
+    onPatch({ style: { ...style, ...s } });
+
+  return (
+    <BlockStack gap="200">
+      <TextField
+        label="Couleur bordure / lignes"
+        value={style.borderColor ?? ""}
+        onChange={(v) => patchStyle({ borderColor: v || undefined })}
+        autoComplete="off"
+        helpText="var(--p-color-border)"
+      />
+      <TextField
+        label="Fond étape active"
+        value={style.activeBg ?? ""}
+        onChange={(v) => patchStyle({ activeBg: v || undefined })}
+        autoComplete="off"
+        helpText="var(--p-color-bg-fill-brand)"
+      />
+      <TextField
+        label="Fond étape inactive"
+        value={style.inactiveBg ?? ""}
+        onChange={(v) => patchStyle({ inactiveBg: v || undefined })}
+        autoComplete="off"
+        helpText="var(--p-color-bg-fill-secondary)"
+      />
+      <TextField
+        label="Couleur texte (active)"
+        value={style.activeTextColor ?? ""}
+        onChange={(v) => patchStyle({ activeTextColor: v || undefined })}
+        autoComplete="off"
+        helpText="var(--p-color-text-on-color)"
+      />
+      <TextField
+        label="Couleur texte (inactive)"
+        value={style.inactiveTextColor ?? ""}
+        onChange={(v) => patchStyle({ inactiveTextColor: v || undefined })}
+        autoComplete="off"
+        helpText="var(--p-color-text)"
+      />
+    </BlockStack>
+  );
+}
+
+function BlockGeneralFields({
+  block,
+  step,
+  onPatch,
+  onGoToSettings,
+}: {
   block: StorefrontBlockV2;
+  step: UiStep | undefined;
   onPatch: (patch: Partial<StorefrontBlockV2>) => void;
+  onGoToSettings: () => void;
 }) {
   if (block.type === "heading") {
     return (
@@ -169,9 +223,7 @@ function BlockGeneralFields({
           label="Balise SEO"
           options={[...HEADING_TAGS]}
           value={block.tag}
-          onChange={(v) =>
-            onPatch({ tag: v as "h1" | "h2" | "h3" })
-          }
+          onChange={(v) => onPatch({ tag: v as "h1" | "h2" | "h3" })}
         />
       </BlockStack>
     );
@@ -206,9 +258,7 @@ function BlockGeneralFields({
           label="Largeur max"
           value={block.style.maxWidth ?? ""}
           onChange={(v) =>
-            onPatch({
-              style: { ...block.style, maxWidth: v || undefined },
-            })
+            onPatch({ style: { ...block.style, maxWidth: v || undefined } })
           }
           autoComplete="off"
         />
@@ -220,9 +270,7 @@ function BlockGeneralFields({
       <TextField
         label="Hauteur (px)"
         value={String(block.height)}
-        onChange={(v) =>
-          onPatch({ height: Math.max(0, parseInt(v, 10) || 0) })
-        }
+        onChange={(v) => onPatch({ height: Math.max(0, parseInt(v, 10) || 0) })}
         autoComplete="off"
       />
     );
@@ -257,9 +305,7 @@ function BlockGeneralFields({
             { label: "Image à droite", value: "image_right" },
           ]}
           value={block.layout ?? "stack"}
-          onChange={(v) =>
-            onPatch({ layout: v as HeroBlock["layout"] })
-          }
+          onChange={(v) => onPatch({ layout: v as HeroBlock["layout"] })}
         />
       </BlockStack>
     );
@@ -293,9 +339,7 @@ function BlockGeneralFields({
             { label: "Droite", value: "right" },
           ]}
           value={block.imageSide}
-          onChange={(v) =>
-            onPatch({ imageSide: v as "left" | "right" })
-          }
+          onChange={(v) => onPatch({ imageSide: v as "left" | "right" })}
         />
       </BlockStack>
     );
@@ -317,17 +361,13 @@ function BlockGeneralFields({
             { label: "Tout le catalogue", value: "all" },
           ]}
           value={block.source}
-          onChange={(v) =>
-            patchGrid({ source: v as ProductGridBlock["source"] })
-          }
+          onChange={(v) => patchGrid({ source: v as ProductGridBlock["source"] })}
         />
         {block.source === "collection" ? (
           <TextField
             label="Handle collection"
             value={block.collectionHandle ?? ""}
-            onChange={(v) =>
-              patchGrid({ collectionHandle: v.trim() || undefined })
-            }
+            onChange={(v) => patchGrid({ collectionHandle: v.trim() || undefined })}
             autoComplete="off"
           />
         ) : null}
@@ -352,11 +392,7 @@ function BlockGeneralFields({
           value={block.maxItems != null ? String(block.maxItems) : ""}
           onChange={(v) => {
             const t = v.trim();
-            patchGrid({
-              maxItems: t
-                ? Math.min(50, parseInt(t, 10) || 0)
-                : undefined,
-            });
+            patchGrid({ maxItems: t ? Math.min(50, parseInt(t, 10) || 0) : undefined });
           }}
           autoComplete="off"
         />
@@ -369,12 +405,10 @@ function BlockGeneralFields({
             { label: "Accordéon", value: "accordion" },
           ]}
           value={block.display}
-          onChange={(v) =>
-            patchGrid({ display: v as ProductGridBlock["display"] })
-          }
+          onChange={(v) => patchGrid({ display: v as ProductGridBlock["display"] })}
         />
         <Text as="h4" variant="headingSm">
-          Règles d'affichage du bloc
+          Règles d'affichage
         </Text>
         {rules.map((r, ri) => (
           <Box
@@ -391,11 +425,7 @@ function BlockGeneralFields({
                 onChange={(v) => {
                   const next = [...rules];
                   const cur = next[ri];
-                  if (cur)
-                    next[ri] = {
-                      ...cur,
-                      metric: v as ProductGridRule["metric"],
-                    };
+                  if (cur) next[ri] = { ...cur, metric: v as ProductGridRule["metric"] };
                   patchGrid({ rules: next });
                 }}
               />
@@ -406,11 +436,7 @@ function BlockGeneralFields({
                 onChange={(v) => {
                   const next = [...rules];
                   const cur = next[ri];
-                  if (cur)
-                    next[ri] = {
-                      ...cur,
-                      operator: v as ProductGridRule["operator"],
-                    };
+                  if (cur) next[ri] = { ...cur, operator: v as ProductGridRule["operator"] };
                   patchGrid({ rules: next });
                 }}
               />
@@ -425,29 +451,10 @@ function BlockGeneralFields({
                 }}
                 autoComplete="off"
               />
-              {r.metric === "VARIANT_QUANTITY" ? (
-                <TextField
-                  label="Variant (GID cible)"
-                  value={r.targetVariantGid ?? ""}
-                  onChange={(v) => {
-                    const next = [...rules];
-                    const cur = next[ri];
-                    if (cur)
-                      next[ri] = {
-                        ...cur,
-                        targetVariantGid: v.trim() || null,
-                      };
-                    patchGrid({ rules: next });
-                  }}
-                  autoComplete="off"
-                />
-              ) : null}
               <Button
                 tone="critical"
                 variant="plain"
-                onClick={() =>
-                  patchGrid({ rules: rules.filter((_, j) => j !== ri) })
-                }
+                onClick={() => patchGrid({ rules: rules.filter((_, j) => j !== ri) })}
               >
                 Supprimer la règle
               </Button>
@@ -459,12 +466,7 @@ function BlockGeneralFields({
             patchGrid({
               rules: [
                 ...rules,
-                {
-                  metric: "BUNDLE_PRICE",
-                  operator: "GTE",
-                  value: "0",
-                  targetVariantGid: null,
-                },
+                { metric: "BUNDLE_PRICE", operator: "GTE", value: "0", targetVariantGid: null },
               ],
             })
           }
@@ -474,24 +476,58 @@ function BlockGeneralFields({
       </BlockStack>
     );
   }
+  if (block.type === "product_list") {
+    const count = step?.products.length ?? 0;
+    return (
+      <BlockStack gap="300">
+        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+          <Text as="p" variant="bodySm">
+            {count} produit(s) assigné(s) à cette étape.
+          </Text>
+        </Box>
+        <Text as="p" variant="bodySm" tone="subdued">
+          Ce bloc affiche automatiquement les produits de l'étape courante.
+          Pour ajouter ou retirer des produits, gérez-les dans l'onglet Paramètres.
+        </Text>
+        <Button variant="plain" onClick={onGoToSettings}>
+          Gérer les produits →
+        </Button>
+      </BlockStack>
+    );
+  }
+  if (block.type === "step_bar") {
+    return (
+      <BlockStack gap="200">
+        <Text as="p" variant="bodySm" tone="subdued">
+          La barre d'étape affiche la progression du bundle. Configurez les couleurs dans l'onglet Style.
+        </Text>
+      </BlockStack>
+    );
+  }
   return null;
 }
 
 export function SidebarLevel3({
   blockId,
   stepName,
+  stepIndex,
+  step,
   design,
   onDesignChange,
   onBack,
+  onGoToSettings,
   activeTab,
   onTabChange,
   onDeleteBlock,
 }: {
   blockId: string;
   stepName: string;
+  stepIndex: number;
+  step: UiStep | undefined;
   design: StorefrontDesignV2;
   onDesignChange: (d: StorefrontDesignV2) => void;
   onBack: () => void;
+  onGoToSettings: () => void;
   activeTab: number;
   onTabChange: (t: number) => void;
   onDeleteBlock: (blockId: string) => void;
@@ -516,9 +552,7 @@ export function SidebarLevel3({
       ...design,
       version: 2,
       blocks: design.blocks.map((b) =>
-        b.id === blockId
-          ? ({ ...b, ...patch } as StorefrontBlockV2)
-          : b,
+        b.id === blockId ? ({ ...b, ...patch } as StorefrontBlockV2) : b,
       ),
     });
   };
@@ -528,12 +562,31 @@ export function SidebarLevel3({
       ? (block.style as TextStyleBlock)
       : { fontSize: "1rem", color: "var(--p-color-text)" };
 
+  const backBtn = (
+    <Tooltip content={stepName || "Mise en page"}>
+      <Button
+        icon={ArrowLeftIcon}
+        variant="plain"
+        onClick={onBack}
+        accessibilityLabel={`Retour à ${stepName}`}
+      />
+    </Tooltip>
+  );
+
   const generalTab = (
     <BlockStack gap="300">
-      <Button variant="plain" onClick={onBack}>
-        ← {stepName || "Mise en page"}
-      </Button>
-      <BlockGeneralFields block={block} onPatch={patchBlock} />
+      <InlineStack gap="200" blockAlign="center">
+        {backBtn}
+        <Text as="h3" variant="headingSm" truncate>
+          {blockDisplayLabel(block)}
+        </Text>
+      </InlineStack>
+      <BlockGeneralFields
+        block={block}
+        step={step}
+        onPatch={patchBlock}
+        onGoToSettings={onGoToSettings}
+      />
       <Button
         tone="critical"
         variant="plain"
@@ -546,13 +599,21 @@ export function SidebarLevel3({
 
   const styleTab = (
     <BlockStack gap="300">
-      <Button variant="plain" onClick={onBack}>
-        ← {stepName || "Mise en page"}
-      </Button>
+      <InlineStack gap="200" blockAlign="center">
+        {backBtn}
+        <Text as="h3" variant="headingSm" truncate>
+          {blockDisplayLabel(block)}
+        </Text>
+      </InlineStack>
       <Text as="p" variant="bodySm" tone="subdued">
         Les variables CSS Shopify s'adaptent automatiquement au thème de la boutique.
       </Text>
-      {"style" in block ? (
+      {block.type === "step_bar" ? (
+        <StepBarStyleFields
+          block={block}
+          onPatch={(patch) => patchBlock(patch as Partial<StorefrontBlockV2>)}
+        />
+      ) : "style" in block ? (
         <StyleFields
           style={styleBlock}
           onChange={(s) => patchBlock({ style: s } as Partial<StorefrontBlockV2>)}
@@ -567,9 +628,18 @@ export function SidebarLevel3({
 
   return (
     <Tabs
+      fitted
       tabs={[
-        { id: "general", content: "Générale" },
-        { id: "style", content: "Style" },
+        {
+          id: "general",
+          content: "Générale",
+          accessibilityLabel: "Générale",
+        },
+        {
+          id: "style",
+          content: "Style",
+          accessibilityLabel: "Style",
+        },
       ]}
       selected={activeTab}
       onSelect={onTabChange}
@@ -580,3 +650,4 @@ export function SidebarLevel3({
     </Tabs>
   );
 }
+

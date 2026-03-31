@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import type {
+  StepBarBlock,
   StorefrontBlockV2,
   StorefrontDesignV2,
   TextStyleBlock,
@@ -192,9 +193,78 @@ function RenderBlock({ block }: { block: StorefrontBlockV2 }) {
         </div>
       );
     }
+    case "step_bar":
+      return null; // Rendered by the parent with steps context
+    case "product_list":
+      return null; // Rendered by the parent with steps context
     default:
       return null;
   }
+}
+
+function StepBarPreview({
+  block,
+  steps,
+  activeStepIndex,
+}: {
+  block: StepBarBlock;
+  steps: { name: string }[];
+  activeStepIndex: number;
+}) {
+  if (steps.length < 2) return null;
+  const { borderColor, activeBg, inactiveBg, activeTextColor, inactiveTextColor } =
+    block.style ?? {};
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: "1rem",
+        gap: 0,
+      }}
+    >
+      {steps.map((s, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", flex: i < steps.length - 1 ? "1 1 0" : undefined }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              border: `2px solid ${borderColor ?? "var(--p-color-border)"}`,
+              background:
+                i <= activeStepIndex
+                  ? (activeBg ?? "var(--p-color-bg-fill-brand)")
+                  : (inactiveBg ?? "var(--p-color-bg-fill-secondary, #e4e5e7)"),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color:
+                i <= activeStepIndex
+                  ? (activeTextColor ?? "var(--p-color-text-on-color)")
+                  : (inactiveTextColor ?? "var(--p-color-text)"),
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              flexShrink: 0,
+            }}
+            title={s.name || `Étape ${i + 1}`}
+          >
+            {i + 1}
+          </div>
+          {i < steps.length - 1 && (
+            <div
+              style={{
+                flex: 1,
+                height: 2,
+                background: borderColor ?? "var(--p-color-border)",
+                minWidth: 8,
+              }}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ProductCard({ product }: { product: UiStepProduct }) {
@@ -343,7 +413,7 @@ export function BundleStorefrontPreview({
     Math.max(0, activeStepIndex),
     Math.max(0, steps.length - 1),
   );
-  const showStepBar = steps.length > 1;
+  const hasProductListBlock = design.blocks.some((b) => b.type === "product_list");
 
   return (
     <div
@@ -363,9 +433,59 @@ export function BundleStorefrontPreview({
           margin: "0 auto",
         }}
       >
-        {design.blocks.map((b) => (
-          <RenderBlock key={b.id} block={b} />
-        ))}
+        {design.blocks.map((b) => {
+          if (b.type === "step_bar") {
+            return (
+              <StepBarPreview
+                key={b.id}
+                block={b}
+                steps={steps}
+                activeStepIndex={safeIndex}
+              />
+            );
+          }
+          if (b.type === "product_list") {
+            return step ? (
+              <div key={b.id}>
+                {step.description ? (
+                  <p
+                    style={{
+                      margin: "0 0 0.75rem",
+                      fontSize: "0.9rem",
+                      color: "var(--p-color-text)",
+                    }}
+                  >
+                    {step.description}
+                  </p>
+                ) : null}
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                  }}
+                >
+                  {step.products.length === 0 ? (
+                    <div
+                      style={{
+                        fontSize: "0.85rem",
+                        color: "var(--p-color-text-secondary, #6d7175)",
+                        padding: "0.5rem 0",
+                      }}
+                    >
+                      Aucun produit sur cette étape (aperçu).
+                    </div>
+                  ) : (
+                    step.products.map((p) => (
+                      <ProductCard key={p.variantGid} product={p} />
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : null;
+          }
+          return <RenderBlock key={b.id} block={b} />;
+        })}
 
         <h2
           style={{
@@ -378,39 +498,7 @@ export function BundleStorefrontPreview({
           {bundleTitle.trim() || "Bundle"}
         </h2>
 
-        {showStepBar ? (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 6,
-              marginBottom: "0.75rem",
-            }}
-          >
-            {steps.map((s, i) => (
-              <span
-                key={s.sortOrder + String(i)}
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  fontSize: "0.8rem",
-                  background:
-                    i === safeIndex
-                      ? "var(--p-color-bg-fill-brand)"
-                      : "var(--p-color-bg-fill-secondary, #e4e5e7)",
-                  color:
-                    i === safeIndex
-                      ? "var(--p-color-text-on-color)"
-                      : "var(--p-color-text)",
-                }}
-              >
-                {(s.name || `Étape ${i + 1}`).slice(0, 40)}
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        {step ? (
+        {!hasProductListBlock && step ? (
           <div style={{ marginTop: 8 }}>
             {step.description ? (
               <p
