@@ -1,3 +1,8 @@
+/**
+ * Conservé pour compatibilité avec les tests ou usages futurs.
+ * La logique d'édition bloc par bloc est maintenant dans SidebarLevel3.
+ * Ce fichier gère les styles globaux et les boutons d'ajout de blocs.
+ */
 import { useMemo, type ReactNode } from "react";
 import {
   BlockStack,
@@ -47,8 +52,8 @@ const HEADING_TAGS = [
 const GRID_RULE_METRICS: { label: string; value: ProductGridRule["metric"] }[] =
   [
     { label: "Prix du bundle", value: "BUNDLE_PRICE" },
-    { label: "Nombre total d’articles", value: "TOTAL_ITEM_COUNT" },
-    { label: "Quantité d’un variant", value: "VARIANT_QUANTITY" },
+    { label: "Nombre total d'articles", value: "TOTAL_ITEM_COUNT" },
+    { label: "Quantité d'un variant", value: "VARIANT_QUANTITY" },
     {
       label: "Nombre de variants distincts",
       value: "DISTINCT_VARIANT_COUNT",
@@ -63,13 +68,13 @@ const GRID_RULE_OPS: { label: string; value: ProductGridRule["operator"] }[] = [
   { label: ">", value: "GT" },
 ];
 
-const emptyTextStyle = (): TextStyleBlock => ({
+export const emptyTextStyle = (): TextStyleBlock => ({
   fontSize: "1rem",
-  color: "#121212",
+  color: "var(--p-color-text)",
   marginBottom: "0.5rem",
 });
 
-function blockTypeLabel(t: string): string {
+export function blockTypeLabel(t: string): string {
   const m: Record<string, string> = {
     heading: "titre",
     text: "texte",
@@ -82,7 +87,7 @@ function blockTypeLabel(t: string): string {
   return m[t] ?? t;
 }
 
-function StyleFields({
+export function StyleFields({
   style,
   onChange,
 }: {
@@ -103,6 +108,7 @@ function StyleFields({
         value={style.color ?? ""}
         onChange={(v) => onChange({ ...style, color: v || undefined })}
         autoComplete="off"
+        helpText="Laisser vide = var(--p-color-text)"
       />
       <TextField
         label="Fond"
@@ -111,6 +117,7 @@ function StyleFields({
           onChange({ ...style, backgroundColor: v || undefined })
         }
         autoComplete="off"
+        helpText="Laisser vide = var(--p-color-bg-surface)"
       />
       <Select
         label="Alignement"
@@ -150,6 +157,7 @@ function StyleFields({
         value={style.borderRadius ?? ""}
         onChange={(v) => onChange({ ...style, borderRadius: v || undefined })}
         autoComplete="off"
+        helpText="Laisser vide = var(--p-border-radius-200)"
       />
       <TextField
         label="Bordure (épaisseur)"
@@ -162,6 +170,7 @@ function StyleFields({
         value={style.borderColor ?? ""}
         onChange={(v) => onChange({ ...style, borderColor: v || undefined })}
         autoComplete="off"
+        helpText="Laisser vide = var(--p-color-border)"
       />
       <TextField
         label="Police (CSS)"
@@ -297,7 +306,7 @@ export function BundleStorefrontBlocksEditor({
         id: newBlockId(),
         type: "split",
         title: "Titre",
-        body: "Texte à côté de l’image.",
+        body: "Texte à côté de l'image.",
         imageUrl: null,
         imageSide: "left",
       },
@@ -570,7 +579,7 @@ export function BundleStorefrontBlocksEditor({
             />
           ) : null}
           <TextField
-            label="Nombre max d’articles (optionnel)"
+            label="Nombre max d'articles (optionnel)"
             value={block.maxItems != null ? String(block.maxItems) : ""}
             onChange={(v) => {
               const t = v.trim();
@@ -596,7 +605,7 @@ export function BundleStorefrontBlocksEditor({
             }
           />
           <Text as="h4" variant="headingSm">
-            Règles d’affichage du bloc
+            Règles d'affichage du bloc
           </Text>
           {rules.map((r, ri) => (
             <Box
@@ -827,7 +836,7 @@ export function BundleStorefrontBlocksEditor({
       {design.blocks.length === 0 ? (
         <Box padding="400" background="bg-surface-secondary" borderRadius="200">
           <Text as="p" variant="bodySm" tone="subdued">
-            Aucun bloc pour l’instant. Les étapes et produits s’affichent en
+            Aucun bloc pour l'instant. Les étapes et produits s'affichent en
             dessous sur la boutique. Ajoutez des blocs pour personnaliser la
             zone au-dessus du tunnel.
           </Text>

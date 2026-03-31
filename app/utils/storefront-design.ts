@@ -337,3 +337,25 @@ export function newBlockId(): string {
   }
   return `b-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
+
+/** Dérive un libellé lisible pour afficher un bloc dans la sidebar. */
+export function blockDisplayLabel(block: StorefrontBlockV2): string {
+  switch (block.type) {
+    case "heading":
+      return block.text.trim().slice(0, 35) || "Titre";
+    case "text":
+      return block.text.trim().slice(0, 35) || "Texte";
+    case "image":
+      return block.alt?.trim().slice(0, 35) || "Image";
+    case "spacer":
+      return `Espacement (${block.height}px)`;
+    case "hero":
+      return block.headline.trim().slice(0, 35) || "Hero";
+    case "split":
+      return block.title.trim().slice(0, 35) || "Section split";
+    case "product_grid":
+      return block.collectionHandle?.trim().slice(0, 35) || "Grille produits";
+    default:
+      return "Bloc";
+  }
+}

@@ -1,10 +1,11 @@
+import { useState } from "react";
 import type { CSSProperties } from "react";
 import type {
   StorefrontBlockV2,
   StorefrontDesignV2,
   TextStyleBlock,
 } from "../../utils/storefront-design";
-import type { UiStep } from "../../utils/bundle-form.client";
+import type { UiStep, UiStepProduct } from "../../utils/bundle-form.client";
 
 function textStyleToCss(st: TextStyleBlock | undefined): CSSProperties {
   if (!st) return {};
@@ -68,11 +69,19 @@ function RenderBlock({ block }: { block: StorefrontBlockV2 }) {
       ) : null;
       const textCol = (
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.5rem" }}>
+          <h2
+            style={{
+              margin: "0 0 0.5rem",
+              fontSize: "1.5rem",
+              color: "var(--p-color-text)",
+            }}
+          >
             {block.headline}
           </h2>
           {block.subtext ? (
-            <p style={{ margin: 0, opacity: 0.85 }}>{block.subtext}</p>
+            <p style={{ margin: 0, opacity: 0.85, color: "var(--p-color-text)" }}>
+              {block.subtext}
+            </p>
           ) : null}
         </div>
       );
@@ -126,8 +135,18 @@ function RenderBlock({ block }: { block: StorefrontBlockV2 }) {
             />
           ) : null}
           <div style={{ flex: 1, minWidth: 180 }}>
-            <h3 style={{ margin: "0 0 0.35rem" }}>{block.title}</h3>
-            <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{block.body}</p>
+            <h3 style={{ margin: "0 0 0.35rem", color: "var(--p-color-text)" }}>
+              {block.title}
+            </h3>
+            <p
+              style={{
+                margin: 0,
+                whiteSpace: "pre-wrap",
+                color: "var(--p-color-text)",
+              }}
+            >
+              {block.body}
+            </p>
           </div>
         </section>
       );
@@ -144,17 +163,30 @@ function RenderBlock({ block }: { block: StorefrontBlockV2 }) {
           style={{
             marginBottom: "1rem",
             padding: "0.75rem",
-            border: "1px dashed #c9cccf",
+            border: "1px dashed var(--p-color-border)",
             borderRadius: 8,
-            background: "rgba(0,0,0,0.02)",
+            background: "var(--p-color-bg-surface-secondary, rgba(0,0,0,0.02))",
           }}
         >
-          <div style={{ fontSize: "0.8rem", marginBottom: 8, fontWeight: 600 }}>
+          <div
+            style={{
+              fontSize: "0.8rem",
+              marginBottom: 8,
+              fontWeight: 600,
+              color: "var(--p-color-text)",
+            }}
+          >
             Bloc produits ({block.display}) — {label}
           </div>
           {block.rules?.length ? (
-            <div style={{ fontSize: "0.75rem", opacity: 0.8 }}>
-              {block.rules.length} règle(s) d’affichage
+            <div
+              style={{
+                fontSize: "0.75rem",
+                opacity: 0.8,
+                color: "var(--p-color-text-secondary, #6d7175)",
+              }}
+            >
+              {block.rules.length} règle(s) d'affichage
             </div>
           ) : null}
         </div>
@@ -163,6 +195,135 @@ function RenderBlock({ block }: { block: StorefrontBlockV2 }) {
     default:
       return null;
   }
+}
+
+function ProductCard({ product }: { product: UiStepProduct }) {
+  const [qty, setQty] = useState(1);
+
+  const qtyBtnStyle: CSSProperties = {
+    width: 28,
+    height: 28,
+    borderRadius: 4,
+    border: "1px solid var(--p-color-border)",
+    background: "var(--p-color-bg-surface)",
+    cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "1rem",
+    color: "var(--p-color-text)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 1,
+  };
+
+  return (
+    <div
+      style={{
+        border: "1px solid var(--p-color-border)",
+        borderRadius: 8,
+        padding: 8,
+        fontSize: "0.8rem",
+        background: "var(--p-color-bg-surface)",
+      }}
+    >
+      {product.imageUrl ? (
+        <img
+          src={product.imageUrl}
+          alt=""
+          style={{
+            width: "100%",
+            height: 72,
+            objectFit: "cover",
+            borderRadius: 4,
+            marginBottom: 6,
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            height: 72,
+            background:
+              "var(--p-color-bg-fill-secondary, #f6f6f7)",
+            borderRadius: 4,
+            marginBottom: 6,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.7rem",
+            color: "var(--p-color-text-secondary, #6d7175)",
+          }}
+        >
+          Aucune image
+        </div>
+      )}
+      <div
+        style={{
+          fontWeight: 500,
+          lineHeight: 1.3,
+          color: "var(--p-color-text)",
+          marginBottom: 2,
+        }}
+      >
+        {product.displayName}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          marginTop: 8,
+          justifyContent: "center",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setQty((q) => Math.max(1, q - 1))}
+          style={qtyBtnStyle}
+          aria-label="Diminuer"
+        >
+          −
+        </button>
+        <span
+          style={{
+            minWidth: 24,
+            textAlign: "center",
+            color: "var(--p-color-text)",
+            fontWeight: 500,
+          }}
+        >
+          {qty}
+        </span>
+        <button
+          type="button"
+          onClick={() => setQty((q) => q + 1)}
+          style={qtyBtnStyle}
+          aria-label="Augmenter"
+        >
+          +
+        </button>
+      </div>
+
+      <button
+        type="button"
+        style={{
+          marginTop: 8,
+          width: "100%",
+          padding: "6px 0",
+          background: "var(--p-color-bg-fill-brand)",
+          color: "var(--p-color-text-on-color)",
+          border: "none",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontWeight: 600,
+          fontSize: "0.8rem",
+        }}
+      >
+        Ajouter au panier
+      </button>
+    </div>
+  );
 }
 
 export function BundleStorefrontPreview({
@@ -187,12 +348,12 @@ export function BundleStorefrontPreview({
   return (
     <div
       style={{
-        fontFamily: g.fontBody,
-        background: g.pageBackground || "#fafafa",
+        fontFamily: g.fontBody || "var(--p-font-family-sans, system-ui, sans-serif)",
+        background: g.pageBackground || "var(--p-color-bg-surface, #fafafa)",
         minHeight: 280,
         padding: "1rem",
         borderRadius: 12,
-        border: "1px solid var(--p-color-border, #e3e3e3)",
+        border: "1px solid var(--p-color-border)",
         overflow: "auto",
       }}
     >
@@ -208,9 +369,10 @@ export function BundleStorefrontPreview({
 
         <h2
           style={{
-            fontFamily: g.fontHeading,
+            fontFamily: g.fontHeading || "var(--p-font-family-sans, system-ui, sans-serif)",
             fontSize: "1.25rem",
             margin: "0.75rem 0",
+            color: "var(--p-color-text)",
           }}
         >
           {bundleTitle.trim() || "Bundle"}
@@ -232,8 +394,14 @@ export function BundleStorefrontPreview({
                   padding: "4px 10px",
                   borderRadius: 999,
                   fontSize: "0.8rem",
-                  background: i === safeIndex ? "#2c6ecb" : "#e4e5e7",
-                  color: i === safeIndex ? "#fff" : "#202223",
+                  background:
+                    i === safeIndex
+                      ? "var(--p-color-bg-fill-brand)"
+                      : "var(--p-color-bg-fill-secondary, #e4e5e7)",
+                  color:
+                    i === safeIndex
+                      ? "var(--p-color-text-on-color)"
+                      : "var(--p-color-text)",
                 }}
               >
                 {(s.name || `Étape ${i + 1}`).slice(0, 40)}
@@ -245,7 +413,13 @@ export function BundleStorefrontPreview({
         {step ? (
           <div style={{ marginTop: 8 }}>
             {step.description ? (
-              <p style={{ margin: "0 0 0.75rem", fontSize: "0.9rem" }}>
+              <p
+                style={{
+                  margin: "0 0 0.75rem",
+                  fontSize: "0.9rem",
+                  color: "var(--p-color-text)",
+                }}
+              >
                 {step.description}
               </p>
             ) : null}
@@ -260,7 +434,7 @@ export function BundleStorefrontPreview({
                 <div
                   style={{
                     fontSize: "0.85rem",
-                    color: "#6d7175",
+                    color: "var(--p-color-text-secondary, #6d7175)",
                     padding: "0.5rem 0",
                   }}
                 >
@@ -268,36 +442,7 @@ export function BundleStorefrontPreview({
                 </div>
               ) : (
                 step.products.map((p) => (
-                  <div
-                    key={p.variantGid}
-                    style={{
-                      border: "1px solid #e3e3e3",
-                      borderRadius: 8,
-                      padding: 8,
-                      fontSize: "0.8rem",
-                      background: "#fff",
-                    }}
-                  >
-                    {p.imageUrl ? (
-                      <img
-                        src={p.imageUrl}
-                        alt=""
-                        style={{
-                          width: "100%",
-                          height: 72,
-                          objectFit: "cover",
-                          borderRadius: 4,
-                          marginBottom: 6,
-                        }}
-                      />
-                    ) : null}
-                    <div style={{ fontWeight: 500, lineHeight: 1.3 }}>
-                      {p.displayName}
-                    </div>
-                    <div style={{ opacity: 0.6, marginTop: 4 }}>
-                      {p.layoutPreset.replace(/_/g, " ").toLowerCase()}
-                    </div>
-                  </div>
+                  <ProductCard key={p.variantGid} product={p} />
                 ))
               )}
             </div>
