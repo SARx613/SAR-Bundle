@@ -1,4 +1,5 @@
 import type { BundleWithDetail } from "./bundle.server";
+import { PRODUCT_DISPLAY_FIELDS, VARIANT_DISPLAY_FIELDS } from "./shopify-graphql-fragments";
 
 type AdminGraphql = {
   graphql: (
@@ -50,28 +51,11 @@ export async function enrichBundleStepProductsForStorefront(
     const res = await admin.graphql(
       `#graphql
         query StorefrontBundleVariants($ids: [ID!]!) {
+          ${PRODUCT_DISPLAY_FIELDS}
+          ${VARIANT_DISPLAY_FIELDS}
           nodes(ids: $ids) {
             ... on ProductVariant {
-              id
-              title
-              price {
-                amount
-                currencyCode
-              }
-              compareAtPrice {
-                amount
-                currencyCode
-              }
-              product {
-                title
-                handle
-                featuredImage {
-                  url(transform: { maxWidth: 1024 })
-                }
-              }
-              image {
-                url(transform: { maxWidth: 1024 })
-              }
+              ...VariantDisplayFields
             }
           }
         }`,

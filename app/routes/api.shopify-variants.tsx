@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
+import { PRODUCT_DISPLAY_FIELDS, VARIANT_DISPLAY_FIELDS } from "../utils/shopify-graphql-fragments";
 
 type VariantMeta = {
   id: string;
@@ -55,24 +56,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const res = await admin.graphql(
     `#graphql
       query EditorVariantMeta($ids: [ID!]!) {
+        ${PRODUCT_DISPLAY_FIELDS}
+        ${VARIANT_DISPLAY_FIELDS}
         nodes(ids: $ids) {
           ... on ProductVariant {
-            id
-            title
-            price {
-              amount
-              currencyCode
-            }
-            product {
-              title
-              handle
-              featuredImage {
-                url(transform: { maxWidth: 512 })
-              }
-            }
-            image {
-              url(transform: { maxWidth: 512 })
-            }
+            ...VariantDisplayFields
           }
         }
       }`,

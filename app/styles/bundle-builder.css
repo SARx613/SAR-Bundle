@@ -69,6 +69,10 @@
   height: 0;
 }
 
+.sar-stepbar__line--active {
+  border-top-color: var(--sar-stepbar-active-bg, var(--sar-color-primary, #008060));
+}
+
 .sar-stepbar__label {
   margin-top: 0.5rem;
   font-size: 0.85rem;

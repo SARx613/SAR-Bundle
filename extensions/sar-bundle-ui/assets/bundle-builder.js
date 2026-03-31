@@ -823,7 +823,9 @@
 
               if (i < ctx.steps.length - 1) {
                 var line = document.createElement('div');
-                line.className = 'sar-stepbar__line';
+                line.className =
+                  'sar-stepbar__line' +
+                  (i < ctx.stepIndex ? ' sar-stepbar__line--active' : '');
                 top.appendChild(line);
               }
 

@@ -51,6 +51,25 @@
     <div class="sar-bundle__loading" data-sar-loading>Chargement du bundle…</div>
     <div class="sar-bundle__inner" data-sar-inner hidden></div>
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      if (!document.querySelector("[data-sar-bundle-root]")) return;
+      const style = document.createElement("style");
+      style.innerHTML = `
+        form[action="/cart/add"] .product-form__buttons,
+        form[action="/cart/add"] .product-form__submit,
+        .shopify-payment-button,
+        product-form .product-form__buttons,
+        product-form .shopify-payment-button,
+        .product-form__buttons,
+        .product-form__submit {
+          display: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+    });
+  </script>
 {% endif %}
 
 {% schema %}

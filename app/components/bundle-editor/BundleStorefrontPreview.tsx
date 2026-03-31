@@ -236,7 +236,14 @@ function StepBarPreview({
             >
               {i + 1}
             </div>
-            {i < steps.length - 1 ? <div className="sar-stepbar__line" /> : null}
+            {i < steps.length - 1 ? (
+              <div
+                className={
+                  "sar-stepbar__line" +
+                  (i < activeStepIndex ? " sar-stepbar__line--active" : "")
+                }
+              />
+            ) : null}
           </div>
           <div className="sar-stepbar__label">
             {(s.name || `Étape ${i + 1}`).slice(0, 24)}
