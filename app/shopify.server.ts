@@ -14,6 +14,7 @@ import prisma from "./db.server";
 const DEFAULT_SCOPES_FROM_TOML = [
   "read_products",
   "write_files",
+  "read_files",
   "read_orders",
   "write_products",
 ] as const;

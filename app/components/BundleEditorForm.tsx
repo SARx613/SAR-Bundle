@@ -22,6 +22,8 @@ import {
   Tooltip,
   Icon,
   Badge,
+  Modal,
+  Spinner,
 } from "@shopify/polaris";
 import {
   ArrowDownIcon,
@@ -56,6 +58,10 @@ type UploadJson = {
   imageUrl?: string | null;
   imageGid?: string | null;
 };
+
+type ShopifyFilesJson =
+  | { ok: true; files: { id: string; url: string; alt: string | null }[] }
+  | { ok: false; error: string };
 
 type SaveActionJson =
   | { ok: true; bundle: { id: string }; warning?: string }
@@ -153,6 +159,9 @@ export function BundleEditorForm({
   const [form, setForm] = useState<BundleFormState>(() => toFormState(bundle));
   const [selectedTab, setSelectedTab] = useState(0);
   const [galleryUrlDraft, setGalleryUrlDraft] = useState("");
+  const [shopifyFilesModalOpen, setShopifyFilesModalOpen] = useState(false);
+  const bundleGalleryRef = useRef(form.bundleGallery);
+  bundleGalleryRef.current = form.bundleGallery;
 
   useEffect(() => {
     setForm(toFormState(bundle));
@@ -184,6 +193,7 @@ export function BundleEditorForm({
   const saveFetcher = useFetcher<SaveActionJson>();
   const uploadStepFetcher = useFetcher<UploadJson>();
   const uploadBundleFetcher = useFetcher<UploadJson>();
+  const shopifyFilesFetcher = useFetcher<ShopifyFilesJson>();
 
   const pendingStepUpload = useRef<number | null>(null);
   const bundleFileQueue = useRef<File[]>([]);
@@ -366,6 +376,46 @@ export function BundleEditorForm({
       ...f,
       bundleGallery: f.bundleGallery.filter((x) => x.key !== key),
     }));
+  };
+
+  const addShopifyFileToGallery = (row: {
+    id: string;
+    url: string;
+    alt: string | null;
+  }) => {
+    if (uploadBundleFetcher.state !== "idle") {
+      shopifyBridge.toast.show(
+        "Un autre téléversement est en cours",
+        { isError: true },
+      );
+      return;
+    }
+    if (bundleFileQueue.current.length > 0) {
+      shopifyBridge.toast.show(
+        "Attendez la fin des fichiers en file d’attente",
+        { isError: true },
+      );
+      return;
+    }
+    const g = bundleGalleryRef.current;
+    if (g.some((x) => x.mediaGid === row.id || x.url === row.url)) {
+      shopifyBridge.toast.show("Cette image est déjà dans la galerie", {
+        isError: true,
+      });
+      return;
+    }
+    setForm((f) => ({
+      ...f,
+      bundleGallery: [
+        ...f.bundleGallery,
+        {
+          key: newGalleryItemKey(),
+          url: row.url,
+          mediaGid: row.id,
+        },
+      ],
+    }));
+    shopifyBridge.toast.show("Image ajoutée à la galerie");
   };
 
   const openVariantPicker = async (stepIndex: number) => {
@@ -593,8 +643,21 @@ export function BundleEditorForm({
                   }}
                   allowMultiple
                 >
-                  <DropZone.FileUpload actionHint="PNG, JPG — max 5 Mo chacun" />
+                  <DropZone.FileUpload actionHint="PNG, JPG, WebP… — max 20 Mo chacun (CDN Shopify)" />
                 </DropZone>
+                <InlineStack gap="200" blockAlign="center" wrap>
+                  <Button
+                    onClick={() => {
+                      setShopifyFilesModalOpen(true);
+                      shopifyFilesFetcher.load("/api/shopify-files?first=36");
+                    }}
+                  >
+                    Choisir dans Fichiers Shopify
+                  </Button>
+                  <Text as="span" variant="bodySm" tone="subdued">
+                    Images déjà dans Admin → Contenu → Fichiers (scope read_files).
+                  </Text>
+                </InlineStack>
                 <InlineStack gap="300" blockAlign="end" wrap>
                   <div style={{ flex: "1 1 220px", minWidth: 200 }}>
                     <TextField
@@ -1472,6 +1535,63 @@ export function BundleEditorForm({
           </BlockStack>
         </Layout.Section>
       </Layout>
+
+      <Modal
+        open={shopifyFilesModalOpen}
+        onClose={() => setShopifyFilesModalOpen(false)}
+        title="Fichiers Shopify"
+        primaryAction={{
+          content: "Fermer",
+          onAction: () => setShopifyFilesModalOpen(false),
+        }}
+      >
+        <Modal.Section>
+          {shopifyFilesFetcher.state !== "idle" ? (
+            <InlineStack align="center" blockAlign="center">
+              <Spinner accessibilityLabel="Chargement des fichiers" />
+            </InlineStack>
+          ) : shopifyFilesFetcher.data &&
+            shopifyFilesFetcher.data.ok === false ? (
+            <Banner tone="critical" title="Impossible de charger les fichiers">
+              <p>{shopifyFilesFetcher.data.error}</p>
+            </Banner>
+          ) : shopifyFilesFetcher.data?.ok &&
+            shopifyFilesFetcher.data.files.length === 0 ? (
+            <Text as="p" variant="bodySm" tone="subdued">
+              Aucune image avec URL prête n’a été trouvée. Ajoutez des images
+              dans Contenu → Fichiers ou téléversez-les ci-dessus.
+            </Text>
+          ) : shopifyFilesFetcher.data?.ok ? (
+            <BlockStack gap="300">
+              <Text as="p" variant="bodySm" tone="subdued">
+                Cliquez une vignette pour l’ajouter à la galerie du bundle.
+              </Text>
+              <InlineStack gap="300" wrap blockAlign="start">
+                {shopifyFilesFetcher.data.files.map((fileRow) => (
+                  <button
+                    key={fileRow.id}
+                    type="button"
+                    onClick={() => addShopifyFileToGallery(fileRow)}
+                    style={{
+                      cursor: "pointer",
+                      border: "none",
+                      padding: 0,
+                      background: "none",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Thumbnail
+                      source={fileRow.url}
+                      alt={fileRow.alt ?? ""}
+                      size="large"
+                    />
+                  </button>
+                ))}
+              </InlineStack>
+            </BlockStack>
+          ) : null}
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }
