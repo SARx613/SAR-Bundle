@@ -15,19 +15,6 @@
 const NO_CHANGES = { operations: [] };
 
 /**
- * @param {{key:string,value:string}[] | null | undefined} attrs
- * @param {string} k
- */
-function attrValue(attrs, k) {
-  if (!Array.isArray(attrs)) return null;
-  for (var i = 0; i < attrs.length; i++) {
-    var a = attrs[i];
-    if (a && a.key === k) return a.value != null ? String(a.value) : '';
-  }
-  return null;
-}
-
-/**
  * @param {CartTransformRunInput} _input
  * @returns {CartTransformRunResult}
  */
@@ -41,10 +28,12 @@ export function cartTransformRun(_input) {
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i];
     if (!line || !line.id) continue;
-    var g = attrValue(line.attributes, '_sar_bundle_group');
+    var g = line.bundle_group && line.bundle_group.value != null ? String(line.bundle_group.value) : null;
     if (!g) continue;
-    var isParent = attrValue(line.attributes, '_sar_bundle_parent') === '1';
-    var isChild = attrValue(line.attributes, '_sar_bundle_child') === '1';
+    var isParent =
+      line.bundle_parent && String(line.bundle_parent.value || '') === '1';
+    var isChild =
+      line.bundle_child && String(line.bundle_child.value || '') === '1';
     if (!isParent && !isChild) continue;
     if (!groups[g]) groups[g] = { parent: null, children: [] };
     if (isParent) groups[g].parent = line;
@@ -69,7 +58,8 @@ export function cartTransformRun(_input) {
       merge: {
         parentVariantId: parentVarId,
         cartLines: cartLines,
-        attributes: grp.parent.attributes || [],
+        // No need to copy all attributes; Shopify will keep parent line attributes
+        attributes: [],
         title: null,
       },
     });

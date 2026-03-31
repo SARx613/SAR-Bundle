@@ -3,10 +3,9 @@ query CartTransformRunInput {
     lines {
       id
       quantity
-      attributes {
-        key
-        value
-      }
+      bundle_group: attribute(key: "_sar_bundle_group") { value }
+      bundle_parent: attribute(key: "_sar_bundle_parent") { value }
+      bundle_child: attribute(key: "_sar_bundle_child") { value }
       merchandise {
         ... on ProductVariant {
           id
