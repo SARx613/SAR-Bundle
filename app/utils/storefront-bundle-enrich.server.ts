@@ -94,8 +94,8 @@ export async function enrichBundleStepProductsForStorefront(
 function nodeToMeta(node: {
   id: string;
   title?: string | null;
-  price?: { amount?: string | null; currencyCode?: string | null } | null;
-  compareAtPrice?: { amount?: string | null; currencyCode?: string | null } | null;
+  price?: string | null;
+  compareAtPrice?: string | null;
   product?: {
     title?: string | null;
     handle?: string | null;
@@ -117,9 +117,9 @@ function nodeToMeta(node: {
     node.product?.featuredImage?.url?.trim() ||
     null;
 
-  const priceAmount = node.price?.amount ?? null;
-  const currencyCode = node.price?.currencyCode ?? null;
-  const compareAtAmount = node.compareAtPrice?.amount ?? null;
+  const priceAmount = typeof node.price === "string" ? node.price : null;
+  const currencyCode = null; // Scalar doesn't include currency Code
+  const compareAtAmount = typeof node.compareAtPrice === "string" ? node.compareAtPrice : null;
 
   return {
     productTitle,

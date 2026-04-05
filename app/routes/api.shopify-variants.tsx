@@ -28,8 +28,8 @@ function nodeToMeta(node: any): VariantMeta | null {
     String(node.image?.url ?? "").trim() ||
     String(node.product?.featuredImage?.url ?? "").trim() ||
     null;
-  const priceAmount = node.price?.amount ?? null;
-  const currencyCode = node.price?.currencyCode ?? null;
+  const priceAmount = typeof node.price === "string" ? node.price : null;
+  const currencyCode = null; // Admin API scalar Money doesn't include currency code natively here
   const productHandle = String(node.product?.handle ?? "").trim() || null;
   return {
     id: node.id,

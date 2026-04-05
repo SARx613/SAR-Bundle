@@ -1,4 +1,4 @@
-export const PRODUCT_DISPLAY_FIELDS = `#graphql
+export const PRODUCT_DISPLAY_FIELDS = `
   fragment ProductDisplayFields on Product {
     title
     handle
@@ -9,7 +9,7 @@ export const PRODUCT_DISPLAY_FIELDS = `#graphql
   }
 `;
 
-export const VARIANT_DISPLAY_FIELDS = `#graphql
+export const VARIANT_DISPLAY_FIELDS = `
   fragment VariantDisplayFields on ProductVariant {
     id
     title
@@ -20,14 +20,8 @@ export const VARIANT_DISPLAY_FIELDS = `#graphql
     product {
       ...ProductDisplayFields
     }
-    price {
-      amount
-      currencyCode
-    }
-    compareAtPrice {
-      amount
-      currencyCode
-    }
+    price
+    compareAtPrice
   }
 `;
 
