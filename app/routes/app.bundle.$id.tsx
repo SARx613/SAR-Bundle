@@ -141,7 +141,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       throw err;
     }
     console.error("APP.BUNDLE.$ID LOADER CRASH:", err);
-    throw new Response(err?.stack || err?.message || String(err), { status: 500, statusText: "Developer Error" });
+    throw json({
+      message: err?.message || String(err),
+      stack: err?.stack || ""
+    }, { status: 400, statusText: "Developer Error" });
   }
 };
 
@@ -342,13 +345,17 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       bundle: serializeBundleTree(updated),
       ...(finalWarning ? { warning: finalWarning } : {}),
     });
-  } catch (e) {
+  } catch (e: any) {
     if (e instanceof Response) throw e;
     if (e instanceof Prisma.PrismaClientValidationError) {
       return json({ error: "Validation error", details: e.message }, { status: 400 });
     }
     console.error("bundle save error", e);
-    return json({ error: "Failed to save bundle" }, { status: 500 });
+    return json({ 
+      error: "Failed to save bundle", 
+      details: e?.message || String(e), 
+      stack: e?.stack 
+    }, { status: 400 });
   }
 };
 
@@ -366,6 +373,16 @@ export function ErrorBoundary() {
   const error = useRouteError();
   console.error("ErrorBoundary caught an error:", error);
 
+  let errorMessage = "";
+  if (isRouteErrorResponse(error)) {
+    const dataStr = typeof error.data === "object" ? JSON.stringify(error.data, null, 2) : error.data;
+    errorMessage = `${error.status} ${error.statusText}\n${dataStr}`;
+  } else if (error instanceof Error) {
+    errorMessage = `${error.name}: ${error.message}\n${error.stack}`;
+  } else {
+    errorMessage = JSON.stringify(error, null, 2);
+  }
+
   return (
     <Page title="Une erreur s'est produite">
       <Layout>
@@ -381,11 +398,7 @@ export function ErrorBoundary() {
                 borderRadius="200"
               >
                 <div style={{ color: "var(--p-color-text-critical)", whiteSpace: "pre-wrap", overflowX: "auto" }}>
-                  {isRouteErrorResponse(error)
-                    ? `${error.status} ${error.statusText}\n${error.data}`
-                    : error instanceof Error
-                      ? `${error.name}: ${error.message}\n${error.stack}`
-                      : JSON.stringify(error)}
+                  {errorMessage}
                 </div>
               </Box>
             </BlockStack>
