@@ -832,76 +832,13 @@
             ctx.__renderedProductList = true;
             ctx.__productListCardLayout = b.cardLayout || 'classic';
             ctx.__productListColumns = b.columns || 3;
+            // Mobile columns are handled via CSS queries or logic. For simplicity, we just fallback gracefully
+            ctx.__productListColumnsMobile = b.columnsMobile || 2;
             ctx.__productListGapX = b.gapX != null ? b.gapX : 16;
             ctx.__productListGapY = b.gapY != null ? b.gapY : 16;
+            ctx.__productListSource = b.source || 'step_pick';
+            ctx.__productListCollection = b.collectionHandle || '';
 
-            var source = b.source || 'step_pick';
-            if (source === 'collection' && b.collectionHandle) {
-              var container = document.createElement('div');
-              container.className = 'sar-bundle__products';
-              container.style.display = 'grid';
-              container.style.gridTemplateColumns = 'repeat(' + ctx.__productListColumns + ', 1fr)';
-              container.style.gap = ctx.__productListGapY + 'px ' + ctx.__productListGapX + 'px';
-
-              var loadingRow = document.createElement('div');
-              loadingRow.className = 'sar-bundle__product-grid-item';
-              loadingRow.textContent = 'Chargement des produits…';
-              container.appendChild(loadingRow);
-              wrapEl.appendChild(container);
-              fetchCollectionProducts(b.collectionHandle).then(function (products) {
-                container.innerHTML = '';
-                if (!products || !products.length) {
-                  var empty = document.createElement('div');
-                  empty.className = 'sar-bundle__product-grid-item';
-                  empty.textContent = 'Aucun produit trouvé dans cette collection.';
-                  container.appendChild(empty);
-                  return;
-                }
-                for (var i = 0; i < products.length; i++) {
-                  var pr = products[i];
-                  var card = document.createElement('div');
-                  card.className = 'sar-bundle__product sar-bundle__product--' + ctx.__productListCardLayout;
-                  var imgWrapper = document.createElement('div');
-                  imgWrapper.className = 'sar-bundle__product-img-wrapper';
-                  var img = document.createElement('img');
-                  img.loading = 'lazy';
-                  img.alt = pr && pr.title ? pr.title : '';
-                  // Shopify collections/products.json returns `images` as an array of URL strings.
-                  // Some contexts may return objects; support both.
-                  var img0 = pr && pr.images && pr.images.length ? pr.images[0] : null;
-                  img.src =
-                    (typeof img0 === 'string'
-                      ? img0
-                      : img0 && img0.src
-                        ? img0.src
-                        : '') || '';
-                  if (img.src) imgWrapper.appendChild(img);
-                  
-                  var infoBox = document.createElement('div');
-                  infoBox.style.display = 'flex';
-                  infoBox.style.flexDirection = 'column';
-                  infoBox.style.gap = '4px';
-
-                  var t = document.createElement('p');
-                  t.className = 'sar-bundle__product-title';
-                  t.textContent = (pr && pr.title) || 'Produit';
-                  infoBox.appendChild(t);
-                  
-                  if (ctx.__productListCardLayout === 'overlay') {
-                    card.appendChild(imgWrapper);
-                    card.appendChild(infoBox);
-                  } else {
-                    infoBox.insertBefore(imgWrapper, t);
-                    card.appendChild(infoBox);
-                  }
-                  container.appendChild(card);
-                }
-              });
-              return;
-            }
-
-            // step_pick (par défaut) : on garde le rendu standard des produits de l'étape,
-            // mais le bloc contrôle l'emplacement (donc on n'affiche pas une 2e grille plus bas).
             var container = document.createElement('div');
             container.className = 'sar-bundle__products';
             ctx.__productListMount = container;
@@ -1054,7 +991,7 @@
               }
             }
 
-            if (showProgress) {
+            if (showProgress && (!bundle.storefrontDesign || !bundle.storefrontDesign.blocks || bundle.storefrontDesign.blocks.length === 0)) {
               var pills = document.createElement('div');
               pills.className = 'sar-bundle__steps';
               for (var pi = 0; pi < bundle.steps.length; pi++) {
@@ -1107,174 +1044,214 @@
             if (!designCtx.__renderedProductList || designCtx.__productListMount) {
               if (designCtx.__productListMount && !designCtx.__productListMount.style.display) {
                 var cols = designCtx.__productListColumns || 3;
+                var colsMobile = designCtx.__productListColumnsMobile || 2;
                 var gx = designCtx.__productListGapX || 16;
                 var gy = designCtx.__productListGapY || 16;
+                designCtx.__productListMount.style.setProperty('--grid-cols-desktop', cols);
+                designCtx.__productListMount.style.setProperty('--grid-cols-mobile', colsMobile);
+                designCtx.__productListMount.style.setProperty('--grid-gap-x', gx + 'px');
+                designCtx.__productListMount.style.setProperty('--grid-gap-y', gy + 'px');
                 designCtx.__productListMount.style.display = 'grid';
-                designCtx.__productListMount.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-                designCtx.__productListMount.style.gap = gy + 'px ' + gx + 'px';
               }
+              function renderProductsLoop() {
+                for (var pj = 0; pj < stepProds.length; pj++) {
+                (function (prodRow) {
+                  var originalGid = prodRow.variantGid;
+                  var layoutConfig = designCtx.__productListCardLayout || 'classic';
+                  var so = prodRow.styleOverrides || {};
+                  var ph =
+                    prodRow.productHandle ||
+                    (prodRow.storefront && prodRow.storefront.productHandle) ||
+                    '';
 
-              for (var pj = 0; pj < stepProds.length; pj++) {
-              (function (prodRow) {
-                var originalGid = prodRow.variantGid;
-                var layoutConfig = designCtx.__productListCardLayout || 'classic';
-                var so = prodRow.styleOverrides || {};
-                var ph =
-                  prodRow.productHandle ||
-                  (prodRow.storefront && prodRow.storefront.productHandle) ||
-                  '';
-
-                function gidNow() {
-                  return effectiveGid(originalGid);
-                }
-                function getMeta() {
-                  return variantCache[gidNow()] || {};
-                }
-                var sf = prodRow.storefront;
-
-                var card = document.createElement('div');
-                card.className = 'sar-bundle__product sar-bundle__product--' + layoutConfig;
-
-                var imgWrapper = document.createElement('div');
-                imgWrapper.className = 'sar-bundle__product-img-wrapper';
-
-                var img = document.createElement('img');
-                img.loading = 'lazy';
-                img.alt = '';
-
-                function refreshImgTitle() {
-                  if (sf && sf.imageUrl) {
-                    img.src = sf.imageUrl;
-                    img.alt = sf.productTitle || sf.displayTitle || '';
-                    return;
+                  function gidNow() {
+                    return effectiveGid(originalGid);
                   }
-                  if (
-                    ph &&
-                    productJsonByHandle[ph] &&
-                    productJsonByHandle[ph].images &&
-                    productJsonByHandle[ph].images[0]
-                  ) {
-                    var im0 = productJsonByHandle[ph].images[0];
-                    var imUrl = typeof im0 === 'string' ? im0 : (im0 && im0.src ? im0.src : '');
-                    if (imUrl) {
-                      img.src = imUrl;
-                      img.alt = productJsonByHandle[ph].title || '';
+                  function getMeta() {
+                    return variantCache[gidNow()] || {};
+                  }
+                  var sf = prodRow.storefront;
+
+                  var card = document.createElement('div');
+                  card.className = 'sar-bundle__product sar-bundle__product--' + layoutConfig;
+
+                  var imgWrapper = document.createElement('div');
+                  imgWrapper.className = 'sar-bundle__product-img-wrapper';
+
+                  var img = document.createElement('img');
+                  img.loading = 'lazy';
+                  img.alt = '';
+
+                  function refreshImgTitle() {
+                    if (sf && sf.imageUrl) {
+                      img.src = sf.imageUrl;
+                      img.alt = sf.productTitle || sf.displayTitle || '';
                       return;
                     }
+                    if (
+                      ph &&
+                      productJsonByHandle[ph] &&
+                      productJsonByHandle[ph].images &&
+                      productJsonByHandle[ph].images[0]
+                    ) {
+                      var im0 = productJsonByHandle[ph].images[0];
+                      var imUrl = typeof im0 === 'string' ? im0 : (im0 && im0.src ? im0.src : '');
+                      if (imUrl) {
+                        img.src = imUrl;
+                        img.alt = productJsonByHandle[ph].title || '';
+                        return;
+                      }
+                    }
+                    var m = getMeta();
+                    if (m.featured_image && m.featured_image.src) {
+                      img.src = m.featured_image.src;
+                    } else if (typeof m.featured_image === 'string') {
+                      img.src = m.featured_image;
+                    } else {
+                      img.style.display = 'none';
+                    }
+                    img.alt = (m.title && m.title !== 'Default Title' ? m.title : '') || '';
                   }
-                  var m = getMeta();
-                  if (m.featured_image && m.featured_image.src) {
-                    img.src = m.featured_image.src;
-                  } else if (typeof m.featured_image === 'string') {
-                    img.src = m.featured_image;
+                  refreshImgTitle();
+                  if (img.src) imgWrapper.appendChild(img);
+
+                  var tt = document.createElement('p');
+                  tt.className = 'sar-bundle__product-title';
+
+                  var pr = document.createElement('p');
+                  pr.className = 'sar-bundle__product-price';
+
+                  function refreshTitlePrice() {
+                    if (sf && sf.displayTitle) {
+                      tt.textContent = sf.displayTitle;
+                      pr.textContent = formatMoneyDisplay(sf.priceAmount, sf.currencyCode);
+                      return;
+                    }
+                    var m = getMeta();
+                    var rawTitle = m.title;
+                    if (ph && productJsonByHandle[ph] && productJsonByHandle[ph].title) {
+                      rawTitle = productJsonByHandle[ph].title;
+                    } else if (!rawTitle || rawTitle === 'Default Title') {
+                      rawTitle = (m.name && String(m.name)) || originalGid.split('/').pop();
+                    }
+                    tt.textContent = rawTitle;
+                    var pVal = m.price;
+                    pr.textContent = pVal != null ? formatMoneyDisplay(String(pVal), m.currencyCode) : '—';
+                  }
+                  refreshTitlePrice();
+
+                  var atcWrapper = document.createElement('div');
+                  atcWrapper.className = 'sar-bundle__product-atc-wrapper';
+
+                  function setQty(q) {
+                    state.selections[originalGid] = q;
+                    state.selected[originalGid] = q > 0;
+                    errBox.hidden = true;
+                    render();
+                  }
+
+                  var qCurrent = state.selections[originalGid] || 0;
+                  var isSelected = qCurrent > 0;
+
+                  if (isSelected) {
+                    atcWrapper.className += ' is-added';
+                    var qtyBox = document.createElement('div');
+                    qtyBox.className = 'sar-bundle__product-qty-box';
+
+                    var minus = document.createElement('button');
+                    minus.type = 'button';
+                    minus.className = 'sar-bundle__product-qty-btn';
+                    minus.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+                    minus.addEventListener('click', function(e) { e.stopPropagation(); setQty(qCurrent - 1); });
+
+                    var val = document.createElement('span');
+                    val.className = 'sar-bundle__product-qty-val';
+                    val.textContent = String(qCurrent);
+
+                    var plus = document.createElement('button');
+                    plus.type = 'button';
+                    plus.className = 'sar-bundle__product-qty-btn';
+                    plus.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+                    plus.addEventListener('click', function(e) { e.stopPropagation(); setQty(qCurrent + 1); });
+
+                    qtyBox.appendChild(minus);
+                    qtyBox.appendChild(val);
+                    qtyBox.appendChild(plus);
+                    atcWrapper.appendChild(qtyBox);
                   } else {
-                    img.style.display = 'none';
+                    var addBtn = document.createElement('button');
+                    addBtn.type = 'button';
+                    addBtn.className = 'sar-bundle__product-atc-btn';
+                    addBtn.textContent = 'Add to box';
+                    addBtn.addEventListener('click', function(e) { e.stopPropagation(); setQty(1); });
+                    atcWrapper.appendChild(addBtn);
                   }
-                  img.alt = (m.title && m.title !== 'Default Title' ? m.title : '') || '';
-                }
-                refreshImgTitle();
-                if (img.src) imgWrapper.appendChild(img);
 
-                var tt = document.createElement('p');
-                tt.className = 'sar-bundle__product-title';
+                  var infoBox = document.createElement('div');
+                  infoBox.style.display = 'flex';
+                  infoBox.style.flexDirection = 'column';
+                  infoBox.style.gap = '4px';
 
-                var pr = document.createElement('p');
-                pr.className = 'sar-bundle__product-price';
-
-                function refreshTitlePrice() {
-                  if (sf && sf.displayTitle) {
-                    tt.textContent = sf.displayTitle;
-                    pr.textContent = formatMoneyDisplay(sf.priceAmount, sf.currencyCode);
-                    return;
+                  if (layoutConfig === 'overlay') {
+                    imgWrapper.appendChild(atcWrapper);
+                    infoBox.appendChild(tt);
+                    infoBox.appendChild(pr);
+                    card.appendChild(imgWrapper);
+                    card.appendChild(infoBox);
+                  } else {
+                    infoBox.appendChild(imgWrapper);
+                    infoBox.appendChild(tt);
+                    var textControlsWrap = document.createElement('div');
+                    textControlsWrap.style.display = 'flex';
+                    textControlsWrap.style.flexDirection = 'column';
+                    textControlsWrap.style.justifyContent = 'space-between';
+                    textControlsWrap.style.gap = '8px';
+                    textControlsWrap.style.height = '100%';
+                    textControlsWrap.appendChild(infoBox);
+                    textControlsWrap.appendChild(atcWrapper);
+                    card.appendChild(textControlsWrap);
                   }
-                  var m = getMeta();
-                  var rawTitle = m.title;
-                  if (ph && productJsonByHandle[ph] && productJsonByHandle[ph].title) {
-                    rawTitle = productJsonByHandle[ph].title;
-                  } else if (!rawTitle || rawTitle === 'Default Title') {
-                    rawTitle = (m.name && String(m.name)) || originalGid.split('/').pop();
-                  }
-                  tt.textContent = rawTitle;
-                  var pVal = m.price;
-                  pr.textContent = pVal != null ? formatMoneyDisplay(String(pVal), m.currencyCode) : '—';
+
+                  grid.appendChild(card);
+                })(stepProds[pj]);
                 }
-                refreshTitlePrice();
-
-                var atcWrapper = document.createElement('div');
-                atcWrapper.className = 'sar-bundle__product-atc-wrapper';
-
-                function setQty(q) {
-                  state.selections[originalGid] = q;
-                  state.selected[originalGid] = q > 0;
-                  errBox.hidden = true;
-                  render();
+                
+                if (!designCtx.__renderedProductList) {
+                  body.appendChild(grid);
                 }
+              }
 
-                var qCurrent = state.selections[originalGid] || 0;
-                var isSelected = qCurrent > 0;
-
-                if (isSelected) {
-                  atcWrapper.className += ' is-added';
-                  var qtyBox = document.createElement('div');
-                  qtyBox.className = 'sar-bundle__product-qty-box';
-
-                  var minus = document.createElement('button');
-                  minus.type = 'button';
-                  minus.className = 'sar-bundle__product-qty-btn';
-                  minus.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
-                  minus.addEventListener('click', function(e) { e.stopPropagation(); setQty(qCurrent - 1); });
-
-                  var val = document.createElement('span');
-                  val.className = 'sar-bundle__product-qty-val';
-                  val.textContent = String(qCurrent);
-
-                  var plus = document.createElement('button');
-                  plus.type = 'button';
-                  plus.className = 'sar-bundle__product-qty-btn';
-                  plus.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
-                  plus.addEventListener('click', function(e) { e.stopPropagation(); setQty(qCurrent + 1); });
-
-                  qtyBox.appendChild(minus);
-                  qtyBox.appendChild(val);
-                  qtyBox.appendChild(plus);
-                  atcWrapper.appendChild(qtyBox);
-                } else {
-                  var addBtn = document.createElement('button');
-                  addBtn.type = 'button';
-                  addBtn.className = 'sar-bundle__product-atc-btn';
-                  addBtn.textContent = 'Add to box';
-                  addBtn.addEventListener('click', function(e) { e.stopPropagation(); setQty(1); });
-                  atcWrapper.appendChild(addBtn);
+              if (designCtx.__productListSource === 'collection' && designCtx.__productListCollection) {
+                var loadId = 'loading-' + designCtx.__productListCollection;
+                if (!grid.querySelector('#' + loadId)) {
+                  grid.innerHTML = '<div id="' + loadId + '" class="sar-bundle__loading">Chargement des produits...</div>';
                 }
-
-                var infoBox = document.createElement('div');
-                infoBox.style.display = 'flex';
-                infoBox.style.flexDirection = 'column';
-                infoBox.style.gap = '4px';
-
-                if (layoutConfig === 'overlay') {
-                  imgWrapper.appendChild(atcWrapper);
-                  infoBox.appendChild(tt);
-                  infoBox.appendChild(pr);
-                  card.appendChild(imgWrapper);
-                  card.appendChild(infoBox);
-                } else {
-                  // Classic
-                  infoBox.appendChild(imgWrapper);
-                  infoBox.appendChild(tt);
-                  var textControlsWrap = document.createElement('div');
-                  textControlsWrap.style.display = 'flex';
-                  textControlsWrap.style.flexDirection = 'column';
-                  textControlsWrap.style.justifyContent = 'space-between';
-                  textControlsWrap.style.gap = '8px';
-                  textControlsWrap.style.height = '100%';
-                  textControlsWrap.appendChild(infoBox);
-                  textControlsWrap.appendChild(atcWrapper);
-                  card.appendChild(textControlsWrap);
-                }
-
-                grid.appendChild(card);
-              })(stepProds[pj]);
+                fetchCollectionProducts(designCtx.__productListCollection).then(function (products) {
+                  grid.innerHTML = '';
+                  stepProds = (products || []).map(function(p) {
+                    var v0 = p.variants && p.variants[0];
+                    var vId = v0 ? v0.id : null;
+                    if (!vId) return null;
+                    var gid = typeof vId === 'number' ? 'gid://shopify/ProductVariant/' + vId : vId;
+                    variantCache[gid] = v0;
+                    if (v0 && v0.price) priceMap[gid] = parseMoney(v0.price);
+                    var img0 = p.images && p.images[0];
+                    var url = typeof img0 === 'string' ? img0 : (img0 && img0.src ? img0.src : '');
+                    return {
+                      variantGid: gid,
+                      storefront: {
+                        imageUrl: url,
+                        displayTitle: p.title,
+                        priceAmount: v0 && v0.price ? String(v0.price) : '0',
+                        currencyCode: typeof Shopify !== 'undefined' && Shopify.currency && Shopify.currency.active || 'EUR',
+                        productHandle: p.handle
+                      }
+                    };
+                  }).filter(Boolean);
+                  renderProductsLoop();
+                });
+              } else {
+                renderProductsLoop();
               }
             }
             if (!designCtx.__renderedProductList) {

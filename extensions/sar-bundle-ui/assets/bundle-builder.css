@@ -429,6 +429,18 @@
   white-space: pre-wrap;
 }
 
+.sar-bundle__products {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols-mobile, 2), 1fr);
+  gap: var(--grid-gap-y, 16px) var(--grid-gap-x, 16px);
+}
+
+@media (min-width: 768px) {
+  .sar-bundle__products {
+    grid-template-columns: repeat(var(--grid-cols-desktop, 3), 1fr);
+  }
+}
+
 .sar-bundle__product-grid {
   margin-bottom: 1rem;
   padding: 0.75rem;

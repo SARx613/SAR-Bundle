@@ -148,6 +148,8 @@ export type ProductListBlock = {
   cardLayout?: "classic" | "overlay";
   /** Number of columns in the grid */
   columns?: number;
+  /** Number of columns in the grid (mobile) */
+  columnsMobile?: number;
   /** Horizontal gap between cards (px) */
   gapX?: number;
   /** Vertical gap between cards (px) */
