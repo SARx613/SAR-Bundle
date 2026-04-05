@@ -137,8 +137,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       shop: session.shop,
     });
   } catch (err: any) {
+    if (err instanceof Response) {
+      throw err;
+    }
     console.error("APP.BUNDLE.$ID LOADER CRASH:", err);
-    throw new Response(err?.stack || err?.message || String(err), { status: 500, statusText: "Loader Error" });
+    throw new Response(err?.stack || err?.message || String(err), { status: 500, statusText: "Developer Error" });
   }
 };
 
