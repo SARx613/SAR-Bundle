@@ -6,15 +6,15 @@
 {% endcomment %}
 
 {% comment %} show_title : défaut true ; passer false pour masquer {% endcomment %}
-{% assign _per_page = products_per_page | default: 24 %}
-{% assign _pad_top = padding_top | default: 36 %}
-{% assign _pad_bottom = padding_bottom | default: 36 %}
+{% assign per_page_val = products_per_page | default: 24 %}
+{% assign pad_top_val = padding_top | default: 36 %}
+{% assign pad_bottom_val = padding_bottom | default: 36 %}
 
 {{ 'sar-bundles-collection.css' | asset_url | stylesheet_tag }}
 
 <div
   class="sar-bundles-collection page-width sar-bundles-collection--snippet"
-  style="--sar-bc-pad-top: {{ _pad_top }}px; --sar-bc-pad-bottom: {{ _pad_bottom }}px; padding-top: var(--sar-bc-pad-top); padding-bottom: var(--sar-bc-pad-bottom);"
+  style="--sar-bc-pad-top: {{ pad_top_val }}px; --sar-bc-pad-bottom: {{ pad_bottom_val }}px; padding-top: var(--sar-bc-pad-top); padding-bottom: var(--sar-bc-pad-bottom);"
 >
   {% unless show_title == false %}
     <h1 class="sar-bundles-collection__heading">{{ collection.title }}</h1>
@@ -23,7 +23,7 @@
     <div class="sar-bundles-collection__desc rte">{{ collection.description }}</div>
   {% endif %}
 
-  {% paginate collection.products by _per_page %}
+  {% paginate collection.products by per_page_val %}
     <ul class="sar-bundles-collection__grid" role="list">
       {% for product in collection.products %}
         <li class="sar-bundles-collection__item">

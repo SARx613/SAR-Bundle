@@ -50,20 +50,22 @@ function nodeToMeta(node: any): VariantMeta | null {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin } = await authenticate.admin(request);
   const url = new URL(request.url);
-  const ids = url.searchParams.getAll("ids").filter(Boolean);
+  const ids = url.searchParams
+    .getAll("ids")
+    .filter(Boolean)
+    .filter((id) => id.startsWith("gid://shopify/"));
   if (ids.length === 0) return json({ items: [] as VariantMeta[] });
 
   const res = await admin.graphql(
-    `#graphql
-      query EditorVariantMeta($ids: [ID!]!) {
-        ${PRODUCT_DISPLAY_FIELDS}
-        ${VARIANT_DISPLAY_FIELDS}
-        nodes(ids: $ids) {
-          ... on ProductVariant {
-            ...VariantDisplayFields
-          }
+    `query EditorVariantMeta($ids: [ID!]!) {
+      ${PRODUCT_DISPLAY_FIELDS}
+      ${VARIANT_DISPLAY_FIELDS}
+      nodes(ids: $ids) {
+        ... on ProductVariant {
+          ...VariantDisplayFields
         }
-      }`,
+      }
+    }`,
     { variables: { ids } },
   );
   const body = await res.json();
