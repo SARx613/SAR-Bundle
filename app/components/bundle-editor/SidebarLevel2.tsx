@@ -982,12 +982,7 @@ export function SidebarLevel2({
           },
           {
             id: "settings",
-            content: "",
-            icon: (
-              <Tooltip content="Paramètres">
-                <Icon source={SettingsIcon} />
-              </Tooltip>
-            ),
+            content: "Paramètres",
             accessibilityLabel: "Paramètres",
           },
         ]}

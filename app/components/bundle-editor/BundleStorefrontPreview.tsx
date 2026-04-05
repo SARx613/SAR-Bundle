@@ -733,17 +733,19 @@ function ProductGridPreview({
   block,
   selectedBlockId,
   onSelectBlock,
+  isMobile,
 }: {
   step: UiStep | undefined;
   block: StorefrontBlockV2;
   selectedBlockId: string | null;
   onSelectBlock: (id: string) => void;
+  isMobile?: boolean;
 }) {
   const plBlock = block.type === "product_list" ? block : null;
-  const columns = plBlock?.columns ?? 3;
+  const layout = plBlock?.cardLayout ?? "classic";
+  const columns = isMobile ? (plBlock?.columnsMobile ?? 2) : (plBlock?.columns ?? 3);
   const gapX = plBlock?.gapX ?? 16;
   const gapY = plBlock?.gapY ?? 16;
-  const cardLayout = plBlock?.cardLayout ?? "classic";
 
   return (
     <InteractiveBlockWrapper
@@ -763,7 +765,7 @@ function ProductGridPreview({
         >
           {step && step.products.length > 0 ? (
             step.products.map((p) => (
-              <ProductCard key={p.variantGid} product={p} layout={cardLayout} />
+              <ProductCard key={p.variantGid} product={p} layout={layout} />
             ))
           ) : (
             <div
@@ -793,6 +795,7 @@ export function BundleStorefrontPreview({
   onSelectBlock,
   selectedBlockId,
   hiddenBlocks,
+  isMobile,
 }: {
   design: StorefrontDesignV2;
   steps: UiStep[];
@@ -801,6 +804,7 @@ export function BundleStorefrontPreview({
   onSelectBlock?: (blockId: string) => void;
   selectedBlockId?: string | null;
   hiddenBlocks?: Set<string>;
+  isMobile?: boolean;
 }) {
   const g = design.global;
   const safeIndex = Math.min(
@@ -823,8 +827,8 @@ export function BundleStorefrontPreview({
   };
 
   return (
-    <div className="sar-bundle" style={{ overflow: "auto" }}>
-      <div style={{ maxWidth: g.contentMaxWidth || "720px", margin: "0 auto" }}>
+    <div className="sar-bundle" style={{ overflow: "auto", display: "flex", justifyContent: "center" }}>
+      <div style={{ width: "100%", maxWidth: g.contentMaxWidth || "720px" }}>
         <div
           className="sar-bundle__design"
           style={{
@@ -858,6 +862,7 @@ export function BundleStorefrontPreview({
                   block={b}
                   selectedBlockId={selectedBlockId ?? null}
                   onSelectBlock={handleBlockSelect}
+                  isMobile={isMobile}
                 />
               );
             }

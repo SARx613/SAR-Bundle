@@ -338,6 +338,8 @@ export function BundleVisualEditor({
     return null;
   };
 
+  const [isMobilePreview, setIsMobilePreview] = useState(false);
+
   return (
     <div
       style={{
@@ -364,30 +366,61 @@ export function BundleVisualEditor({
       <div style={{ flex: "1 1 0", minWidth: 280 }}>
         <Card>
           <BlockStack gap="300">
-            <Text as="h2" variant="headingMd">
-              Aperçu boutique
-            </Text>
-            <Text as="p" variant="bodySm" tone="subdued">
-              Rendu simplifié — cliquez sur un élément pour le modifier.
-            </Text>
-            <BundleStorefrontPreview
-              design={form.storefrontDesign}
-              steps={form.steps}
-              activeStepIndex={activeStepIndex}
-              selectedBlockId={nav.level === 3 ? nav.blockId : null}
-              hiddenBlocks={hiddenBlocks}
-              onSelectStep={(idx) =>
-                setNav({ level: 2, stepIndex: idx, activeTab: 0 })
-              }
-              onSelectBlock={(blockId) =>
-                setNav({
-                  level: 3,
-                  stepIndex: activeStepIndex,
-                  blockId,
-                  activeTab: 0,
-                })
-              }
-            />
+            <InlineStack align="space-between" blockAlign="center">
+              <BlockStack>
+                <Text as="h2" variant="headingMd">
+                  Aperçu boutique
+                </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Rendu simplifié — cliquez sur un élément pour le modifier.
+                </Text>
+              </BlockStack>
+              <InlineStack gap="100">
+                <Button
+                  pressed={!isMobilePreview}
+                  onClick={() => setIsMobilePreview(false)}
+                >
+                  Bureau
+                </Button>
+                <Button
+                  pressed={isMobilePreview}
+                  onClick={() => setIsMobilePreview(true)}
+                >
+                  Mobile
+                </Button>
+              </InlineStack>
+            </InlineStack>
+            <div
+              style={{
+                width: isMobilePreview ? "375px" : "100%",
+                margin: "0 auto",
+                transition: "width 0.2s ease",
+                border: isMobilePreview ? "1px solid var(--p-color-border)" : "none",
+                borderRadius: isMobilePreview ? 16 : 0,
+                padding: isMobilePreview ? 10 : 0,
+                boxShadow: isMobilePreview ? "0 4px 12px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <BundleStorefrontPreview
+                design={form.storefrontDesign}
+                steps={form.steps}
+                activeStepIndex={activeStepIndex}
+                selectedBlockId={nav.level === 3 ? nav.blockId : null}
+                hiddenBlocks={hiddenBlocks}
+                isMobile={isMobilePreview}
+                onSelectStep={(idx) =>
+                  setNav({ level: 2, stepIndex: idx, activeTab: 0 })
+                }
+                onSelectBlock={(blockId) =>
+                  setNav({
+                    level: 3,
+                    stepIndex: activeStepIndex,
+                    blockId,
+                    activeTab: 0,
+                  })
+                }
+              />
+            </div>
             {currentStep ? (
               <Text as="p" variant="bodySm" tone="subdued">
                 Étape affichée :{" "}

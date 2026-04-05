@@ -830,13 +830,22 @@ function ProductListManager({
             value={cardLayout}
             onChange={(v) => onPatch({ cardLayout: v as ProductListBlock["cardLayout"] } as Partial<StorefrontBlockV2>)}
           />
-          <SliderNumericField
-            label="Colonnes"
-            value={columns}
-            onChange={(v) => onPatch({ columns: v } as Partial<StorefrontBlockV2>)}
-            min={1}
-            max={6}
-          />
+          <InlineGrid columns={["oneHalf", "oneHalf"]} gap="200">
+            <SliderNumericField
+              label="Colonnes (Bureau)"
+              value={columns}
+              onChange={(v) => onPatch({ columns: v } as Partial<StorefrontBlockV2>)}
+              min={1}
+              max={6}
+            />
+            <SliderNumericField
+              label="Colonnes (Mobile)"
+              value={block.columnsMobile ?? 2}
+              onChange={(v) => onPatch({ columnsMobile: v } as Partial<StorefrontBlockV2>)}
+              min={1}
+              max={3}
+            />
+          </InlineGrid>
           <SliderNumericField
             label="Espace horizontal"
             value={gapX}
