@@ -95,6 +95,7 @@ export type StorefrontDesignV1 = {
     contentMaxWidth?: string;
     fontBody?: string;
     fontHeading?: string;
+    addToBoxText?: string;
   };
   blocks: StorefrontBlock[];
 };
@@ -131,6 +132,7 @@ export type StepBarBlock = {
     inactiveBg?: string;
     activeTextColor?: string;
     inactiveTextColor?: string;
+    labelColor?: string;
     completedBg?: string;
     dotSize?: number;
     fontSize?: string;
@@ -154,6 +156,8 @@ export type ProductListBlock = {
   gapX?: number;
   /** Vertical gap between cards (px) */
   gapY?: number;
+  /** Add to box button text */
+  buttonText?: string;
 };
 
 export type StorefrontBlockV2 =

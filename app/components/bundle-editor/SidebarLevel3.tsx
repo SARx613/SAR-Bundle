@@ -573,6 +573,18 @@ function StepBarStyleFields({
               value={style.inactiveTextColor ?? ""}
               onChange={(v) => patchStyle({ inactiveTextColor: v || undefined })}
             />
+            <ColorField
+              label="Couleur étiquettes étapes"
+              value={style.labelColor ?? ""}
+              onChange={(v) => patchStyle({ labelColor: v || undefined })}
+            />
+            <TextField
+              label="Taille texte étiquettes"
+              value={style.fontSize ?? ""}
+              onChange={(v) => patchStyle({ fontSize: v || undefined })}
+              placeholder="ex: 14px ou 1rem"
+              autoComplete="off"
+            />
           </BlockStack>
         </CollapsibleStyleSection>
       )}
@@ -837,6 +849,7 @@ function ProductListManager({
               onChange={(v) => onPatch({ columns: v } as Partial<StorefrontBlockV2>)}
               min={1}
               max={6}
+              suffix=""
             />
             <SliderNumericField
               label="Colonnes (Mobile)"
@@ -844,8 +857,16 @@ function ProductListManager({
               onChange={(v) => onPatch({ columnsMobile: v } as Partial<StorefrontBlockV2>)}
               min={1}
               max={3}
+              suffix=""
             />
           </InlineGrid>
+          <TextField
+              label="Texte du bouton"
+              value={block.buttonText ?? "Add to box"}
+              onChange={(v) => onPatch({ buttonText: v } as Partial<StorefrontBlockV2>)}
+              placeholder="ex: Ajouter"
+              autoComplete="off"
+          />
           <SliderNumericField
             label="Espace horizontal"
             value={gapX}

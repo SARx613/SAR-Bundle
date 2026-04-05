@@ -601,7 +601,7 @@
     return ids;
   }
 
-  function mount(el) {
+  function mount(el, explicitBundleData) {
     var ref = (
       el.getAttribute('data-bundle-ref') ||
       el.getAttribute('data-bundle-id') ||
@@ -616,7 +616,7 @@
       return Promise.resolve();
     }
 
-    if (!ref) {
+    if (!ref && !explicitBundleData) {
       loading.textContent = "Ajoutez l'ID du bundle dans les paramètres du bloc.";
       return Promise.resolve();
     }
@@ -626,9 +626,14 @@
       return Promise.resolve();
     }
 
-    return fetchBundleConfig(ref)
+    var fetchPromise = explicitBundleData 
+      ? Promise.resolve(explicitBundleData)
+      : fetchBundleConfig(ref);
+
+    return fetchPromise
       .then(function (bundle) {
-        if (!bundle.steps || !bundle.steps.length) {
+        if (!bundle || !bundle.steps) return; // Fallback
+        if (!bundle.steps.length) {
           loading.textContent = "Ce bundle n'a pas d'étapes.";
           return;
         }
@@ -687,7 +692,7 @@
           inner.hidden = false;
 
           var state = {
-            stepIndex: 0,
+            stepIndex: (explicitBundleData && explicitBundleData.stepIndex != null) ? explicitBundleData.stepIndex : 0,
             selections: {},
             selected: {},
             variantChoice: {},
@@ -739,9 +744,14 @@
             wrapEl.style.setProperty('--sar-stepbar-inactive-bg', st.inactiveBg || '');
             wrapEl.style.setProperty('--sar-stepbar-active-text', st.activeTextColor || '');
             wrapEl.style.setProperty('--sar-stepbar-inactive-text', st.inactiveTextColor || '');
+            wrapEl.style.setProperty('--sar-stepbar-label-color', st.labelColor || '');
 
             var bar = document.createElement('div');
             bar.className = 'sar-stepbar';
+            
+            if (st.fontSize) {
+              bar.style.setProperty('--sar-stepbar-font-size', st.fontSize);
+            }
 
             for (var i = 0; i < ctx.steps.length; i++) {
               var item = document.createElement('div');
@@ -777,6 +787,8 @@
               label.className = 'sar-stepbar__label';
               var nm = ctx.steps[i] && (ctx.steps[i].name || '');
               label.textContent = (nm || 'Étape ' + (i + 1)).slice(0, 24);
+              if (st.labelColor) label.style.color = st.labelColor;
+              if (st.fontSize) label.style.fontSize = st.fontSize;
               label.style.position = 'absolute';
               label.style.top = '100%';
               label.style.marginTop = '8px';
@@ -790,6 +802,15 @@
 
               dotWrap.appendChild(label);
               item.appendChild(dotWrap);
+              item.addEventListener('click', (function(idx) {
+                return function(e) {
+                  if (e.target.closest('.sar-stepbar__item')) {
+                    state.stepIndex = idx;
+                    render();
+                  }
+                };
+              })(i));
+
               bar.appendChild(item);
             }
             
@@ -838,6 +859,7 @@
             ctx.__productListGapY = b.gapY != null ? b.gapY : 16;
             ctx.__productListSource = b.source || 'step_pick';
             ctx.__productListCollection = b.collectionHandle || '';
+            ctx.__productListButtonText = b.buttonText || '';
 
             var container = document.createElement('div');
             container.className = 'sar-bundle__products';
@@ -859,16 +881,47 @@
               var b = blocks[bi];
               if (!b || !b.type) continue;
               var st = b.style || {};
+
+              var blockWrap = wrap;
+              var isInteractive = ctx.__explicitBundleData && ctx.__explicitBundleData.__editorMode;
+              if (isInteractive) {
+                blockWrap = document.createElement('div');
+                blockWrap.style.position = 'relative';
+                blockWrap.style.transition = 'all 0.2s';
+                blockWrap.style.borderRadius = '4px';
+                blockWrap.style.cursor = 'pointer';
+                // Enforce an explicit border when selected
+                if (ctx.__explicitBundleData.__selectedBlockId === b.id) {
+                  blockWrap.style.boxShadow = '0 0 0 2px var(--p-color-border-interactive-focus)';
+                  blockWrap.style.background = 'var(--p-color-bg-surface-secondary-hover)';
+                }
+                blockWrap.addEventListener('click', (function(id) {
+                  return function(e) {
+                    e.stopPropagation();
+                    window.dispatchEvent(new CustomEvent('sar-editor-select-block', { detail: id }));
+                  };
+                })(b.id));
+
+                blockWrap.addEventListener('mouseenter', function(e) {
+                  e.currentTarget.style.boxShadow = '0 0 0 2px var(--p-color-border-interactive-focus)';
+                });
+                blockWrap.addEventListener('mouseleave', function(e) {
+                  if (ctx.__explicitBundleData.__selectedBlockId !== b.id) {
+                    e.currentTarget.style.boxShadow = 'none';
+                  }
+                });
+              }
+
               if (b.type === 'heading') {
                 var hx = document.createElement(b.tag || 'h2');
                 hx.textContent = b.text || '';
                 applyTextStyle(hx, st);
-                wrap.appendChild(hx);
+                blockWrap.appendChild(hx);
               } else if (b.type === 'text') {
                 var p = document.createElement('p');
                 p.textContent = b.text || '';
                 applyTextStyle(p, st);
-                wrap.appendChild(p);
+                blockWrap.appendChild(p);
               } else if (b.type === 'image' && b.url) {
                 var im = document.createElement('img');
                 im.src = b.url;
@@ -877,11 +930,11 @@
                 im.style.display = 'block';
                 im.style.maxWidth = st.maxWidth || '100%';
                 applyTextStyle(im, st);
-                wrap.appendChild(im);
+                blockWrap.appendChild(im);
               } else if (b.type === 'spacer') {
                 var sp = document.createElement('div');
                 sp.style.height = (b.height || 8) + 'px';
-                wrap.appendChild(sp);
+                blockWrap.appendChild(sp);
               } else if (b.type === 'hero') {
                 var hero = document.createElement('section');
                 hero.className =
@@ -905,7 +958,7 @@
                   hcol.appendChild(hs);
                 }
                 hero.appendChild(hcol);
-                wrap.appendChild(hero);
+                blockWrap.appendChild(hero);
               } else if (b.type === 'split') {
                 var spl = document.createElement('section');
                 spl.className =
@@ -928,11 +981,15 @@
                 sbody.textContent = b.body || '';
                 scol.appendChild(sbody);
                 spl.appendChild(scol);
-                wrap.appendChild(spl);
+                blockWrap.appendChild(spl);
               } else if (b.type === 'step_bar') {
-                renderStepBarBlock(wrap, b, ctx);
+                renderStepBarBlock(blockWrap, b, ctx);
               } else if (b.type === 'product_list') {
-                renderProductListBlock(wrap, b, ctx);
+                renderProductListBlock(blockWrap, b, ctx);
+              }
+              
+              if (isInteractive) {
+                wrap.appendChild(blockWrap);
               }
             }
             if (wrap.childNodes.length) container.appendChild(wrap);
@@ -972,6 +1029,7 @@
               stepIndex: state.stepIndex,
               __renderedProductList: false,
               __productListMount: null,
+              __explicitBundleData: explicitBundleData
             };
             // Title (block setting on product page)
             var h = document.createElement('h2');
@@ -1182,7 +1240,8 @@
                     var addBtn = document.createElement('button');
                     addBtn.type = 'button';
                     addBtn.className = 'sar-bundle__product-atc-btn';
-                    addBtn.textContent = 'Add to box';
+                    var atcText = designCtx.__productListButtonText || bundle.storefrontDesign?.global?.addToBoxText || 'Add to box';
+                    addBtn.textContent = atcText;
                     addBtn.addEventListener('click', function(e) { e.stopPropagation(); setQty(1); });
                     atcWrapper.appendChild(addBtn);
                   }
@@ -1218,6 +1277,10 @@
                 
                 if (!designCtx.__renderedProductList) {
                   body.appendChild(grid);
+                }
+                
+                if (!inner.contains(body)) {
+                  inner.appendChild(body);
                 }
               }
 
@@ -1545,6 +1608,11 @@
       });
     }
   }
+
+  window.SARBundleJS = {
+    mount: mount,
+    init: init
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
