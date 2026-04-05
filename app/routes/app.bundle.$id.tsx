@@ -349,3 +349,42 @@ export default function AppBundleDetail() {
   const { isNew, bundle, shop } = useLoaderData<typeof loader>();
   return <BundleEditorForm isNew={isNew} bundle={bundle} shopDomain={shop} />;
 }
+import {
+  useRouteError,
+  isRouteErrorResponse,
+} from "@remix-run/react";
+import { Box, Page, Layout, Card, Text, BlockStack } from "@shopify/polaris";
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  console.error("ErrorBoundary caught an error:", error);
+
+  return (
+    <Page title="Une erreur s'est produite">
+      <Layout>
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <Text as="h2" variant="headingLg" tone="critical">
+                Erreur de rendu du bundle
+              </Text>
+              <Box
+                padding="400"
+                background="bg-surface-critical"
+                borderRadius="200"
+              >
+                <div style={{ color: "var(--p-color-text-critical)", whiteSpace: "pre-wrap", overflowX: "auto" }}>
+                  {isRouteErrorResponse(error)
+                    ? `${error.status} ${error.statusText}\n${error.data}`
+                    : error instanceof Error
+                      ? `${error.name}: ${error.message}\n${error.stack}`
+                      : JSON.stringify(error)}
+                </div>
+              </Box>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+      </Layout>
+    </Page>
+  );
+}

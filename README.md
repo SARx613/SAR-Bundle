@@ -1,365 +1,72 @@
-# Shopify App Template - Remix
+# SAR Bundle V2 - Guide De L'application
 
-> [!NOTE]
-> **Remix is now React Router.** As of [React Router v7](https://remix.run/blog/merging-remix-and-react-router), Remix and React Router have merged.
-> 
-> For new projects, use the **[Shopify App Template - React Router](https://github.com/Shopify/shopify-app-template-react-router)** instead.
-> 
-> To migrate your existing Remix app, follow the **[migration guide](https://github.com/Shopify/shopify-app-template-react-router/wiki/Upgrading-from-Remix)**.
+SAR Bundle V2 est une application Shopify personnalisée offrant une expérience avancée de création de lots (bundles) interactifs pour les clients.
 
-This is a template for building a [Shopify app](https://shopify.dev/docs/apps/getting-started) using the [Remix](https://remix.run) framework.
+## Architecture & Organisation
 
-Rather than cloning this repo, you can use your preferred package manager and the Shopify CLI with [these steps](https://shopify.dev/docs/apps/getting-started/create).
+Voici comment l'application est organisée, fichier par fichier :
 
-Visit the [`shopify.dev` documentation](https://shopify.dev/docs/api/shopify-app-remix) for more details on the Remix app package.
+### Extensions Shopify
 
-## Quick start
+1. **`extensions/sar-bundle-ui/` (Theme App Extension)**
+   - **`blocks/bundle_builder.liquid`** : Le point d'entrée Frontend. C'est le bloc que le marchand ajoute via l'éditeur de thème Shopify. Il charge les scripts et CSS pour afficher l'interface d'achat du bundle.
+   - **`assets/bundle-builder.js`** : Le cœur de l'application côté client (Storefront). Il gère le changement d'étapes, la sélection des produits, le calcul des règles de prix, le drag-and-drop sur mobile, et l'ajout au panier.
+   - **`assets/bundle-builder.css`** : Les styles (adaptés à la charte et compatibles avec différents thèmes) pour le widget côté client.
+   - **`snippets/sar-bundle-cart-composition.liquid`** : Un snippet utilisé pour afficher le détail du contenu d'un bundle dans la page panier traditionnelle du thème.
 
-### Prerequisites
+2. **`extensions/sar-bundle-cart-transform/` (Function / Cart Transform)**
+   - **`src/cart_transform_run.js`** : La fonction Shopify qui s'exécute quand un bundle est ajouté au panier. Elle regroupe tous les articles liés (options (`_sar_bundle_components`)) sous une ligne parente (le bundle produit) pour simplifier le paiement et permettre une gestion d'inventaire précise.
 
-Before you begin, you'll need the following:
+### Application Serveur (Remix / Node.js)
 
-1. **Node.js**: [Download and install](https://nodejs.org/en/download/) it if you haven't already.
-2. **Shopify Partner Account**: [Create an account](https://partners.shopify.com/signup) if you don't have one.
-3. **Test Store**: Set up either a [development store](https://help.shopify.com/en/partners/dashboard/development-stores#create-a-development-store) or a [Shopify Plus sandbox store](https://help.shopify.com/en/partners/dashboard/managing-stores/plus-sandbox-store) for testing your app.
-4. **Shopify CLI**: [Download and install](https://shopify.dev/docs/apps/tools/cli/getting-started) it if you haven't already.
-```shell
-npm install -g @shopify/cli@latest
-```
+1. **API et Base de Données (`prisma/`)**
+   - **`schema.prisma`** : Le modèle de données. On y trouve `Bundle`, `BundleStep`, `StepProduct`, et `StepRule`. Cela régit la façon dont est construite l'offre.
 
-### Setup
+2. **Fonctions utilitaires (Backend - `app/utils/`)**
+   - **`bundle.server.ts`** : Le "cerveau" serveur. Exécute les requêtes Prisma (création, mise à jour, listage des bundles) et effectue la sérialisation JSON des arbres complexes.
+   - **`shopify-bundle-product.server.ts`** : Gère la synchronisation entre la base de données de l'application et les produits natifs Shopify (création du produit Bundle qui sert de conteneur, synchro des prix et de la galerie).
+   - **`storefront-bundle-enrich.server.ts`** : S'assure que les produits des bundles affichent bien leurs vrais titres/images dans la boutique même si le marchand a mis à jour le produit depuis la création du bundle.
+   - **`storefront-design.ts`** : Définit le schéma des designs visuels de la version V2 de l'éditeur (Bannière Hero, Grilles, Barre d'étape, etc.).
 
-```shell
-shopify app init --template=https://github.com/Shopify/shopify-app-template-remix
-```
+3. **Routes (Pages et API d'Admin - `app/routes/`)**
+   - **`app._index.tsx`** : Le tableau de bord principal de l'application. Affiche les statistiques des bundles et les actions rapides.
+   - **`app.bundles.tsx`** : La liste complète des bundles existants permettant leur gestion (CRUD).
+   - **`app.bundle.$id.tsx`** : **Route la plus importante.** Elle sert à créer ou éditer un bundle spécifique. C'est ici que l'on charge les données et que l'on traite la sauvegarde côté serveur. *Un composant "ErrorBoundary" est maintenant inclus ici pour intercepter spécifiquement les crashs et afficher la cause précise à l'écran.*
+   - **`apps.sar-bundle.api.bundle.$id.tsx`** (App Proxy) : Le pont de communication sécurisé. Il permet au widget Storefront (côté client) de récupérer depuis la base de données la configuration JSON d'un bundle.
 
-### Local Development
+4. **Composants d'interface (Frontend Admin - `app/components/bundle-editor/`)**
+   - **`BundleEditorForm.tsx`** : Le conteneur principal du formulaire complexe de création de bundle, regroupant la gestion de l'état global React (`useState`).
+   - **`BundleVisualEditor.tsx`** : Sépare l'écran en 2: à gauche la liste des étapes (Sidebar), à droite un aperçu dynamique de l'application (BundleStorefrontPreview).
+   - **`SidebarLevel2.tsx`** : L'éditeur d'étapes (ajout de blocs, sélection de produits). Entièrement revu pour être natif à Polaris avec des icônes contextuels, un menu (3 petits points) et une intégration Drag & Drop.
+   - **`SidebarLevel3.tsx`** : L'éditeur de paramètres par Bloc (ex: couleurs d'un texte, style spécifique d'une barre de progression 'Cercles dorés').
+   - **`BundleStorefrontPreview.tsx`** : L'aperçu simulé. C'est un rendu React similaire à ce qui apparait dans le thème Liquid, permettant au marchand de prévisualiser dynamiquement ses changements. Récemment rendu 100% cliquable et interactif pour accélérer la conception.
 
-```shell
-shopify app dev
-```
+---
 
+## Guide d'Utilisation
 
+### Créer un Bundle
 
-Local development is powered by [the Shopify CLI](https://shopify.dev/docs/apps/tools/cli). It logs into your partners account, connects to an app, provides environment variables, updates remote config, creates a tunnel and provides commands to generate extensions.
+1. Allez dans l'application SAR Bundle, onglet "Nouveau Bundle".
+2. Dans le panneau latéral, vous commencez par définir les **Étapes** du bundle (Ex: 1. Choix du coffret, 2. Vos 3 produits, 3. Options bonus).
+3. Cliquez sur une étape pour en voir le détail.
+4. **Ajouter un Bloc** : La mise en page (ex: Image Hero en haut, une barre de progression, un titre).
+5. Gérer la **Liste de produits** (permanente) : Cliquez sur le bloc "Liste de produits" depuis le panneau latéral pour choisir les produits Shopify autorisés pour cette étape, changer les quantités requises (Min: 3 / Max: 3 pour forcer un choix précis).
 
-### Authenticating and querying data
+> **Astuce visuelle** : Le panneau interactif à droite vous permet de cliquer n'importe où (sur une image, un texte, ou un point de progression) pour ouvrir immédiatement l'onglet d'édition correspondant à gauche. Le bouton d'ajout de bloc dispose désormais d'un menu déroulant facile à lire.
 
-To authenticate and query data you can use the `shopify` const that is exported from `/app/shopify.server.js`:
+### Rendre le Bundle visible sur la boutique
 
-```js
-export async function loader({ request }) {
-  const { admin } = await shopify.authenticate.admin(request);
+Pour afficher le widget d'achat à vos clients :
+1. Créez un modèle de produit spécifique dans votre Éditeur de Thème Shopify ou naviguez sur la page du produit *Bundle* généré automatiquement par l'application (son statut doit être "Actif").
+2. Dans la section produit de ce thème, supprimez les blocs d'achat habituels (Prix, Sélecteur de variante, Bouton Ajouter au panier).
+3. À la place, ajoutez le bloc d'application **"Bundle Builder (V2)"**. Ce bloc prendra tout l'espace disponible et affichera le configurateur par étapes.
 
-  const response = await admin.graphql(`
-    {
-      products(first: 25) {
-        nodes {
-          title
-          description
-        }
-      }
-    }`);
+### Gérer les Styles
 
-  const {
-    data: {
-      products: { nodes },
-    },
-  } = await response.json();
+Chaque élément modifiable dispose d'un pinceau "Style". 
+Par défaut, le bundle s'adapte à la police et aux couleurs de base de votre thème Shopify grace à l'utilisation des CSS dynamiques (ex: `var(--color-primary)`). Vous n'avez donc dans la plupart des cas rien à coder ! Cependant, des surcharges individuelles restent possibles au clic sur le bloc.
 
-  return nodes;
-}
-```
+---
 
-This template comes preconfigured with examples of:
-
-1. Setting up your Shopify app in [/app/shopify.server.ts](https://github.com/Shopify/shopify-app-template-remix/blob/main/app/shopify.server.ts)
-2. Querying data using Graphql. Please see: [/app/routes/app.\_index.tsx](https://github.com/Shopify/shopify-app-template-remix/blob/main/app/routes/app._index.tsx).
-3. Responding to webhooks in individual files such as [/app/routes/webhooks.app.uninstalled.tsx](https://github.com/Shopify/shopify-app-template-remix/blob/main/app/routes/webhooks.app.uninstalled.tsx) and [/app/routes/webhooks.app.scopes_update.tsx](https://github.com/Shopify/shopify-app-template-remix/blob/main/app/routes/webhooks.app.scopes_update.tsx)
-
-Please read the [documentation for @shopify/shopify-app-remix](https://www.npmjs.com/package/@shopify/shopify-app-remix#authenticating-admin-requests) to understand what other API's are available.
-
-## Deployment
-
-### Application Storage
-
-This template uses [Prisma](https://www.prisma.io/) to store session data, by default using an [SQLite](https://www.sqlite.org/index.html) database.
-The database is defined as a Prisma schema in `prisma/schema.prisma`.
-
-This use of SQLite works in production if your app runs as a single instance.
-The database that works best for you depends on the data your app needs and how it is queried.
-You can run your database of choice on a server yourself or host it with a SaaS company.
-Here's a short list of databases providers that provide a free tier to get started:
-
-| Database   | Type             | Hosters                                                                                                                                                                                                                               |
-| ---------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MySQL      | SQL              | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-mysql), [Planet Scale](https://planetscale.com/), [Amazon Aurora](https://aws.amazon.com/rds/aurora/), [Google Cloud SQL](https://cloud.google.com/sql/docs/mysql) |
-| PostgreSQL | SQL              | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-postgresql), [Amazon Aurora](https://aws.amazon.com/rds/aurora/), [Google Cloud SQL](https://cloud.google.com/sql/docs/postgres)                                   |
-| Redis      | Key-value        | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-redis), [Amazon MemoryDB](https://aws.amazon.com/memorydb/)                                                                                                        |
-| MongoDB    | NoSQL / Document | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-mongodb), [MongoDB Atlas](https://www.mongodb.com/atlas/database)                                                                                                  |
-
-To use one of these, you can use a different [datasource provider](https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#datasource) in your `schema.prisma` file, or a different [SessionStorage adapter package](https://github.com/Shopify/shopify-api-js/blob/main/packages/shopify-api/docs/guides/session-storage.md).
-
-### PostgreSQL and `DATABASE_URL` (this project)
-
-The Prisma schema uses **PostgreSQL**. Running `shopify app env pull` updates API keys and scopes in `.env` but **does not** create or inject `DATABASE_URL` — you must add it yourself:
-
-1. Create a PostgreSQL database (e.g. [Neon](https://neon.tech), [Supabase](https://supabase.com), or your host’s managed Postgres).
-2. Append a line to your root `.env` file (same folder as `prisma/schema.prisma`):
-
-   `DATABASE_URL="postgresql://…"`
-
-3. Run migrations: `npx prisma migrate deploy` (or `npx prisma db push` for a quick local schema sync without migration history).
-
-Until `DATABASE_URL` is set, Prisma commands fail with **P1012**.
-
-### Build
-
-Remix handles building the app for you, by running the command below with the package manager of your choice:
-
-Using yarn:
-
-```shell
-yarn build
-```
-
-Using npm:
-
-```shell
-npm run build
-```
-
-Using pnpm:
-
-```shell
-pnpm run build
-```
-
-## Hosting
-
-When you're ready to set up your app in production, you can follow [our deployment documentation](https://shopify.dev/docs/apps/deployment/web) to host your app on a cloud provider like [Heroku](https://www.heroku.com/) or [Fly.io](https://fly.io/).
-
-When you reach the step for [setting up environment variables](https://shopify.dev/docs/apps/deployment/web#set-env-vars), you also need to set the variable `NODE_ENV=production`.
-
-### Hosting on Vercel
-
-Using the Vercel Preset is recommended when hosting your Shopify Remix app on Vercel. You'll also want to ensure imports that would normally come from `@remix-run/node` are imported from `@vercel/remix` instead. Learn more about hosting Remix apps on Vercel [here](https://vercel.com/docs/frameworks/remix).
-
-```diff
-// vite.config.ts
-import { vitePlugin as remix } from "@remix-run/dev";
-import { defineConfig, type UserConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
-+ import { vercelPreset } from '@vercel/remix/vite';
-
-installGlobals();
-
-export default defineConfig({
-  plugins: [
-    remix({
-      ignoredRouteFiles: ["**/.*"],
-+     presets: [vercelPreset()],
-    }),
-    tsconfigPaths(),
-  ],
-});
-```
-
-## Troubleshooting
-
-### Database tables don't exist
-
-If you get this error:
-
-```
-The table `main.Session` does not exist in the current database.
-```
-
-You need to create the database for Prisma. Run the `setup` script in `package.json` using your preferred package manager.
-
-### Navigating/redirecting breaks an embedded app
-
-Embedded Shopify apps must maintain the user session, which can be tricky inside an iFrame. To avoid issues:
-
-1. Use `Link` from `@remix-run/react` or `@shopify/polaris`. Do not use `<a>`.
-2. Use the `redirect` helper returned from `authenticate.admin`. Do not use `redirect` from `@remix-run/node`
-3. Use `useSubmit` or `<Form/>` from `@remix-run/react`. Do not use a lowercase `<form/>`.
-
-This only applies if your app is embedded, which it will be by default.
-
-### Non Embedded
-
-Shopify apps are best when they are embedded in the Shopify Admin, which is how this template is configured. If you have a reason to not embed your app please make the following changes:
-
-1. Ensure `embedded = false` is set in [shopify.app.toml`](./shopify.app.toml). [Docs here](https://shopify.dev/docs/apps/build/cli-for-apps/app-configuration#global).
-2. Pass `isEmbeddedApp: false` to `shopifyApp()` in `./app/shopify.server.js|ts`.
-3. Change the `isEmbeddedApp` prop to `isEmbeddedApp={false}` for the `AppProvider` in `/app/routes/app.jsx|tsx`.
-4. Remove the `@shopify/app-bridge-react` dependency from [package.json](./package.json) and `vite.config.ts|js`.
-5. Remove anything imported from `@shopify/app-bridge-react`.  For example: `NavMenu`, `TitleBar` and `useAppBridge`.
-
-### OAuth goes into a loop when I change my app's scopes
-
-If you change your app's scopes and authentication goes into a loop and fails with a message from Shopify that it tried too many times, you might have forgotten to update your scopes with Shopify.
-To do that, you can run the `deploy` CLI command.
-
-Using yarn:
-
-```shell
-yarn deploy
-```
-
-Using npm:
-
-```shell
-npm run deploy
-```
-
-Using pnpm:
-
-```shell
-pnpm run deploy
-```
-
-### My shop-specific webhook subscriptions aren't updated
-
-If you are registering webhooks in the `afterAuth` hook, using `shopify.registerWebhooks`, you may find that your subscriptions aren't being updated.  
-
-Instead of using the `afterAuth` hook, the recommended approach is to declare app-specific webhooks in the `shopify.app.toml` file.  This approach is easier since Shopify will automatically update changes to webhook subscriptions every time you run `deploy` (e.g: `npm run deploy`).  Please read these guides to understand more:
-
-1. [app-specific vs shop-specific webhooks](https://shopify.dev/docs/apps/build/webhooks/subscribe#app-specific-subscriptions)
-2. [Create a subscription tutorial](https://shopify.dev/docs/apps/build/webhooks/subscribe/get-started?framework=remix&deliveryMethod=https)
-
-If you do need shop-specific webhooks, please keep in mind that the package calls `afterAuth` in 2 scenarios:
-
-- After installing the app
-- When an access token expires
-
-During normal development, the app won't need to re-authenticate most of the time, so shop-specific subscriptions aren't updated. To force your app to update the subscriptions, you can uninstall and reinstall it in your development store. That will force the OAuth process and call the `afterAuth` hook.
-
-### Admin created webhook failing HMAC validation
-
-Webhooks subscriptions created in the [Shopify admin](https://help.shopify.com/en/manual/orders/notifications/webhooks) will fail HMAC validation. This is because the webhook payload is not signed with your app's secret key.  There are 2 solutions:
-
-1. Use [app-specific webhooks](https://shopify.dev/docs/apps/build/webhooks/subscribe#app-specific-subscriptions) defined in your toml file instead (recommended)
-2. Create [webhook subscriptions](https://shopify.dev/docs/api/shopify-app-remix/v1/guide-webhooks) using the `shopifyApp` object.
-
-Test your webhooks with the [Shopify CLI](https://shopify.dev/docs/apps/tools/cli/commands#webhook-trigger) or by triggering events manually in the Shopify admin(e.g. Updating the product title to trigger a `PRODUCTS_UPDATE`).
-
-### Incorrect GraphQL Hints
-
-By default the [graphql.vscode-graphql](https://marketplace.visualstudio.com/items?itemName=GraphQL.vscode-graphql) extension for VS Code will assume that GraphQL queries or mutations are for the [Shopify Admin API](https://shopify.dev/docs/api/admin). This is a sensible default, but it may not be true if:
-
-1. You use another Shopify API such as the storefront API.
-2. You use a third party GraphQL API.
-
-in this situation, please update the [.graphqlrc.ts](https://github.com/Shopify/shopify-app-template-remix/blob/main/.graphqlrc.ts) config.
-
-### First parameter has member 'readable' that is not a ReadableStream.
-
-See [hosting on Vercel](#hosting-on-vercel).
-
-### Admin object undefined on webhook events triggered by the CLI
-
-When you trigger a webhook event using the Shopify CLI, the `admin` object will be `undefined`. This is because the CLI triggers an event with a valid, but non-existent, shop. The `admin` object is only available when the webhook is triggered by a shop that has installed the app.
-
-Webhooks triggered by the CLI are intended for initial experimentation testing of your webhook configuration. For more information on how to test your webhooks, see the [Shopify CLI documentation](https://shopify.dev/docs/apps/tools/cli/commands#webhook-trigger).
-
-### Using Defer & await for streaming responses
-
-To test [streaming using defer/await](https://remix.run/docs/en/main/guides/streaming) during local development you'll need to use the Shopify CLI slightly differently:
-
-1. First setup ngrok: https://ngrok.com/product/secure-tunnels
-2. Create an ngrok tunnel on port 8080: `ngrok http 8080`.
-3. Copy the forwarding address. This should be something like: `https://f355-2607-fea8-bb5c-8700-7972-d2b5-3f2b-94ab.ngrok-free.app`
-4. In a separate terminal run `yarn shopify app dev --tunnel-url=TUNNEL_URL:8080` replacing `TUNNEL_URL` for the address you copied in step 3.
-
-By default the CLI uses a cloudflare tunnel. Unfortunately it cloudflare tunnels wait for the Response stream to finish, then sends one chunk.
-
-This will not affect production, since tunnels are only for local development.
-
-### Using MongoDB and Prisma
-
-By default this template uses SQLlite as the database. It is recommended to move to a persisted database for production. If you choose to use MongoDB, you will need to make some modifications to the schema and prisma configuration. For more information please see the [Prisma MongoDB documentation](https://www.prisma.io/docs/orm/overview/databases/mongodb).
-
-Alternatively you can use a MongDB database directly with the [MongoDB session storage adapter](https://github.com/Shopify/shopify-app-js/tree/main/packages/apps/session-storage/shopify-app-session-storage-mongodb).
-
-#### Mapping the id field
-
-In MongoDB, an ID must be a single field that defines an @id attribute and a @map("\_id") attribute.
-The prisma adapter expects the ID field to be the ID of the session, and not the \_id field of the document.
-
-To make this work you can add a new field to the schema that maps the \_id field to the id field. For more information see the [Prisma documentation](https://www.prisma.io/docs/orm/prisma-schema/data-model/models#defining-an-id-field)
-
-```prisma
-model Session {
-  session_id  String    @id @default(auto()) @map("_id") @db.ObjectId
-  id          String    @unique
-...
-}
-```
-
-#### Error: The "mongodb" provider is not supported with this command
-
-MongoDB does not support the [prisma migrate](https://www.prisma.io/docs/orm/prisma-migrate/understanding-prisma-migrate/overview) command. Instead, you can use the [prisma db push](https://www.prisma.io/docs/orm/reference/prisma-cli-reference#db-push) command and update the `shopify.web.toml` file with the following commands. If you are using MongoDB please see the [Prisma documentation](https://www.prisma.io/docs/orm/overview/databases/mongodb) for more information.
-
-```toml
-[commands]
-predev = "npx prisma generate && npx prisma db push"
-dev = "npm exec remix vite:dev"
-```
-
-#### Prisma needs to perform transactions, which requires your mongodb server to be run as a replica set
-
-See the [Prisma documentation](https://www.prisma.io/docs/getting-started/setup-prisma/start-from-scratch/mongodb/connect-your-database-node-mongodb) for connecting to a MongoDB database.
-
-### I want to use Polaris v13.0.0 or higher
-
-Currently, this template is set up to work on node v18.20 or higher. However, `@shopify/polaris` is limited to v12 because v13 can only run on node v20+.
-
-You don't have to make any changes to the code in order to be able to upgrade Polaris to v13, but you'll need to do the following:
-
-- Upgrade your node version to v20.10 or higher.
-- Update your `Dockerfile` to pull `FROM node:20-alpine` instead of `node:18-alpine`
-
-### "nbf" claim timestamp check failed
-
-This error will occur of the `nbf` claim timestamp check failed. This is because the JWT token is expired.
-If you  are consistently getting this error, it could be that the clock on your machine is not in sync with the server.
-
-To fix this ensure you have enabled `Set time and date automatically` in the `Date and Time` settings on your computer.
-
-## Benefits
-
-Shopify apps are built on a variety of Shopify tools to create a great merchant experience.
-
-<!-- TODO: Uncomment this after we've updated the docs -->
-<!-- The [create an app](https://shopify.dev/docs/apps/getting-started/create) tutorial in our developer documentation will guide you through creating a Shopify app using this template. -->
-
-The Remix app template comes with the following out-of-the-box functionality:
-
-- [OAuth](https://github.com/Shopify/shopify-app-js/tree/main/packages/shopify-app-remix#authenticating-admin-requests): Installing the app and granting permissions
-- [GraphQL Admin API](https://github.com/Shopify/shopify-app-js/tree/main/packages/shopify-app-remix#using-the-shopify-admin-graphql-api): Querying or mutating Shopify admin data
-- [Webhooks](https://github.com/Shopify/shopify-app-js/tree/main/packages/shopify-app-remix#authenticating-webhook-requests): Callbacks sent by Shopify when certain events occur
-- [AppBridge](https://shopify.dev/docs/api/app-bridge): This template uses the next generation of the Shopify App Bridge library which works in unison with previous versions.
-- [Polaris](https://polaris.shopify.com/): Design system that enables apps to create Shopify-like experiences
-
-## Tech Stack
-
-This template uses [Remix](https://remix.run). The following Shopify tools are also included to ease app development:
-
-- [Shopify App Remix](https://shopify.dev/docs/api/shopify-app-remix) provides authentication and methods for interacting with Shopify APIs.
-- [Shopify App Bridge](https://shopify.dev/docs/apps/tools/app-bridge) allows your app to seamlessly integrate your app within Shopify's Admin.
-- [Polaris React](https://polaris.shopify.com/) is a powerful design system and component library that helps developers build high quality, consistent experiences for Shopify merchants.
-- [Webhooks](https://github.com/Shopify/shopify-app-js/tree/main/packages/shopify-app-remix#authenticating-webhook-requests): Callbacks sent by Shopify when certain events occur
-- [Polaris](https://polaris.shopify.com/): Design system that enables apps to create Shopify-like experiences
-
-## Resources
-
-- [Remix Docs](https://remix.run/docs/en/v1)
-- [Shopify App Remix](https://shopify.dev/docs/api/shopify-app-remix)
-- [Introduction to Shopify apps](https://shopify.dev/docs/apps/getting-started)
-- [App authentication](https://shopify.dev/docs/apps/auth)
-- [Shopify CLI](https://shopify.dev/docs/apps/tools/cli)
-- [App extensions](https://shopify.dev/docs/apps/app-extensions/list)
-- [Shopify Functions](https://shopify.dev/docs/api/functions)
-- [Getting started with internationalizing your app](https://shopify.dev/docs/apps/best-practices/internationalization/getting-started)
+*Note de Développement : Un `ErrorBoundary` personnalisé a récemment été ajouté au routeur de produit pour intercepter et afficher clairement d'éventuels plantages (Application Error).*

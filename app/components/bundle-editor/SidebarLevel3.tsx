@@ -135,15 +135,29 @@ function StepBarStyleFields({
   block,
   onPatch,
 }: {
-  block: StepBarBlock;
-  onPatch: (patch: Partial<StepBarBlock>) => void;
+  block: StorefrontBlockV2;
+  onPatch: (patch: Partial<StorefrontBlockV2>) => void;
 }) {
-  const style = block.style ?? {};
+  if (block.type !== "step_bar") return null;
+  const style = block.style || {};
+  const currentPreset = block.preset || "default";
+  
   const patchStyle = (s: Partial<StepBarBlock["style"]>) =>
-    onPatch({ style: { ...style, ...s } });
+    onPatch({ style: { ...style, ...s } } as Partial<StorefrontBlockV2>);
 
   return (
     <BlockStack gap="200">
+      <Select
+        label="Design prédéfini"
+        options={[
+          { label: "Classique (Numéros)", value: "default" },
+          { label: "Cercle doré (Luxe)", value: "circles" },
+          { label: "Lignes plates", value: "lines" },
+          { label: "Minimal (Petits points)", value: "minimal" },
+        ]}
+        value={currentPreset}
+        onChange={(v) => onPatch({ preset: v as StepBarBlock["preset"] } as Partial<StorefrontBlockV2>)}
+      />
       <TextField
         label="Couleur bordure / lignes"
         value={style.borderColor ?? ""}

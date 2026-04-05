@@ -376,7 +376,7 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
           ? p.productHandle
               .replace(/-/g, " ")
               .replace(/\b\w/g, (c: string) => c.toUpperCase())
-          : p.variantGid.split("/").pop() ?? p.variantGid;
+          : typeof p.variantGid === "string" ? p.variantGid.split("/").pop() ?? p.variantGid : "Produit inconnu";
         const displayName = enrichedName || fallbackName;
 
         return {
