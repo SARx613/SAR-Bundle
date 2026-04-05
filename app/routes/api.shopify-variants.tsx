@@ -48,31 +48,41 @@ function nodeToMeta(node: any): VariantMeta | null {
  * GET /api/shopify-variants?ids=gid://shopify/ProductVariant/1&ids=gid://shopify/ProductVariant/2
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
-  const url = new URL(request.url);
-  const ids = url.searchParams
-    .getAll("ids")
-    .filter(Boolean)
-    .filter((id) => id.startsWith("gid://shopify/"));
-  if (ids.length === 0) return json({ items: [] as VariantMeta[] });
+  try {
+    const { admin } = await authenticate.admin(request);
+    const url = new URL(request.url);
+    const ids = url.searchParams
+      .getAll("ids")
+      .filter(Boolean)
+      .filter((id) => id.startsWith("gid://shopify/"));
+    if (ids.length === 0) return json({ items: [] as VariantMeta[] });
 
-  const res = await admin.graphql(
-    `query EditorVariantMeta($ids: [ID!]!) {
-      ${PRODUCT_DISPLAY_FIELDS}
-      ${VARIANT_DISPLAY_FIELDS}
-      nodes(ids: $ids) {
-        ... on ProductVariant {
-          ...VariantDisplayFields
+    const res = await admin.graphql(
+      `query EditorVariantMeta($ids: [ID!]!) {
+        ${PRODUCT_DISPLAY_FIELDS}
+        ${VARIANT_DISPLAY_FIELDS}
+        nodes(ids: $ids) {
+          ... on ProductVariant {
+            ...VariantDisplayFields
+          }
         }
-      }
-    }`,
-    { variables: { ids } },
-  );
-  const body = await res.json();
-  const nodes = body?.data?.nodes;
-  const items = Array.isArray(nodes)
-    ? nodes.map(nodeToMeta).filter((x): x is VariantMeta => x != null)
-    : [];
-  return json({ items });
+      }`,
+      { variables: { ids } },
+    );
+    const body = (await res.json()) as any;
+    if (body.errors) {
+      console.error("GraphQL errors:", body.errors);
+      throw new Error(`GraphQL Error: ${JSON.stringify(body.errors)}`);
+    }
+    const nodes = body?.data?.nodes;
+    const items = Array.isArray(nodes)
+      ? nodes.map(nodeToMeta).filter((x): x is VariantMeta => x != null)
+      : [];
+    return json({ items });
+  } catch (err: any) {
+    if (err instanceof Response) throw err;
+    console.error("api.shopify-variants crash:", err);
+    throw new Response(err?.stack || err?.message || String(err), { status: 500, statusText: "API Variants Crash" });
+  }
 };
 
