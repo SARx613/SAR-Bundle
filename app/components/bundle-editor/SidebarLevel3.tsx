@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useFetcher } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -6,8 +6,11 @@ import {
   Box,
   Button,
   Collapsible,
+  DropZone,
   Icon,
+  InlineGrid,
   InlineStack,
+  RangeSlider,
   Select,
   Tabs,
   Text,
@@ -24,6 +27,7 @@ import {
 import {
   type HeroBlock,
   type StepBarBlock,
+  type ProductListBlock,
   type StorefrontBlockV2,
   type StorefrontDesignV2,
   type TextStyleBlock,
@@ -53,6 +57,197 @@ const TEXT_PRESETS = [
   { label: "Personnalisé", value: "custom" },
 ] as const;
 
+/* ────────────────────── Color Swatch Prefix ────────────────────── */
+
+function ColorSwatch({ color }: { color: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: 16,
+        height: 16,
+        borderRadius: "50%",
+        background: color || "transparent",
+        border: "1px solid var(--p-color-border)",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+/* ────────────────────── Color field with native picker ────────────────────── */
+
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  // Parse hex to display
+  const displayValue = value || "";
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <Text as="span" variant="bodyMd">{label}</Text>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            border: "1px solid var(--p-color-border)",
+            cursor: "pointer",
+            overflow: "hidden",
+            position: "relative",
+            background: displayValue || "#ffffff",
+          }}
+        >
+          <input
+            type="color"
+            value={displayValue || "#000000"}
+            onChange={(e) => onChange(e.target.value)}
+            style={{
+              position: "absolute",
+              width: "100%",
+              height: "100%",
+              opacity: 0,
+              cursor: "pointer",
+              border: "none",
+              padding: 0,
+            }}
+          />
+        </label>
+        <div style={{ flex: 1 }}>
+          <TextField
+            label=""
+            labelHidden
+            value={displayValue}
+            onChange={onChange}
+            autoComplete="off"
+            placeholder="#000000 ou rgba()"
+          />
+        </div>
+        {displayValue && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--p-color-text-subdued)",
+              fontSize: 16,
+              padding: 4,
+            }}
+            title="Effacer"
+          >✕</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────── Numeric field with suffix ────────────────────── */
+
+function NumericField({
+  label,
+  value,
+  onChange,
+  suffix = "px",
+  min,
+  max,
+  step = 1,
+  placeholder = "0",
+  labelHidden = false,
+}: {
+  label: string;
+  value: number | undefined | null;
+  onChange: (v: number | undefined) => void;
+  suffix?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  placeholder?: string;
+  labelHidden?: boolean;
+}) {
+  return (
+    <TextField
+      label={label}
+      labelHidden={labelHidden}
+      type="number"
+      value={value != null ? String(value) : ""}
+      onChange={(v) => {
+        const n = parseInt(v, 10);
+        onChange(isNaN(n) ? undefined : Math.max(min ?? -Infinity, Math.min(max ?? Infinity, n)));
+      }}
+      autoComplete="off"
+      min={min}
+      max={max}
+      step={step}
+      placeholder={placeholder}
+      suffix={suffix}
+    />
+  );
+}
+
+/* ────────────────────── Slider + Number combo ────────────────────── */
+
+function SliderNumericField({
+  label,
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  suffix = "px",
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  suffix?: string;
+}) {
+  return (
+    <BlockStack gap="100">
+      <InlineStack align="space-between" blockAlign="center">
+        <Text as="span" variant="bodyMd">{label}</Text>
+      </InlineStack>
+      <InlineGrid columns={["twoThirds", "oneThird"]} gap="200">
+        <RangeSlider
+          label={label}
+          labelHidden
+          value={value}
+          onChange={(v) => onChange(typeof v === "number" ? v : v[0])}
+          min={min}
+          max={max}
+          step={step}
+          output
+        />
+        <NumericField
+          label={label}
+          labelHidden
+          value={value}
+          onChange={(v) => onChange(v ?? min)}
+          suffix={suffix}
+          min={min}
+          max={max}
+          step={step}
+        />
+      </InlineGrid>
+    </BlockStack>
+  );
+}
+
 /* ────────────────────── Collapsible Section ────────────────────── */
 
 function CollapsibleStyleSection({
@@ -68,7 +263,7 @@ function CollapsibleStyleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div>
+    <Box borderBlockEndWidth="025" borderColor="border">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -77,27 +272,86 @@ function CollapsibleStyleSection({
           alignItems: "center",
           justifyContent: "space-between",
           width: "100%",
-          padding: "8px 0",
+          padding: "12px 12px",
           background: "none",
           border: "none",
-          borderBottom: "1px solid var(--p-color-border-subdued)",
           cursor: "pointer",
           color: "var(--p-color-text)",
-          fontWeight: 600,
-          fontSize: "0.8rem",
         }}
         aria-expanded={open}
       >
-        <span>{title}</span>
+        <Text as="span" variant="headingMd">{title}</Text>
         <Icon source={open ? ChevronDownIcon : ChevronRightIcon} />
       </button>
       <Collapsible id={id} open={open}>
-        <div style={{ paddingTop: 8, paddingBottom: 4 }}>
+        <Box padding="300">
           {children}
-        </div>
+        </Box>
       </Collapsible>
-    </div>
+    </Box>
   );
+}
+
+/* ────────────────────── Spacing Grid (3x3 cross) ────────────────────── */
+
+function SpacingGrid({
+  label,
+  top,
+  right,
+  bottom,
+  left,
+  onChangeTop,
+  onChangeRight,
+  onChangeBottom,
+  onChangeLeft,
+}: {
+  label: string;
+  top: number | undefined;
+  right: number | undefined;
+  bottom: number | undefined;
+  left: number | undefined;
+  onChangeTop: (v: number | undefined) => void;
+  onChangeRight: (v: number | undefined) => void;
+  onChangeBottom: (v: number | undefined) => void;
+  onChangeLeft: (v: number | undefined) => void;
+}) {
+  return (
+    <BlockStack gap="100">
+      <Text as="span" variant="bodyMd" fontWeight="semibold">{label}</Text>
+      <Box
+        background="bg"
+        borderColor="border"
+        borderWidth="025"
+        borderRadius="200"
+        padding="200"
+      >
+        <InlineGrid columns={["oneThird", "oneThird", "oneThird"]} gap="200">
+          {/* Row 1: _, top, _ */}
+          <Box />
+          <NumericField label="top" labelHidden value={top} onChange={onChangeTop} placeholder="0" />
+          <Box />
+          {/* Row 2: left, _, right */}
+          <NumericField label="left" labelHidden value={left} onChange={onChangeLeft} placeholder="0" />
+          <Box />
+          <NumericField label="right" labelHidden value={right} onChange={onChangeRight} placeholder="0" />
+          {/* Row 3: _, bottom, _ */}
+          <Box />
+          <NumericField label="bottom" labelHidden value={bottom} onChange={onChangeBottom} placeholder="0" />
+          <Box />
+        </InlineGrid>
+      </Box>
+    </BlockStack>
+  );
+}
+
+/* ──────── Helper: parse px string to number ──────── */
+function pxToNum(s: string | undefined): number | undefined {
+  if (!s) return undefined;
+  const n = parseInt(s.replace(/px$/i, ""), 10);
+  return isNaN(n) ? undefined : n;
+}
+function numToPx(n: number | undefined): string | undefined {
+  return n != null ? `${n}px` : undefined;
 }
 
 /* ────────────────────── Style Fields (Chantier 7) ────────────────────── */
@@ -114,18 +368,17 @@ function StyleFields({
   const preset = style.textPreset ?? "custom";
 
   return (
-    <BlockStack gap="100">
-      {/* Text preset selector for heading/text blocks */}
+    <BlockStack gap="0">
+      {/* Typographie */}
       {showTextPreset && (
         <CollapsibleStyleSection title="Typographie" id="sec-typo" defaultOpen>
-          <BlockStack gap="200">
+          <BlockStack gap="300">
             <Select
               label="Style de texte"
               options={[...TEXT_PRESETS]}
               value={preset}
               onChange={(v) => {
                 const next = { ...style, textPreset: v as TextStyleBlock["textPreset"] };
-                // Reset custom values when switching to a preset
                 if (v !== "custom") {
                   delete next.fontSize;
                   delete next.fontWeight;
@@ -136,12 +389,12 @@ function StyleFields({
             />
             {preset === "custom" && (
               <>
-                <TextField
+                <SliderNumericField
                   label="Taille police"
-                  value={style.fontSize ?? ""}
-                  onChange={(v) => onChange({ ...style, fontSize: v || undefined })}
-                  autoComplete="off"
-                  helpText="ex. 1.25rem, 18px"
+                  value={pxToNum(style.fontSize) ?? 16}
+                  onChange={(v) => onChange({ ...style, fontSize: `${v}px` })}
+                  min={8}
+                  max={72}
                 />
                 <TextField
                   label="Police (CSS)"
@@ -150,12 +403,17 @@ function StyleFields({
                   autoComplete="off"
                   helpText="ex. system-ui, Georgia"
                 />
-                <TextField
+                <Select
                   label="Graisse"
-                  value={style.fontWeight ?? ""}
-                  onChange={(v) => onChange({ ...style, fontWeight: v || undefined })}
-                  autoComplete="off"
-                  helpText="ex. 400, 600, bold"
+                  options={[
+                    { label: "Normal (400)", value: "400" },
+                    { label: "Medium (500)", value: "500" },
+                    { label: "Semi-bold (600)", value: "600" },
+                    { label: "Bold (700)", value: "700" },
+                    { label: "Extra-bold (800)", value: "800" },
+                  ]}
+                  value={style.fontWeight ?? "400"}
+                  onChange={(v) => onChange({ ...style, fontWeight: v })}
                 />
               </>
             )}
@@ -175,160 +433,80 @@ function StyleFields({
         </CollapsibleStyleSection>
       )}
 
-      {/* Couleur */}
-      <CollapsibleStyleSection title="Couleur" id="sec-color">
-        <BlockStack gap="200">
-          <TextField
-            label="Couleur du contenu"
-            value={style.color ?? ""}
-            onChange={(v) => onChange({ ...style, color: v || undefined })}
-            autoComplete="off"
-            helpText="ex. #333, var(--p-color-text)"
-            prefix={
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 14,
-                  height: 14,
-                  borderRadius: "50%",
-                  background: style.color || "var(--p-color-text)",
-                  border: "1px solid var(--p-color-border)",
-                }}
-              />
-            }
-          />
-        </BlockStack>
-      </CollapsibleStyleSection>
-
-      {/* Arrière-plan */}
-      <CollapsibleStyleSection title="Arrière-plan" id="sec-bg">
-        <BlockStack gap="200">
-          <TextField
-            label="Couleur d'arrière-plan"
-            value={style.backgroundColor ?? ""}
-            onChange={(v) => onChange({ ...style, backgroundColor: v || undefined })}
-            autoComplete="off"
-            helpText="ex. #fff, var(--p-color-bg-surface)"
-            prefix={
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 14,
-                  height: 14,
-                  borderRadius: "50%",
-                  background: style.backgroundColor || "transparent",
-                  border: "1px solid var(--p-color-border)",
-                }}
-              />
-            }
-          />
+      {/* Taille */}
+      <CollapsibleStyleSection title="Taille" id="sec-size">
+        <BlockStack gap="300">
+          <Text as="p" variant="bodySm" tone="subdued">
+            La largeur maximale est limitée à la colonne du conteneur.
+          </Text>
         </BlockStack>
       </CollapsibleStyleSection>
 
       {/* Espacement */}
       <CollapsibleStyleSection title="Espacement" id="sec-spacing">
-        <BlockStack gap="300">
-          <Text as="p" variant="bodySm" fontWeight="semibold">
-            Marge intérieure (padding)
-          </Text>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <TextField
-              label="Haut"
-              value={style.paddingTop ?? style.padding ?? ""}
-              onChange={(v) => onChange({ ...style, paddingTop: v || undefined })}
-              autoComplete="off"
-              labelHidden
-              placeholder="Haut"
-            />
-            <TextField
-              label="Droite"
-              value={style.paddingRight ?? ""}
-              onChange={(v) => onChange({ ...style, paddingRight: v || undefined })}
-              autoComplete="off"
-              labelHidden
-              placeholder="Droite"
-            />
-            <TextField
-              label="Bas"
-              value={style.paddingBottom ?? ""}
-              onChange={(v) => onChange({ ...style, paddingBottom: v || undefined })}
-              autoComplete="off"
-              labelHidden
-              placeholder="Bas"
-            />
-            <TextField
-              label="Gauche"
-              value={style.paddingLeft ?? ""}
-              onChange={(v) => onChange({ ...style, paddingLeft: v || undefined })}
-              autoComplete="off"
-              labelHidden
-              placeholder="Gauche"
-            />
-          </div>
+        <BlockStack gap="400">
+          <SpacingGrid
+            label="Marge intérieure (padding)"
+            top={pxToNum(style.paddingTop ?? style.padding)}
+            right={pxToNum(style.paddingRight)}
+            bottom={pxToNum(style.paddingBottom)}
+            left={pxToNum(style.paddingLeft)}
+            onChangeTop={(v) => onChange({ ...style, paddingTop: numToPx(v) })}
+            onChangeRight={(v) => onChange({ ...style, paddingRight: numToPx(v) })}
+            onChangeBottom={(v) => onChange({ ...style, paddingBottom: numToPx(v) })}
+            onChangeLeft={(v) => onChange({ ...style, paddingLeft: numToPx(v) })}
+          />
+          <SpacingGrid
+            label="Marge extérieure (margin)"
+            top={pxToNum(style.marginTop)}
+            right={pxToNum(style.marginRight)}
+            bottom={pxToNum(style.marginBottom)}
+            left={pxToNum(style.marginLeft)}
+            onChangeTop={(v) => onChange({ ...style, marginTop: numToPx(v) })}
+            onChangeRight={(v) => onChange({ ...style, marginRight: numToPx(v) })}
+            onChangeBottom={(v) => onChange({ ...style, marginBottom: numToPx(v) })}
+            onChangeLeft={(v) => onChange({ ...style, marginLeft: numToPx(v) })}
+          />
+        </BlockStack>
+      </CollapsibleStyleSection>
 
-          <Text as="p" variant="bodySm" fontWeight="semibold">
-            Marge extérieure (margin)
-          </Text>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <TextField
-              label="Haut"
-              value={style.marginTop ?? ""}
-              onChange={(v) => onChange({ ...style, marginTop: v || undefined })}
-              autoComplete="off"
-              labelHidden
-              placeholder="Haut"
-            />
-            <TextField
-              label="Droite"
-              value={style.marginRight ?? ""}
-              onChange={(v) => onChange({ ...style, marginRight: v || undefined })}
-              autoComplete="off"
-              labelHidden
-              placeholder="Droite"
-            />
-            <TextField
-              label="Bas"
-              value={style.marginBottom ?? ""}
-              onChange={(v) => onChange({ ...style, marginBottom: v || undefined })}
-              autoComplete="off"
-              labelHidden
-              placeholder="Bas"
-            />
-            <TextField
-              label="Gauche"
-              value={style.marginLeft ?? ""}
-              onChange={(v) => onChange({ ...style, marginLeft: v || undefined })}
-              autoComplete="off"
-              labelHidden
-              placeholder="Gauche"
-            />
-          </div>
+      {/* Couleur */}
+      <CollapsibleStyleSection title="Couleur" id="sec-color">
+        <BlockStack gap="300">
+          <ColorField
+            label="Couleur du contenu"
+            value={style.color ?? ""}
+            onChange={(v) => onChange({ ...style, color: v || undefined })}
+          />
+          <ColorField
+            label="Arrière-plan"
+            value={style.backgroundColor ?? ""}
+            onChange={(v) => onChange({ ...style, backgroundColor: v || undefined })}
+          />
         </BlockStack>
       </CollapsibleStyleSection>
 
       {/* Bordure */}
       <CollapsibleStyleSection title="Bordure" id="sec-border">
-        <BlockStack gap="200">
-          <TextField
+        <BlockStack gap="300">
+          <SliderNumericField
             label="Épaisseur"
-            value={style.borderWidth ?? ""}
-            onChange={(v) => onChange({ ...style, borderWidth: v || undefined })}
-            autoComplete="off"
-            helpText="ex. 1px, 2px"
+            value={pxToNum(style.borderWidth) ?? 0}
+            onChange={(v) => onChange({ ...style, borderWidth: v ? `${v}px` : undefined })}
+            min={0}
+            max={10}
           />
-          <TextField
+          <ColorField
             label="Couleur"
             value={style.borderColor ?? ""}
             onChange={(v) => onChange({ ...style, borderColor: v || undefined })}
-            autoComplete="off"
-            helpText="ex. #ccc, var(--p-color-border)"
           />
-          <TextField
+          <SliderNumericField
             label="Rayon"
-            value={style.borderRadius ?? ""}
-            onChange={(v) => onChange({ ...style, borderRadius: v || undefined })}
-            autoComplete="off"
-            helpText="ex. 8px, var(--p-border-radius-200)"
+            value={pxToNum(style.borderRadius) ?? 0}
+            onChange={(v) => onChange({ ...style, borderRadius: v ? `${v}px` : undefined })}
+            min={0}
+            max={50}
           />
         </BlockStack>
       </CollapsibleStyleSection>
@@ -361,50 +539,126 @@ function StepBarStyleFields({
           { label: "Cercle doré (Luxe)", value: "circles" },
           { label: "Lignes plates", value: "lines" },
           { label: "Minimal (Petits points)", value: "minimal" },
+          { label: "Personnalisé", value: "custom" },
         ]}
         value={currentPreset}
         onChange={(v) => onPatch({ preset: v as StepBarBlock["preset"] } as Partial<StorefrontBlockV2>)}
       />
 
-      <CollapsibleStyleSection title="Couleurs" id="sec-stepbar-colors">
-        <BlockStack gap="200">
-          <TextField
-            label="Couleur bordure / lignes"
-            value={style.borderColor ?? ""}
-            onChange={(v) => patchStyle({ borderColor: v || undefined })}
-            autoComplete="off"
-          />
-          <TextField
-            label="Fond étape active"
-            value={style.activeBg ?? ""}
-            onChange={(v) => patchStyle({ activeBg: v || undefined })}
-            autoComplete="off"
-          />
-          <TextField
-            label="Fond étape inactive"
-            value={style.inactiveBg ?? ""}
-            onChange={(v) => patchStyle({ inactiveBg: v || undefined })}
-            autoComplete="off"
-          />
-          <TextField
-            label="Couleur texte (active)"
-            value={style.activeTextColor ?? ""}
-            onChange={(v) => patchStyle({ activeTextColor: v || undefined })}
-            autoComplete="off"
-          />
-          <TextField
-            label="Couleur texte (inactive)"
-            value={style.inactiveTextColor ?? ""}
-            onChange={(v) => patchStyle({ inactiveTextColor: v || undefined })}
-            autoComplete="off"
-          />
-        </BlockStack>
-      </CollapsibleStyleSection>
+      {(currentPreset === "custom" || currentPreset === "circles") && (
+        <CollapsibleStyleSection title="Couleurs" id="sec-stepbar-colors" defaultOpen>
+          <BlockStack gap="300">
+            <ColorField
+              label="Couleur de ligne"
+              value={style.borderColor ?? ""}
+              onChange={(v) => patchStyle({ borderColor: v || undefined })}
+            />
+            <ColorField
+              label="Fond étape active"
+              value={style.activeBg ?? ""}
+              onChange={(v) => patchStyle({ activeBg: v || undefined })}
+            />
+            <ColorField
+              label="Fond étape inactive"
+              value={style.inactiveBg ?? ""}
+              onChange={(v) => patchStyle({ inactiveBg: v || undefined })}
+            />
+            <ColorField
+              label="Couleur texte (active)"
+              value={style.activeTextColor ?? ""}
+              onChange={(v) => patchStyle({ activeTextColor: v || undefined })}
+            />
+            <ColorField
+              label="Couleur texte (inactive)"
+              value={style.inactiveTextColor ?? ""}
+              onChange={(v) => patchStyle({ inactiveTextColor: v || undefined })}
+            />
+          </BlockStack>
+        </CollapsibleStyleSection>
+      )}
     </BlockStack>
   );
 }
 
-/* ────────────────────── Product Management for product_list ────────────────────── */
+/* ────────────────────── Image Upload via Shopify Files ────────────────────── */
+
+type UploadJson = {
+  ok?: boolean;
+  imageUrl?: string;
+  imageGid?: string;
+};
+
+function ImageUploadField({
+  label,
+  imageUrl,
+  onImageChange,
+}: {
+  label: string;
+  imageUrl: string | null;
+  onImageChange: (url: string | null, gid?: string) => void;
+}) {
+  const uploadFetcher = useFetcher<UploadJson>();
+
+  // When upload completes, update the image
+  if (
+    uploadFetcher.state === "idle" &&
+    uploadFetcher.data?.ok &&
+    uploadFetcher.data.imageUrl
+  ) {
+    // Trigger the change
+    onImageChange(uploadFetcher.data.imageUrl, uploadFetcher.data.imageGid);
+  }
+
+  const handleDrop = useCallback(
+    (_droppedFiles: File[], acceptedFiles: File[]) => {
+      if (acceptedFiles.length === 0) return;
+      const file = acceptedFiles[0];
+      const form = new FormData();
+      form.append("file", file);
+      uploadFetcher.submit(form, {
+        method: "post",
+        action: "/api/upload-file",
+        encType: "multipart/form-data",
+      });
+    },
+    [uploadFetcher],
+  );
+
+  const uploading = uploadFetcher.state !== "idle";
+
+  return (
+    <BlockStack gap="200">
+      <Text as="span" variant="bodyMd">{label}</Text>
+      {imageUrl ? (
+        <BlockStack gap="200">
+          <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid var(--p-color-border)" }}>
+            <img src={imageUrl} alt="" style={{ width: "100%", display: "block" }} />
+          </div>
+          <InlineStack gap="200">
+            <Button size="slim" onClick={() => onImageChange(null)}>
+              Retirer
+            </Button>
+          </InlineStack>
+        </BlockStack>
+      ) : (
+        <DropZone
+          onDrop={handleDrop}
+          allowMultiple={false}
+          type="image"
+          label=""
+          labelHidden
+        >
+          <DropZone.FileUpload
+            actionTitle={uploading ? "Envoi..." : "Importer une image"}
+            actionHint="ou glissez-déposez"
+          />
+        </DropZone>
+      )}
+    </BlockStack>
+  );
+}
+
+/* ────────────────────── Product List Settings ────────────────────── */
 
 type VariantsMetaJson = {
   items: Array<{
@@ -447,6 +701,10 @@ function ProductListManager({
   if (block.type !== "product_list") return null;
   const source = block.source ?? "step_pick";
   const products = step?.products ?? [];
+  const columns = block.columns ?? 3;
+  const gapX = block.gapX ?? 16;
+  const gapY = block.gapY ?? 16;
+  const cardLayout = block.cardLayout ?? "classic";
 
   const enrichVariants = (gids: string[]) => {
     if (gids.length === 0) return;
@@ -455,7 +713,6 @@ function ProductListManager({
     variantsMetaFetcher.load(`/api/shopify-variants?${params.toString()}`);
   };
 
-  // Apply enrichment when fetcher resolves
   if (
     variantsMetaFetcher.state === "idle" &&
     variantsMetaFetcher.data &&
@@ -473,15 +730,9 @@ function ProductListManager({
           productHandle: meta.productHandle ?? p.productHandle,
         };
       });
-      // Only update if something actually changed
       const changed = enriched.some((e, i) => {
         const prev = products[i];
-        return (
-          prev &&
-          (e.displayName !== prev.displayName ||
-           e.imageUrl !== prev.imageUrl ||
-           e.productHandle !== prev.productHandle)
-        );
+        return prev && (e.displayName !== prev.displayName || e.imageUrl !== prev.imageUrl || e.productHandle !== prev.productHandle);
       });
       if (changed) onStepProductsChange(enriched);
     }
@@ -538,22 +789,11 @@ function ProductListManager({
       const first = variants[0];
       const firstId = first && typeof first.id === "string" ? first.id : null;
       if (!firstId) continue;
-      const variantGid = firstId.startsWith("gid://")
-        ? firstId
-        : `gid://shopify/ProductVariant/${firstId}`;
+      const variantGid = firstId.startsWith("gid://") ? firstId : `gid://shopify/ProductVariant/${firstId}`;
       if (existing.has(variantGid)) continue;
       existing.add(variantGid);
-
-      const title =
-        (typeof p.title === "string" && p.title.trim()) ||
-        (typeof p.handle === "string" && p.handle.trim()) ||
-        variantGid;
-
-      const imageUrl =
-        (p.image && typeof (p.image as { url?: unknown }).url === "string"
-          ? ((p.image as { url: string }).url as string)
-          : null) || null;
-
+      const title = (typeof p.title === "string" && p.title.trim()) || (typeof p.handle === "string" && p.handle.trim()) || variantGid;
+      const imageUrl = (p.image && typeof (p.image as { url?: unknown }).url === "string" ? ((p.image as { url: string }).url as string) : null) || null;
       additions.push({
         variantGid,
         sortOrder: sort++,
@@ -578,6 +818,43 @@ function ProductListManager({
 
   return (
     <BlockStack gap="300">
+      {/* Layout settings */}
+      <CollapsibleStyleSection title="Mise en page" id="sec-pl-layout" defaultOpen>
+        <BlockStack gap="300">
+          <Select
+            label="Style de carte"
+            options={[
+              { label: "Classique (bouton Add to box)", value: "classic" },
+              { label: "Overlay (bouton au survol)", value: "overlay" },
+            ]}
+            value={cardLayout}
+            onChange={(v) => onPatch({ cardLayout: v as ProductListBlock["cardLayout"] } as Partial<StorefrontBlockV2>)}
+          />
+          <SliderNumericField
+            label="Colonnes"
+            value={columns}
+            onChange={(v) => onPatch({ columns: v } as Partial<StorefrontBlockV2>)}
+            min={1}
+            max={6}
+          />
+          <SliderNumericField
+            label="Espace horizontal"
+            value={gapX}
+            onChange={(v) => onPatch({ gapX: v } as Partial<StorefrontBlockV2>)}
+            min={0}
+            max={100}
+          />
+          <SliderNumericField
+            label="Espace vertical"
+            value={gapY}
+            onChange={(v) => onPatch({ gapY: v } as Partial<StorefrontBlockV2>)}
+            min={0}
+            max={100}
+          />
+        </BlockStack>
+      </CollapsibleStyleSection>
+
+      {/* Source */}
       <Select
         label="Source des produits"
         options={[
@@ -598,9 +875,7 @@ function ProductListManager({
           <TextField
             label="Handle de collection"
             value={block.collectionHandle ?? ""}
-            onChange={(v) =>
-              onPatch({ collectionHandle: v.trim() || undefined } as Partial<StorefrontBlockV2>)
-            }
+            onChange={(v) => onPatch({ collectionHandle: v.trim() || undefined } as Partial<StorefrontBlockV2>)}
             autoComplete="off"
             helpText="Ex: /collections/mon-handle → mon-handle"
           />
@@ -611,8 +886,7 @@ function ProductListManager({
                 multiple: false,
                 action: "select",
               });
-              const sel = (selected as { selection?: Array<{ handle?: string }> } | null)
-                ?.selection?.[0];
+              const sel = (selected as { selection?: Array<{ handle?: string }> } | null)?.selection?.[0];
               if (sel?.handle) {
                 onPatch({ collectionHandle: String(sel.handle) } as Partial<StorefrontBlockV2>);
               }
@@ -633,7 +907,7 @@ function ProductListManager({
           {products.length === 0 ? (
             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
               <Text as="p" variant="bodySm" tone="subdued">
-                Aucun produit sélectionné. Utilisez les boutons ci-dessus pour ajouter des produits.
+                Aucun produit sélectionné. Utilisez les boutons ci-dessus.
               </Text>
             </Box>
           ) : (
@@ -661,9 +935,7 @@ function ProductListManager({
                         icon={DeleteIcon}
                         variant="plain"
                         tone="critical"
-                        onClick={() =>
-                          onStepProductsChange(products.filter((_, k) => k !== pi))
-                        }
+                        onClick={() => onStepProductsChange(products.filter((_, k) => k !== pi))}
                         accessibilityLabel="Retirer"
                       />
                     </Tooltip>
@@ -723,11 +995,10 @@ function BlockGeneralFields({
   if (block.type === "image") {
     return (
       <BlockStack gap="300">
-        <TextField
-          label="URL image (https)"
-          value={block.url ?? ""}
-          onChange={(v) => onPatch({ url: v.trim() || null })}
-          autoComplete="off"
+        <ImageUploadField
+          label="Image"
+          imageUrl={block.url}
+          onImageChange={(url) => onPatch({ url })}
         />
         <TextField
           label="Texte alternatif (alt)"
@@ -735,24 +1006,17 @@ function BlockGeneralFields({
           onChange={(v) => onPatch({ alt: v })}
           autoComplete="off"
         />
-        <TextField
-          label="Largeur max"
-          value={block.style.maxWidth ?? ""}
-          onChange={(v) =>
-            onPatch({ style: { ...block.style, maxWidth: v || undefined } })
-          }
-          autoComplete="off"
-        />
       </BlockStack>
     );
   }
   if (block.type === "spacer") {
     return (
-      <TextField
-        label="Hauteur (px)"
-        value={String(block.height)}
-        onChange={(v) => onPatch({ height: Math.max(0, parseInt(v, 10) || 0) })}
-        autoComplete="off"
+      <SliderNumericField
+        label="Hauteur"
+        value={block.height}
+        onChange={(v) => onPatch({ height: Math.max(0, v) })}
+        min={0}
+        max={200}
       />
     );
   }
@@ -772,11 +1036,10 @@ function BlockGeneralFields({
           multiline={2}
           autoComplete="off"
         />
-        <TextField
-          label="URL image"
-          value={block.imageUrl ?? ""}
-          onChange={(v) => onPatch({ imageUrl: v.trim() || null })}
-          autoComplete="off"
+        <ImageUploadField
+          label="Image"
+          imageUrl={block.imageUrl}
+          onImageChange={(url) => onPatch({ imageUrl: url })}
         />
         <Select
           label="Mise en page"
@@ -807,11 +1070,10 @@ function BlockGeneralFields({
           multiline={4}
           autoComplete="off"
         />
-        <TextField
-          label="URL image"
-          value={block.imageUrl ?? ""}
-          onChange={(v) => onPatch({ imageUrl: v.trim() || null })}
-          autoComplete="off"
+        <ImageUploadField
+          label="Image"
+          imageUrl={block.imageUrl}
+          onImageChange={(url) => onPatch({ imageUrl: url })}
         />
         <Select
           label="Côté image"
@@ -881,12 +1143,12 @@ export function SidebarLevel3({
   if (!block) {
     return (
       <BlockStack gap="300">
-        <Button variant="plain" onClick={onBack}>
-          ← {stepName || "Mise en page"}
-        </Button>
-        <Text as="p" tone="subdued" variant="bodySm">
-          Bloc introuvable.
-        </Text>
+        <InlineStack gap="200" blockAlign="center">
+          <Button icon={ArrowLeftIcon} variant="plain" onClick={onBack} accessibilityLabel="Retour" />
+          <Text as="p" tone="subdued" variant="bodySm">
+            Bloc introuvable.
+          </Text>
+        </InlineStack>
       </BlockStack>
     );
   }
@@ -906,7 +1168,6 @@ export function SidebarLevel3({
       ? (block.style as TextStyleBlock)
       : { fontSize: "1rem", color: "var(--p-color-text)" };
 
-  // Whether this block type supports text presets
   const supportsTextPreset = block.type === "heading" || block.type === "text";
 
   const backBtn = (
@@ -929,14 +1190,14 @@ export function SidebarLevel3({
         </Text>
       </InlineStack>
 
-      {/* Chantier 4: Editable block name */}
+      {/* Editable block name */}
       <TextField
         label="Nom de la section"
         value={(block as { name?: string }).name ?? ""}
         onChange={(v) => patchBlock({ name: v || undefined } as Partial<StorefrontBlockV2>)}
         autoComplete="off"
         placeholder={blockDisplayLabel(block)}
-        helpText="Nom affiché dans la sidebar — laisser vide pour utiliser le nom par défaut."
+        helpText="Nom affiché dans la sidebar"
       />
 
       <BlockGeneralFields
@@ -967,7 +1228,7 @@ export function SidebarLevel3({
         </Text>
       </InlineStack>
       <Text as="p" variant="bodySm" tone="subdued">
-        Les variables CSS Shopify s'adaptent automatiquement au thème de la boutique.
+        Les variables CSS Shopify s'adaptent automatiquement au thème.
       </Text>
       {block.type === "step_bar" ? (
         <StepBarStyleFields
@@ -992,16 +1253,8 @@ export function SidebarLevel3({
     <Tabs
       fitted
       tabs={[
-        {
-          id: "general",
-          content: "Générale",
-          accessibilityLabel: "Générale",
-        },
-        {
-          id: "style",
-          content: "Style",
-          accessibilityLabel: "Style",
-        },
+        { id: "general", content: "Générale", accessibilityLabel: "Générale" },
+        { id: "style", content: "Style", accessibilityLabel: "Style" },
       ]}
       selected={activeTab}
       onSelect={onTabChange}

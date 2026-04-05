@@ -123,8 +123,8 @@ export type StepBarBlock = {
   id: string;
   name?: string;
   type: "step_bar";
-  /** Visual preset: default (numbered dots), circles (gold with check), lines (flat squares), minimal (small dots) */
-  preset?: "default" | "circles" | "lines" | "minimal";
+  /** Visual preset: default (numbered dots), circles (gold with check), lines (flat squares), minimal (small dots), custom (free colors) */
+  preset?: "default" | "circles" | "lines" | "minimal" | "custom";
   style?: {
     borderColor?: string;
     activeBg?: string;
@@ -144,6 +144,14 @@ export type ProductListBlock = {
   source?: "step_pick" | "collection";
   /** Utilisé quand source = collection */
   collectionHandle?: string;
+  /** Card layout style */
+  cardLayout?: "classic" | "overlay";
+  /** Number of columns in the grid */
+  columns?: number;
+  /** Horizontal gap between cards (px) */
+  gapX?: number;
+  /** Vertical gap between cards (px) */
+  gapY?: number;
 };
 
 export type StorefrontBlockV2 =

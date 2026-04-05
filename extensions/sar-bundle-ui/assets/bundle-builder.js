@@ -746,33 +746,55 @@
             for (var i = 0; i < ctx.steps.length; i++) {
               var item = document.createElement('div');
               item.className = 'sar-stepbar__item';
+              item.style.position = 'relative';
+              item.style.display = 'flex';
+              item.style.alignItems = 'center';
+              
+              if (i > 0) {
+                item.style.flex = '1';
+              }
 
-              var top = document.createElement('div');
-              top.className = 'sar-stepbar__top';
+              if (i > 0) {
+                var line = document.createElement('div');
+                line.className =
+                  'sar-stepbar__line' +
+                  (i <= ctx.stepIndex ? ' sar-stepbar__line--active' : '');
+                item.appendChild(line);
+              }
+
+              var dotWrap = document.createElement('div');
+              dotWrap.style.display = 'flex';
+              dotWrap.style.flexDirection = 'column';
+              dotWrap.style.alignItems = 'center';
 
               var dot = document.createElement('div');
               dot.className =
                 'sar-stepbar__dot' + (i <= ctx.stepIndex ? ' sar-stepbar__dot--active' : '');
               dot.textContent = String(i + 1);
-              top.appendChild(dot);
-
-              if (i < ctx.steps.length - 1) {
-                var line = document.createElement('div');
-                line.className =
-                  'sar-stepbar__line' +
-                  (i < ctx.stepIndex ? ' sar-stepbar__line--active' : '');
-                top.appendChild(line);
-              }
+              dotWrap.appendChild(dot);
 
               var label = document.createElement('div');
               label.className = 'sar-stepbar__label';
               var nm = ctx.steps[i] && (ctx.steps[i].name || '');
               label.textContent = (nm || 'Étape ' + (i + 1)).slice(0, 24);
+              label.style.position = 'absolute';
+              label.style.top = '100%';
+              label.style.marginTop = '8px';
+              // Centered below the dot wrapper (using transform)
+              label.style.transform = 'translateX(-50%)';
+              // If it's the first element and has no line, dotWrap is at the start (left), its left/center is its own width
+              // Actually, position absolute left:50% inside the dotWrap works if dotWrap is position:relative
+              dotWrap.style.position = 'relative';
+              label.style.left = '50%';
+              label.style.width = 'max-content';
 
-              item.appendChild(top);
-              item.appendChild(label);
+              dotWrap.appendChild(label);
+              item.appendChild(dotWrap);
               bar.appendChild(item);
             }
+            
+            // Add some margin bottom to the bar to account for the absolute positioned labels
+            bar.style.marginBottom = '2.5rem';
 
             wrapEl.appendChild(bar);
           }
@@ -808,11 +830,19 @@
           function renderProductListBlock(wrapEl, b, ctx) {
             // Marqueur pour empêcher le rendu par défaut en-dessous.
             ctx.__renderedProductList = true;
+            ctx.__productListCardLayout = b.cardLayout || 'classic';
+            ctx.__productListColumns = b.columns || 3;
+            ctx.__productListGapX = b.gapX != null ? b.gapX : 16;
+            ctx.__productListGapY = b.gapY != null ? b.gapY : 16;
 
             var source = b.source || 'step_pick';
             if (source === 'collection' && b.collectionHandle) {
               var container = document.createElement('div');
               container.className = 'sar-bundle__products';
+              container.style.display = 'grid';
+              container.style.gridTemplateColumns = 'repeat(' + ctx.__productListColumns + ', 1fr)';
+              container.style.gap = ctx.__productListGapY + 'px ' + ctx.__productListGapX + 'px';
+
               var loadingRow = document.createElement('div');
               loadingRow.className = 'sar-bundle__product-grid-item';
               loadingRow.textContent = 'Chargement des produits…';
@@ -830,7 +860,9 @@
                 for (var i = 0; i < products.length; i++) {
                   var pr = products[i];
                   var card = document.createElement('div');
-                  card.className = 'sar-bundle__product';
+                  card.className = 'sar-bundle__product sar-bundle__product--' + ctx.__productListCardLayout;
+                  var imgWrapper = document.createElement('div');
+                  imgWrapper.className = 'sar-bundle__product-img-wrapper';
                   var img = document.createElement('img');
                   img.loading = 'lazy';
                   img.alt = pr && pr.title ? pr.title : '';
@@ -843,11 +875,25 @@
                       : img0 && img0.src
                         ? img0.src
                         : '') || '';
-                  card.appendChild(img);
+                  if (img.src) imgWrapper.appendChild(img);
+                  
+                  var infoBox = document.createElement('div');
+                  infoBox.style.display = 'flex';
+                  infoBox.style.flexDirection = 'column';
+                  infoBox.style.gap = '4px';
+
                   var t = document.createElement('p');
                   t.className = 'sar-bundle__product-title';
                   t.textContent = (pr && pr.title) || 'Produit';
-                  card.appendChild(t);
+                  infoBox.appendChild(t);
+                  
+                  if (ctx.__productListCardLayout === 'overlay') {
+                    card.appendChild(imgWrapper);
+                    card.appendChild(infoBox);
+                  } else {
+                    infoBox.insertBefore(imgWrapper, t);
+                    card.appendChild(infoBox);
+                  }
                   container.appendChild(card);
                 }
               });
@@ -1059,10 +1105,19 @@
             // Si un bloc product_list est présent, il contrôle l'emplacement (et peut utiliser une collection).
             // Pour source=step_pick, on remplit designCtx.__productListMount; sinon collection mode remplit lui-même.
             if (!designCtx.__renderedProductList || designCtx.__productListMount) {
+              if (designCtx.__productListMount && !designCtx.__productListMount.style.display) {
+                var cols = designCtx.__productListColumns || 3;
+                var gx = designCtx.__productListGapX || 16;
+                var gy = designCtx.__productListGapY || 16;
+                designCtx.__productListMount.style.display = 'grid';
+                designCtx.__productListMount.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+                designCtx.__productListMount.style.gap = gy + 'px ' + gx + 'px';
+              }
+
               for (var pj = 0; pj < stepProds.length; pj++) {
               (function (prodRow) {
                 var originalGid = prodRow.variantGid;
-                var layout = prodRow.layoutPreset || 'STACK_ADD_TO_QTY';
+                var layoutConfig = designCtx.__productListCardLayout || 'classic';
                 var so = prodRow.styleOverrides || {};
                 var ph =
                   prodRow.productHandle ||
@@ -1078,22 +1133,14 @@
                 var sf = prodRow.storefront;
 
                 var card = document.createElement('div');
-                card.className =
-                  'sar-bundle__product sar-bundle__product--' +
-                  String(layout).replace(/_/g, '-').toLowerCase();
-                if (
-                  state.selected[originalGid] &&
-                  (state.selections[originalGid] || 0) > 0
-                ) {
-                  card.className += ' sar-bundle__product--selected';
-                }
-                applyProductCardStyles(card, so);
+                card.className = 'sar-bundle__product sar-bundle__product--' + layoutConfig;
+
+                var imgWrapper = document.createElement('div');
+                imgWrapper.className = 'sar-bundle__product-img-wrapper';
 
                 var img = document.createElement('img');
-                img.className = 'sar-bundle__product-img';
-                img.alt = '';
                 img.loading = 'lazy';
-                if (so.imageBorderRadius) img.style.borderRadius = so.imageBorderRadius;
+                img.alt = '';
 
                 function refreshImgTitle() {
                   if (sf && sf.imageUrl) {
@@ -1108,30 +1155,9 @@
                     productJsonByHandle[ph].images[0]
                   ) {
                     var im0 = productJsonByHandle[ph].images[0];
-                    // Shopify product.js returns `images` as an array of URL strings.
-                    // Some contexts may return objects; support both.
-                    var imUrl =
-                      typeof im0 === 'string'
-                        ? im0
-                        : im0 && im0.src
-                          ? im0.src
-                          : '';
+                    var imUrl = typeof im0 === 'string' ? im0 : (im0 && im0.src ? im0.src : '');
                     if (imUrl) {
                       img.src = imUrl;
-                      img.alt = productJsonByHandle[ph].title || '';
-                      return;
-                    }
-                  }
-                  if (ph && productJsonByHandle[ph] && productJsonByHandle[ph].featured_image) {
-                    var fim = productJsonByHandle[ph].featured_image;
-                    var fimUrl =
-                      typeof fim === 'string'
-                        ? fim
-                        : fim && fim.src
-                          ? fim.src
-                          : '';
-                    if (fimUrl) {
-                      img.src = fimUrl;
                       img.alt = productJsonByHandle[ph].title || '';
                       return;
                     }
@@ -1142,106 +1168,40 @@
                   } else if (typeof m.featured_image === 'string') {
                     img.src = m.featured_image;
                   } else {
-                    img.removeAttribute('src');
+                    img.style.display = 'none';
                   }
                   img.alt = (m.title && m.title !== 'Default Title' ? m.title : '') || '';
                 }
                 refreshImgTitle();
+                if (img.src) imgWrapper.appendChild(img);
 
                 var tt = document.createElement('p');
                 tt.className = 'sar-bundle__product-title';
-                if (so.titleFontSize) tt.style.fontSize = so.titleFontSize;
 
-                var pr = document.createElement('div');
+                var pr = document.createElement('p');
                 pr.className = 'sar-bundle__product-price';
-                if (so.priceFontSize) pr.style.fontSize = so.priceFontSize;
 
                 function refreshTitlePrice() {
                   if (sf && sf.displayTitle) {
                     tt.textContent = sf.displayTitle;
-                    pr.textContent = formatMoneyDisplay(
-                      sf.priceAmount,
-                      sf.currencyCode,
-                    );
+                    pr.textContent = formatMoneyDisplay(sf.priceAmount, sf.currencyCode);
                     return;
                   }
                   var m = getMeta();
                   var rawTitle = m.title;
-                  if (
-                    ph &&
-                    productJsonByHandle[ph] &&
-                    productJsonByHandle[ph].title
-                  ) {
+                  if (ph && productJsonByHandle[ph] && productJsonByHandle[ph].title) {
                     rawTitle = productJsonByHandle[ph].title;
-                    if (
-                      m.title &&
-                      m.title !== 'Default Title' &&
-                      m.title !== 'Default'
-                    ) {
-                      rawTitle = rawTitle + ' – ' + m.title;
-                    }
                   } else if (!rawTitle || rawTitle === 'Default Title') {
-                    rawTitle =
-                      (m.name && String(m.name)) ||
-                      originalGid.split('/').pop();
+                    rawTitle = (m.name && String(m.name)) || originalGid.split('/').pop();
                   }
                   tt.textContent = rawTitle;
                   var pVal = m.price;
-                  if (
-                    typeof window.Shopify !== 'undefined' &&
-                    typeof Shopify.formatMoney === 'function' &&
-                    pVal != null
-                  ) {
-                    var cents = parseMoney(String(pVal));
-                    if (!Number.isNaN(cents)) {
-                      pr.textContent = Shopify.formatMoney(
-                        Math.round(cents * 100),
-                        Shopify.money_format || '{{amount}}',
-                      );
-                    } else {
-                      pr.textContent = String(pVal);
-                    }
-                  } else {
-                    pr.textContent =
-                      pVal != null ? formatMoneyDisplay(String(pVal), m.currencyCode) : '—';
-                  }
+                  pr.textContent = pVal != null ? formatMoneyDisplay(String(pVal), m.currencyCode) : '—';
                 }
                 refreshTitlePrice();
 
-                var controls = document.createElement('div');
-                controls.className = 'sar-bundle__product-controls';
-
-                if (ph && productJsonByHandle[ph] && productJsonByHandle[ph].variants) {
-                  var vars = productJsonByHandle[ph].variants || [];
-                  if (vars.length > 1) {
-                    var sel = document.createElement('select');
-                    sel.className = 'sar-bundle__variant-select';
-                    for (var vi = 0; vi < vars.length; vi++) {
-                      var vv = vars[vi];
-                      var opt = document.createElement('option');
-                      var vgid = 'gid://shopify/ProductVariant/' + String(vv.id);
-                      opt.value = vgid;
-                      opt.textContent = vv.title || vv.name || '#' + vv.id;
-                      if (vgid === gidNow()) opt.selected = true;
-                      sel.appendChild(opt);
-                    }
-                    sel.addEventListener('change', function () {
-                      var ng = sel.value;
-                      state.variantChoice[originalGid] = ng;
-                      var nid = variantGidToNumericId(ng);
-                      fetchVariantJson(nid)
-                        .then(function (j) {
-                          variantCache[ng] = j;
-                          priceMap[ng] = parseMoney(j.price);
-                        })
-                        .catch(function () {})
-                        .then(function () {
-                          render();
-                        });
-                    });
-                    controls.appendChild(sel);
-                  }
-                }
+                var atcWrapper = document.createElement('div');
+                atcWrapper.className = 'sar-bundle__product-atc-wrapper';
 
                 function setQty(q) {
                   state.selections[originalGid] = q;
@@ -1250,81 +1210,67 @@
                   render();
                 }
 
-                var addBtn = document.createElement('button');
-                addBtn.type = 'button';
-                addBtn.className =
-                  'sar-bundle__btn sar-bundle__btn--primary sar-bundle__add';
-                addBtn.textContent = 'Ajouter';
-                if (so.buttonBorderRadius)
-                  addBtn.style.borderRadius = so.buttonBorderRadius;
-                if (so.buttonBackground) addBtn.style.background = so.buttonBackground;
-                if (so.buttonColor) addBtn.style.color = so.buttonColor;
+                var qCurrent = state.selections[originalGid] || 0;
+                var isSelected = qCurrent > 0;
 
-                var qtyIn = document.createElement('input');
-                qtyIn.type = 'number';
-                qtyIn.min = '0';
-                qtyIn.className = 'sar-bundle__qty';
-                qtyIn.addEventListener('click', function (e) {
-                  e.stopPropagation();
-                });
+                if (isSelected) {
+                  atcWrapper.className += ' is-added';
+                  var qtyBox = document.createElement('div');
+                  qtyBox.className = 'sar-bundle__product-qty-box';
 
-                var showQty =
-                  state.selected[originalGid] &&
-                  (state.selections[originalGid] || 0) > 0;
+                  var minus = document.createElement('button');
+                  minus.type = 'button';
+                  minus.className = 'sar-bundle__product-qty-btn';
+                  minus.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+                  minus.addEventListener('click', function(e) { e.stopPropagation(); setQty(qCurrent - 1); });
 
-                if (layout === 'SPLIT_QTY_ADD') {
-                  var row = document.createElement('div');
-                  row.className = 'sar-bundle__split-qty-add';
-                  qtyIn.value = String(
-                    showQty ? state.selections[originalGid] || 1 : 0,
-                  );
-                  addBtn.textContent = 'Ajouter';
-                  addBtn.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    var q = parseInt(qtyIn.value, 10) || 0;
-                    setQty(q > 0 ? q : 1);
-                  });
-                  qtyIn.addEventListener('change', function () {
-                    var q = parseInt(qtyIn.value, 10);
-                    if (isNaN(q) || q < 0) q = 0;
-                    setQty(q);
-                  });
-                  row.appendChild(qtyIn);
-                  row.appendChild(addBtn);
-                  controls.appendChild(row);
+                  var val = document.createElement('span');
+                  val.className = 'sar-bundle__product-qty-val';
+                  val.textContent = String(qCurrent);
+
+                  var plus = document.createElement('button');
+                  plus.type = 'button';
+                  plus.className = 'sar-bundle__product-qty-btn';
+                  plus.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+                  plus.addEventListener('click', function(e) { e.stopPropagation(); setQty(qCurrent + 1); });
+
+                  qtyBox.appendChild(minus);
+                  qtyBox.appendChild(val);
+                  qtyBox.appendChild(plus);
+                  atcWrapper.appendChild(qtyBox);
                 } else {
-                  if (showQty) {
-                    qtyIn.value = String(state.selections[originalGid] || 1);
-                    qtyIn.addEventListener('change', function () {
-                      var q = parseInt(qtyIn.value, 10);
-                      if (isNaN(q) || q < 0) q = 0;
-                      setQty(q);
-                    });
-                    controls.appendChild(qtyIn);
-                  } else {
-                    addBtn.addEventListener('click', function (e) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setQty(1);
-                    });
-                    controls.appendChild(addBtn);
-                  }
+                  var addBtn = document.createElement('button');
+                  addBtn.type = 'button';
+                  addBtn.className = 'sar-bundle__product-atc-btn';
+                  addBtn.textContent = 'Add to box';
+                  addBtn.addEventListener('click', function(e) { e.stopPropagation(); setQty(1); });
+                  atcWrapper.appendChild(addBtn);
                 }
 
-                if (layout === 'MEDIA_LEFT_STACK' || layout === 'ROW_COMPACT') {
-                  card.appendChild(img);
-                  var col = document.createElement('div');
-                  col.className = 'sar-bundle__product-col';
-                  col.appendChild(tt);
-                  col.appendChild(pr);
-                  col.appendChild(controls);
-                  card.appendChild(col);
+                var infoBox = document.createElement('div');
+                infoBox.style.display = 'flex';
+                infoBox.style.flexDirection = 'column';
+                infoBox.style.gap = '4px';
+
+                if (layoutConfig === 'overlay') {
+                  imgWrapper.appendChild(atcWrapper);
+                  infoBox.appendChild(tt);
+                  infoBox.appendChild(pr);
+                  card.appendChild(imgWrapper);
+                  card.appendChild(infoBox);
                 } else {
-                  card.appendChild(img);
-                  card.appendChild(tt);
-                  card.appendChild(pr);
-                  card.appendChild(controls);
+                  // Classic
+                  infoBox.appendChild(imgWrapper);
+                  infoBox.appendChild(tt);
+                  var textControlsWrap = document.createElement('div');
+                  textControlsWrap.style.display = 'flex';
+                  textControlsWrap.style.flexDirection = 'column';
+                  textControlsWrap.style.justifyContent = 'space-between';
+                  textControlsWrap.style.gap = '8px';
+                  textControlsWrap.style.height = '100%';
+                  textControlsWrap.appendChild(infoBox);
+                  textControlsWrap.appendChild(atcWrapper);
+                  card.appendChild(textControlsWrap);
                 }
 
                 grid.appendChild(card);

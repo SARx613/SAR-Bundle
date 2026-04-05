@@ -395,6 +395,8 @@ function StepBarPreview({
                 style={{
                   cursor: "pointer",
                   fontWeight: isCurrent ? 600 : 400,
+                  textAlign: "center",
+                  width: "100%",
                   ...(preset === "circles" && isCurrent
                     ? { color: st.activeBg || "#ebcd75" }
                     : {}),
@@ -414,112 +416,354 @@ function StepBarPreview({
   );
 }
 
-function ProductCard({ product }: { product: UiStepProduct }) {
+/* ────────── Product Card: "Classic" design ────────── */
+/* Image + Title + "Add to box" button that transforms into qty selector */
+function ProductCardClassic({ product }: { product: UiStepProduct }) {
+  const [added, setAdded] = useState(false);
   const [qty, setQty] = useState(1);
 
-  const qtyBtnStyle: CSSProperties = {
-    width: 28,
-    height: 28,
-    borderRadius: 4,
-    border: "1px solid var(--p-color-border)",
-    background: "var(--p-color-bg-surface)",
-    cursor: "pointer",
-    fontWeight: "bold",
-    fontSize: "1rem",
-    color: "var(--p-color-text)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    lineHeight: 1,
-  };
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+      width: "100%",
+      height: "100%",
+      justifyContent: "space-between",
+      textAlign: "left",
+    }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* Image */}
+        <div style={{
+          width: "100%",
+          borderRadius: 4,
+          overflow: "hidden",
+          aspectRatio: "1",
+          background: "var(--p-color-bg-surface-secondary)",
+        }}>
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt=""
+              loading="lazy"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <div style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--p-color-text-subdued)",
+              fontSize: "2rem",
+            }}>📦</div>
+          )}
+        </div>
+        {/* Title */}
+        <span style={{
+          fontSize: 16,
+          fontWeight: 500,
+          lineHeight: "normal",
+          color: "var(--p-color-text)",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}>
+          {product.displayName || "Produit"}
+        </span>
+      </div>
+
+      {/* Button / Quantity selector */}
+      {!added ? (
+        <button
+          type="button"
+          onClick={() => setAdded(true)}
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            border: "1px solid var(--p-color-border)",
+            padding: "8px 16px",
+            height: 40,
+            borderRadius: 4,
+            background: "var(--p-color-bg-surface)",
+            cursor: "pointer",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "var(--p-color-text)",
+            width: "100%",
+            transition: "all 0.15s ease",
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = "var(--p-color-bg-surface-hover)";
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = "var(--p-color-bg-surface)";
+          }}
+        >
+          Add to box
+        </button>
+      ) : (
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "#fff",
+          overflow: "hidden",
+          borderRadius: 4,
+          height: 40,
+          border: "1px solid var(--p-color-border)",
+        }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (qty <= 1) { setAdded(false); setQty(1); }
+              else setQty(q => q - 1);
+            }}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              padding: "8px 12px",
+              height: "100%",
+              color: "var(--p-color-text)",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <span style={{ fontSize: 16, fontWeight: 400, color: "var(--p-color-text)" }}>{qty}</span>
+          <button
+            type="button"
+            onClick={() => setQty(q => q + 1)}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              padding: "8px 12px",
+              height: "100%",
+              color: "var(--p-color-text)",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────── Product Card: "Overlay" design ────────── */
+/* Image with hover overlay button + title/price below */
+function ProductCardOverlay({ product }: { product: UiStepProduct }) {
+  const [hovered, setHovered] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [qty, setQty] = useState(1);
 
   return (
-    <div className="sar-bundle__product sar-bundle__product--stack-add-to-qty">
-      {product.imageUrl ? (
-        <img className="sar-bundle__product-img" src={product.imageUrl} alt="" loading="lazy" />
-      ) : (
-        <div
-          style={{
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+      width: "100%",
+      textAlign: "left",
+    }}>
+      {/* Image with overlay */}
+      <div
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          borderRadius: 4,
+          aspectRatio: "1",
+          background: "var(--p-color-bg-surface-secondary)",
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {product.imageUrl ? (
+          <img
+            src={product.imageUrl}
+            alt=""
+            loading="lazy"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <div style={{
             width: "100%",
-            aspectRatio: "1",
-            background: "var(--p-color-bg-surface-secondary)",
-            border: "2px dashed var(--p-color-border)",
-            borderRadius: 4,
+            height: "100%",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: "var(--p-color-text-subdued)",
             fontSize: "2rem",
-            marginBottom: "0.5rem",
-          }}
-        >
-          📦
-        </div>
-      )}
-      <p className="sar-bundle__product-title">{product.displayName || product.variantGid}</p>
-      <div className="sar-bundle__product-price">—</div>
+          }}>📦</div>
+        )}
 
-      <div className="sar-bundle__product-controls">
-        <button
-          type="button"
-          onClick={() => setQty((q) => Math.max(1, q - 1))}
-          style={qtyBtnStyle}
-          aria-label="Diminuer"
-        >
-          −
-        </button>
-        <span
-          style={{
-            minWidth: 24,
-            textAlign: "center",
-            color: "var(--p-color-text)",
-            fontWeight: 500,
-          }}
-        >
-          {qty}
+        {/* Overlay button */}
+        <div style={{
+          position: "absolute",
+          bottom: 10,
+          left: 10,
+          right: 10,
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          opacity: hovered || added ? 1 : 0,
+          transform: hovered || added ? "translateY(0)" : "translateY(8px)",
+          transition: "all 0.2s ease",
+          zIndex: 2,
+        }}>
+          {!added ? (
+            <button
+              type="button"
+              onClick={() => setAdded(true)}
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                border: "1px solid var(--p-color-border)",
+                padding: "8px 16px",
+                height: 40,
+                borderRadius: 4,
+                background: "rgba(255,255,255,0.95)",
+                backdropFilter: "blur(4px)",
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "var(--p-color-text)",
+                width: "100%",
+              }}
+            >
+              Add to box
+            </button>
+          ) : (
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "rgba(255,255,255,0.95)",
+              backdropFilter: "blur(4px)",
+              overflow: "hidden",
+              borderRadius: 4,
+              height: 40,
+              border: "1px solid var(--p-color-border)",
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (qty <= 1) { setAdded(false); setQty(1); }
+                  else setQty(q => q - 1);
+                }}
+                style={{
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "8px 12px",
+                  height: "100%",
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              </button>
+              <span style={{ fontSize: 16, fontWeight: 400 }}>{qty}</span>
+              <button
+                type="button"
+                onClick={() => setQty(q => q + 1)}
+                style={{
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "8px 12px",
+                  height: "100%",
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Title + Price */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{
+          fontSize: 16,
+          fontWeight: 500,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          color: "var(--p-color-text)",
+        }}>
+          {product.displayName || "Produit"}
         </span>
-        <button
-          type="button"
-          onClick={() => setQty((q) => q + 1)}
-          style={qtyBtnStyle}
-          aria-label="Augmenter"
-        >
-          +
-        </button>
-        <button type="button" className="sar-bundle__btn sar-bundle__btn--primary sar-bundle__add">
-          Ajouter
-        </button>
+        <span style={{
+          fontSize: 16,
+          fontWeight: 600,
+          color: "var(--p-color-text)",
+        }}>
+          —
+        </span>
       </div>
     </div>
   );
 }
 
+function ProductCard({ product, layout }: { product: UiStepProduct; layout?: string }) {
+  if (layout === "overlay") return <ProductCardOverlay product={product} />;
+  return <ProductCardClassic product={product} />;
+}
+
 /** Product grid rendered inside the preview */
 function ProductGridPreview({
   step,
-  blockId,
-  blockName,
+  block,
   selectedBlockId,
   onSelectBlock,
 }: {
   step: UiStep | undefined;
-  blockId: string;
-  blockName: string;
+  block: StorefrontBlockV2;
   selectedBlockId: string | null;
   onSelectBlock: (id: string) => void;
 }) {
+  const plBlock = block.type === "product_list" ? block : null;
+  const columns = plBlock?.columns ?? 3;
+  const gapX = plBlock?.gapX ?? 16;
+  const gapY = plBlock?.gapY ?? 16;
+  const cardLayout = plBlock?.cardLayout ?? "classic";
+
   return (
     <InteractiveBlockWrapper
-      blockId={blockId}
-      blockName={blockName}
+      blockId={block.id}
+      blockName={blockDisplayLabel(block)}
       selectedBlockId={selectedBlockId}
       onSelectBlock={onSelectBlock}
     >
-      <div className="sar-bundle__body">
-        <div className="sar-bundle__products">
+      <div style={{ width: "100%" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+            gap: `${gapY}px ${gapX}px`,
+            width: "100%",
+          }}
+        >
           {step && step.products.length > 0 ? (
             step.products.map((p) => (
-              <ProductCard key={p.variantGid} product={p} />
+              <ProductCard key={p.variantGid} product={p} layout={cardLayout} />
             ))
           ) : (
             <div
@@ -611,8 +855,7 @@ export function BundleStorefrontPreview({
                 <ProductGridPreview
                   key={b.id}
                   step={step}
-                  blockId={b.id}
-                  blockName={blockDisplayLabel(b)}
+                  block={b}
                   selectedBlockId={selectedBlockId ?? null}
                   onSelectBlock={handleBlockSelect}
                 />
