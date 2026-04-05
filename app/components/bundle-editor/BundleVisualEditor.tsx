@@ -344,14 +344,25 @@ export function BundleVisualEditor({
               Aperçu boutique
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              Rendu simplifié — sélection fictive. Le widget reprend la même
-              structure sur la boutique.
+              Rendu simplifié — cliquez sur un élément pour le modifier.
             </Text>
             <BundleStorefrontPreview
               design={form.storefrontDesign}
               steps={form.steps}
               activeStepIndex={activeStepIndex}
               bundleTitle={form.name}
+              selectedBlockId={nav.level === 3 ? nav.blockId : null}
+              onSelectStep={(idx) =>
+                setNav({ level: 2, stepIndex: idx, activeTab: 0 })
+              }
+              onSelectBlock={(blockId) =>
+                setNav({
+                  level: 3,
+                  stepIndex: activeStepIndex,
+                  blockId,
+                  activeTab: 0,
+                })
+              }
             />
             {currentStep ? (
               <Text as="p" variant="bodySm" tone="subdued">

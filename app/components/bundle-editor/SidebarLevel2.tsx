@@ -25,8 +25,11 @@ import {
   ChevronRightIcon,
   DeleteIcon,
   DragHandleIcon,
+  DuplicateIcon,
+  HideIcon,
+  MenuHorizontalIcon,
   SettingsIcon,
-  SearchIcon,
+  ViewIcon,
 } from "@shopify/polaris-icons";
 import {
   DndContext,
@@ -118,24 +121,45 @@ function ensurePermanentProductBlock(design: StorefrontDesignV2): StorefrontDesi
   };
 }
 
+function blockIcon(type: string): string {
+  switch (type) {
+    case "step_bar": return "📊";
+    case "product_list": return "🛍️";
+    case "heading": return "🔤";
+    case "text": return "📝";
+    case "image": return "🖼️";
+    case "spacer": return "↕️";
+    case "hero": return "🎯";
+    case "split": return "◧";
+    default: return "▪️";
+  }
+}
+
 function SortableBlockRow({
   block,
   onClick,
   onDelete,
+  onDuplicate,
   isLocked,
+  isHidden,
+  onToggleVisibility,
 }: {
   block: StorefrontBlockV2;
   onClick: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   isLocked?: boolean;
+  isHidden?: boolean;
+  onToggleVisibility: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id });
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.5 : isHidden ? 0.45 : 1,
   };
 
   return (
@@ -147,7 +171,7 @@ function SortableBlockRow({
         borderRadius="200"
         background="bg-surface"
       >
-        <InlineStack gap="200" blockAlign="center" wrap={false}>
+        <InlineStack gap="100" blockAlign="center" wrap={false}>
           <div
             {...attributes}
             {...listeners}
@@ -156,21 +180,79 @@ function SortableBlockRow({
           >
             <Icon source={DragHandleIcon} />
           </div>
+          <span style={{ fontSize: "14px", flexShrink: 0, lineHeight: 1, width: 20, textAlign: "center" }}>
+            {blockIcon(block.type)}
+          </span>
           <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
             <Button variant="plain" onClick={onClick} fullWidth textAlign="left">
               {blockDisplayLabel(block)}
             </Button>
           </div>
-          <Tooltip content="Supprimer ce bloc">
+          <Tooltip content={isHidden ? "Afficher" : "Masquer"}>
             <Button
-              icon={DeleteIcon}
               variant="plain"
-              tone="critical"
-              onClick={onDelete}
-              accessibilityLabel="Supprimer"
-              disabled={isLocked}
+              onClick={onToggleVisibility}
+              accessibilityLabel={isHidden ? "Afficher" : "Masquer"}
+              icon={isHidden ? HideIcon : ViewIcon}
             />
           </Tooltip>
+          <div style={{ position: "relative" }}>
+            <Tooltip content="Actions">
+              <Button
+                variant="plain"
+                onClick={() => setMenuOpen(!menuOpen)}
+                accessibilityLabel="Actions"
+                icon={MenuHorizontalIcon}
+              />
+            </Tooltip>
+            {menuOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "100%",
+                  zIndex: 100,
+                  background: "var(--p-color-bg-surface)",
+                  border: "1px solid var(--p-color-border)",
+                  borderRadius: 8,
+                  boxShadow: "var(--p-shadow-300)",
+                  minWidth: 140,
+                  padding: 4,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => { onDuplicate(); setMenuOpen(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6, width: "100%",
+                    padding: "6px 10px", background: "none", border: "none",
+                    cursor: "pointer", fontSize: "13px", borderRadius: 6,
+                    color: "var(--p-color-text)",
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.background = "var(--p-color-bg-surface-hover)")}
+                  onMouseOut={(e) => (e.currentTarget.style.background = "none")}
+                >
+                  <Icon source={DuplicateIcon} /> Dupliquer
+                </button>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={() => { onDelete(); setMenuOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6, width: "100%",
+                      padding: "6px 10px", background: "none", border: "none",
+                      cursor: "pointer", fontSize: "13px", borderRadius: 6,
+                      color: "var(--p-color-text-critical)",
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = "var(--p-color-bg-surface-hover)")}
+                    onMouseOut={(e) => (e.currentTarget.style.background = "none")}
+                  >
+                    <Icon source={DeleteIcon} /> Supprimer
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </InlineStack>
       </Box>
     </div>
@@ -262,8 +344,7 @@ export function SidebarLevel2({
   const variantsMetaFetcher = useFetcher<VariantsMetaJson>();
 
   const [showLibrary, setShowLibrary] = useState(false);
-  const [libSearch, setLibSearch] = useState("");
-  const [libTab, setLibTab] = useState<"elements" | "sections">("elements");
+  const [hiddenBlocks, setHiddenBlocks] = useState<Set<string>>(new Set());
   const [openCats, setOpenCats] = useState<Record<LibCategory, boolean>>({
     mep: true,
     text: false,
@@ -305,10 +386,30 @@ export function SidebarLevel2({
   }, [variantsMetaFetcher.state, variantsMetaFetcher.data]);
 
   const enrichVariants = (gids: string[]) => {
+    if (gids.length === 0) return;
     const params = new URLSearchParams();
     for (const id of gids) params.append("ids", id);
     variantsMetaFetcher.load(`/api/shopify-variants?${params.toString()}`);
   };
+
+  // Auto-enrich variants on mount when products have missing images/names
+  useEffect(() => {
+    const needsEnrich = step.products.filter((p) => {
+      const name = (p.displayName ?? "").trim();
+      const looksLikeId = /^\d{8,}$/.test(name);
+      return (
+        !p.imageUrl ||
+        !name ||
+        looksLikeId ||
+        name.toLowerCase() === "default title" ||
+        !p.productHandle
+      );
+    });
+    if (needsEnrich.length > 0) {
+      enrichVariants(needsEnrich.map((p) => p.variantGid));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepIndex]);
 
   const openModal = () => {
     setDraftRules(step.rules);
@@ -458,6 +559,25 @@ export function SidebarLevel2({
     });
   };
 
+  const duplicateBlock = (blockId: string) => {
+    const src = safeDesign.blocks.find((b) => b.id === blockId);
+    if (!src) return;
+    const dup = { ...src, id: newBlockId() } as StorefrontBlockV2;
+    const idx = safeDesign.blocks.findIndex((b) => b.id === blockId);
+    const newBlocks = [...safeDesign.blocks];
+    newBlocks.splice(idx + 1, 0, dup);
+    onDesignChange({ ...safeDesign, version: 2, blocks: newBlocks });
+  };
+
+  const toggleBlockVisibility = (blockId: string) => {
+    setHiddenBlocks((prev) => {
+      const next = new Set(prev);
+      if (next.has(blockId)) next.delete(blockId);
+      else next.add(blockId);
+      return next;
+    });
+  };
+
   const handleBlockDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -502,33 +622,6 @@ export function SidebarLevel2({
             </Button>
           </InlineStack>
 
-          <TextField
-            label=""
-            labelHidden
-            placeholder="Rechercher un bloc…"
-            value={libSearch}
-            onChange={setLibSearch}
-            prefix={<Icon source={SearchIcon} />}
-            autoComplete="off"
-          />
-
-          <div style={{ display: "flex", gap: 4 }}>
-            <Button
-              pressed={libTab === "elements"}
-              onClick={() => setLibTab("elements")}
-              size="slim"
-            >
-              Éléments
-            </Button>
-            <Button
-              pressed={libTab === "sections"}
-              onClick={() => setLibTab("sections")}
-              size="slim"
-            >
-              Sections
-            </Button>
-          </div>
-
           <Divider />
 
           <CategoryRow
@@ -538,31 +631,27 @@ export function SidebarLevel2({
             onToggle={() => toggleCat("mep")}
           >
             <BlockStack gap="100">
-              {(libSearch === "" || "barre d'étape".includes(libSearch.toLowerCase())) && (
-                <Button
-                  variant="plain"
-                  fullWidth
-                  textAlign="left"
-                  onClick={() =>
-                    addBlock({ id: newBlockId(), type: "step_bar", style: {} })
-                  }
-                  disabled={stepsCount < 2}
-                >
-                  Barre d'étape{stepsCount < 2 ? " (≥2 étapes)" : ""}
-                </Button>
-              )}
-              {(libSearch === "" || "espacement".includes(libSearch.toLowerCase())) && (
-                <Button
-                  variant="plain"
-                  fullWidth
-                  textAlign="left"
-                  onClick={() =>
-                    addBlock({ id: newBlockId(), type: "spacer", height: 24 })
-                  }
-                >
-                  Espacement
-                </Button>
-              )}
+              <Button
+                variant="plain"
+                fullWidth
+                textAlign="left"
+                onClick={() =>
+                  addBlock({ id: newBlockId(), type: "step_bar", style: {} })
+                }
+                disabled={stepsCount < 2}
+              >
+                📊 Barre d'étape{stepsCount < 2 ? " (≥2 étapes)" : ""}
+              </Button>
+              <Button
+                variant="plain"
+                fullWidth
+                textAlign="left"
+                onClick={() =>
+                  addBlock({ id: newBlockId(), type: "spacer", height: 24 })
+                }
+              >
+                ↕️ Espacement
+              </Button>
             </BlockStack>
           </CategoryRow>
 
@@ -573,111 +662,101 @@ export function SidebarLevel2({
             onToggle={() => toggleCat("text")}
           >
             <BlockStack gap="100">
-              {(libSearch === "" || "titre".includes(libSearch.toLowerCase())) && (
-                <Button
-                  variant="plain"
-                  fullWidth
-                  textAlign="left"
-                  onClick={() =>
-                    addBlock({
-                      id: newBlockId(),
-                      type: "heading",
-                      text: "Nouveau titre",
-                      tag: "h2",
-                      style: {
-                        fontSize: "1.25rem",
-                        color: "var(--p-color-text)",
-                        marginBottom: "0.5rem",
-                      },
-                    })
-                  }
-                >
-                  Titre
-                </Button>
-              )}
-              {(libSearch === "" || "texte".includes(libSearch.toLowerCase())) && (
-                <Button
-                  variant="plain"
-                  fullWidth
-                  textAlign="left"
-                  onClick={() =>
-                    addBlock({
-                      id: newBlockId(),
-                      type: "text",
-                      text: "Nouveau texte",
-                      style: { color: "var(--p-color-text)" },
-                    })
-                  }
-                >
-                  Texte
-                </Button>
-              )}
+              <Button
+                variant="plain"
+                fullWidth
+                textAlign="left"
+                onClick={() =>
+                  addBlock({
+                    id: newBlockId(),
+                    type: "heading",
+                    text: "Nouveau titre",
+                    tag: "h2",
+                    style: {
+                      fontSize: "1.25rem",
+                      color: "var(--p-color-text)",
+                      marginBottom: "0.5rem",
+                    },
+                  })
+                }
+              >
+                🔤 Titre
+              </Button>
+              <Button
+                variant="plain"
+                fullWidth
+                textAlign="left"
+                onClick={() =>
+                  addBlock({
+                    id: newBlockId(),
+                    type: "text",
+                    text: "Nouveau texte",
+                    style: { color: "var(--p-color-text)" },
+                  })
+                }
+              >
+                📝 Texte
+              </Button>
             </BlockStack>
           </CategoryRow>
 
           <CategoryRow
             id="cat-media"
-            label="Médias"
+            label="Médias & Sections"
             isOpen={openCats.media}
             onToggle={() => toggleCat("media")}
           >
             <BlockStack gap="100">
-              {(libSearch === "" || "image".includes(libSearch.toLowerCase())) && (
-                <Button
-                  variant="plain"
-                  fullWidth
-                  textAlign="left"
-                  onClick={() =>
-                    addBlock({
-                      id: newBlockId(),
-                      type: "image",
-                      url: null,
-                      alt: "",
-                      style: { maxWidth: "100%" },
-                    })
-                  }
-                >
-                  Image
-                </Button>
-              )}
-              {(libSearch === "" || "hero bannière".includes(libSearch.toLowerCase())) && (
-                <Button
-                  variant="plain"
-                  fullWidth
-                  textAlign="left"
-                  onClick={() =>
-                    addBlock({
-                      id: newBlockId(),
-                      type: "hero",
-                      headline: "Titre principal",
-                      subtext: "",
-                      imageUrl: null,
-                      layout: "stack",
-                    })
-                  }
-                >
-                  Bannière (Hero)
-                </Button>
-              )}
-              {(libSearch === "" || "split".includes(libSearch.toLowerCase())) && (
-                <Button
-                  variant="plain"
-                  fullWidth
-                  textAlign="left"
-                  onClick={() =>
-                    addBlock({
-                      id: newBlockId(),
-                      type: "split",
-                      title: "Titre",
-                      body: "Texte descriptif",
-                      imageUrl: null,
-                      imageSide: "left",
-                    })
-                  }
-                >
-                  Section Split
-                </Button>
-              )}
+              <Button
+                variant="plain"
+                fullWidth
+                textAlign="left"
+                onClick={() =>
+                  addBlock({
+                    id: newBlockId(),
+                    type: "image",
+                    url: null,
+                    alt: "",
+                    style: { maxWidth: "100%" },
+                  })
+                }
+              >
+                🖼️ Image
+              </Button>
+              <Button
+                variant="plain"
+                fullWidth
+                textAlign="left"
+                onClick={() =>
+                  addBlock({
+                    id: newBlockId(),
+                    type: "hero",
+                    headline: "Titre principal",
+                    subtext: "",
+                    imageUrl: null,
+                    layout: "stack",
+                  })
+                }
+              >
+                🎯 Bannière (Hero)
+              </Button>
+              <Button
+                variant="plain"
+                fullWidth
+                textAlign="left"
+                onClick={() =>
+                  addBlock({
+                    id: newBlockId(),
+                    type: "split",
+                    title: "Titre",
+                    body: "Texte descriptif",
+                    imageUrl: null,
+                    imageSide: "left",
+                  })
+                }
+              >
+                ◧ Section Split
+              </Button>
             </BlockStack>
           </CategoryRow>
         </BlockStack>
@@ -686,7 +765,7 @@ export function SidebarLevel2({
           {safeDesign.blocks.length === 0 ? (
             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
               <Text as="p" variant="bodySm" tone="subdued">
-                Aucun bloc. Cliquez sur "+ Ajouter une section".
+                Aucun bloc. Cliquez sur &quot;+ Ajouter un bloc&quot;.
               </Text>
             </Box>
           ) : (
@@ -706,7 +785,10 @@ export function SidebarLevel2({
                       block={block}
                       onClick={() => onBlockClick(block.id)}
                       onDelete={() => deleteBlock(block.id)}
+                      onDuplicate={() => duplicateBlock(block.id)}
                       isLocked={block.type === "product_list"}
+                      isHidden={hiddenBlocks.has(block.id)}
+                      onToggleVisibility={() => toggleBlockVisibility(block.id)}
                     />
                   ))}
                 </BlockStack>
@@ -717,7 +799,7 @@ export function SidebarLevel2({
             onClick={() => setShowLibrary(true)}
             fullWidth
           >
-            + Ajouter une section
+            + Ajouter un bloc
           </Button>
         </BlockStack>
       )}

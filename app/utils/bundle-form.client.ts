@@ -354,20 +354,46 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
       imageUrl: s.imageUrl ?? null,
       imageGid: s.imageGid ?? null,
       isFinalStep: s.isFinalStep ?? false,
-      products: (s.products ?? []).map((p, pi) => ({
-        variantGid: p.variantGid,
-        sortOrder: p.sortOrder ?? pi,
-        minQuantity: p.minQuantity ?? null,
-        maxQuantity: p.maxQuantity ?? null,
-        displayName: p.variantGid.split("/").pop() ?? p.variantGid,
-        imageUrl: null,
-        productHandle: p.productHandle ?? null,
-        layoutPreset: p.layoutPreset ?? "STACK_ADD_TO_QTY",
-        styleOverrides:
-          p.styleOverrides && typeof p.styleOverrides === "object"
-            ? (p.styleOverrides as ProductStyleOverrides)
-            : null,
-      })),
+      products: (s.products ?? []).map((p, pi) => {
+        // Extract enriched storefront data if present (from API proxy enrichment)
+        const sf = (p as Record<string, unknown>).storefront as
+          | {
+              displayTitle?: string;
+              imageUrl?: string | null;
+              productTitle?: string;
+              productHandle?: string | null;
+            }
+          | undefined;
+        const enrichedName =
+          sf?.displayTitle ??
+          sf?.productTitle ??
+          null;
+        const enrichedImage = sf?.imageUrl ?? null;
+        const enrichedHandle = sf?.productHandle ?? null;
+
+        // Build a readable displayName: prefer enriched > productHandle > GID tail
+        const fallbackName = p.productHandle
+          ? p.productHandle
+              .replace(/-/g, " ")
+              .replace(/\b\w/g, (c: string) => c.toUpperCase())
+          : p.variantGid.split("/").pop() ?? p.variantGid;
+        const displayName = enrichedName || fallbackName;
+
+        return {
+          variantGid: p.variantGid,
+          sortOrder: p.sortOrder ?? pi,
+          minQuantity: p.minQuantity ?? null,
+          maxQuantity: p.maxQuantity ?? null,
+          displayName,
+          imageUrl: enrichedImage,
+          productHandle: p.productHandle ?? enrichedHandle ?? null,
+          layoutPreset: p.layoutPreset ?? "STACK_ADD_TO_QTY",
+          styleOverrides:
+            p.styleOverrides && typeof p.styleOverrides === "object"
+              ? (p.styleOverrides as ProductStyleOverrides)
+              : null,
+        };
+      }),
       rules: (s.rules ?? []).map((r, ri) => ({
         sortOrder: r.sortOrder ?? ri,
         metric: r.metric,

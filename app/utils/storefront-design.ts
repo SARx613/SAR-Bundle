@@ -109,12 +109,17 @@ export type SplitBlock = {
 export type StepBarBlock = {
   id: string;
   type: "step_bar";
+  /** Visual preset: default (numbered dots), circles (gold with check), lines (flat squares), minimal (small dots) */
+  preset?: "default" | "circles" | "lines" | "minimal";
   style?: {
     borderColor?: string;
     activeBg?: string;
     inactiveBg?: string;
     activeTextColor?: string;
     inactiveTextColor?: string;
+    completedBg?: string;
+    dotSize?: number;
+    fontSize?: string;
   };
 };
 

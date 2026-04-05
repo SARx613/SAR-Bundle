@@ -20,6 +20,7 @@ import {
   syncFixedPriceBoxCatalogVariantPrice,
 } from "../utils/shopify-bundle-product.server";
 import { PRODUCT_DISPLAY_FIELDS, VARIANT_DISPLAY_FIELDS } from "../utils/shopify-graphql-fragments";
+import { enrichBundleStepProductsForStorefront } from "../utils/storefront-bundle-enrich.server";
 
 async function enrichPayloadProductHandles(
   admin: { graphql: (query: string, opts?: unknown) => Promise<Response> },
@@ -104,7 +105,7 @@ const emptyBundleState: SerializedBundle = {
 };
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const id = params.id;
   if (!id) throw new Response("Missing bundle id", { status: 400 });
 
@@ -122,6 +123,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   });
 
   if (!bundle) throw new Response("Not found", { status: 404 });
+
+  // Enrich step products with Admin API data (titles, images, handles)
+  try {
+    await enrichBundleStepProductsForStorefront(admin, bundle);
+  } catch (e) {
+    console.warn("bundle editor: product enrichment failed", e);
+  }
 
   return json({
     isNew: false as const,
