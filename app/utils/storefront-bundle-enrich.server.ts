@@ -49,9 +49,9 @@ export async function enrichBundleStepProductsForStorefront(
   for (let i = 0; i < ids.length; i += CHUNK) {
     const chunk = ids.slice(i, i + CHUNK);
     const res = await admin.graphql(
-      `query StorefrontBundleVariants($ids: [ID!]!) {
-        ${PRODUCT_DISPLAY_FIELDS}
-        ${VARIANT_DISPLAY_FIELDS}
+      `${PRODUCT_DISPLAY_FIELDS}
+      ${VARIANT_DISPLAY_FIELDS}
+      query StorefrontBundleVariants($ids: [ID!]!) {
         nodes(ids: $ids) {
           ... on ProductVariant {
             ...VariantDisplayFields

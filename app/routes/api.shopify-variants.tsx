@@ -58,9 +58,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     if (ids.length === 0) return json({ items: [] as VariantMeta[] });
 
     const res = await admin.graphql(
-      `query EditorVariantMeta($ids: [ID!]!) {
-        ${PRODUCT_DISPLAY_FIELDS}
-        ${VARIANT_DISPLAY_FIELDS}
+      `${PRODUCT_DISPLAY_FIELDS}
+      ${VARIANT_DISPLAY_FIELDS}
+      query EditorVariantMeta($ids: [ID!]!) {
         nodes(ids: $ids) {
           ... on ProductVariant {
             ...VariantDisplayFields

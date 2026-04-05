@@ -36,9 +36,9 @@ async function enrichPayloadProductHandles(
   if (uniqueIds.length === 0) return;
 
   const res = await admin.graphql(
-    `query BundleSaveVariantHandles($ids: [ID!]!) {
-      ${PRODUCT_DISPLAY_FIELDS}
+    `${PRODUCT_DISPLAY_FIELDS}
       ${VARIANT_DISPLAY_FIELDS}
+      query BundleSaveVariantHandles($ids: [ID!]!) {
       nodes(ids: $ids) {
         ... on ProductVariant {
           ...VariantDisplayFields
