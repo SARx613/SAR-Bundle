@@ -48,34 +48,45 @@ export type TextStyleBlock = {
   marginTop?: string;
   marginBottom?: string;
   padding?: string;
+  paddingTop?: string;
+  paddingRight?: string;
+  paddingBottom?: string;
+  paddingLeft?: string;
+  marginLeft?: string;
+  marginRight?: string;
   borderRadius?: string;
   borderWidth?: string;
   borderColor?: string;
   fontFamily?: string;
+  /** Text style preset: use theme defaults for h1-h6/p, or custom values */
+  textPreset?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "custom";
 };
 
 export type StorefrontBlock =
   | {
       id: string;
+      name?: string;
       type: "heading";
       text: string;
-      tag: "h1" | "h2" | "h3";
+      tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
       style: TextStyleBlock;
     }
   | {
       id: string;
+      name?: string;
       type: "text";
       text: string;
       style: TextStyleBlock;
     }
   | {
       id: string;
+      name?: string;
       type: "image";
       url: string | null;
       alt: string;
       style: TextStyleBlock & { maxWidth?: string };
     }
-  | { id: string; type: "spacer"; height: number };
+  | { id: string; name?: string; type: "spacer"; height: number };
 
 export type StorefrontDesignV1 = {
   version: 1;
@@ -90,6 +101,7 @@ export type StorefrontDesignV1 = {
 
 export type HeroBlock = {
   id: string;
+  name?: string;
   type: "hero";
   headline: string;
   subtext?: string;
@@ -99,6 +111,7 @@ export type HeroBlock = {
 
 export type SplitBlock = {
   id: string;
+  name?: string;
   type: "split";
   title: string;
   body: string;
@@ -108,6 +121,7 @@ export type SplitBlock = {
 
 export type StepBarBlock = {
   id: string;
+  name?: string;
   type: "step_bar";
   /** Visual preset: default (numbered dots), circles (gold with check), lines (flat squares), minimal (small dots) */
   preset?: "default" | "circles" | "lines" | "minimal";
@@ -125,6 +139,7 @@ export type StepBarBlock = {
 
 export type ProductListBlock = {
   id: string;
+  name?: string;
   type: "product_list";
   source?: "step_pick" | "collection";
   /** Utilisé quand source = collection */
@@ -316,26 +331,25 @@ export function newBlockId(): string {
   return `b-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/** Default block names by type */
+export function defaultBlockName(type: StorefrontBlockV2["type"]): string {
+  switch (type) {
+    case "heading": return "Titre";
+    case "text": return "Texte";
+    case "image": return "Image";
+    case "spacer": return "Espacement";
+    case "hero": return "Bannière Hero";
+    case "split": return "Section Split";
+    case "step_bar": return "Barre d'étape";
+    case "product_list": return "Liste de produits";
+    default: return "Bloc";
+  }
+}
+
 /** Dérive un libellé lisible pour afficher un bloc dans la sidebar. */
 export function blockDisplayLabel(block: StorefrontBlockV2): string {
-  switch (block.type) {
-    case "heading":
-      return block.text.trim().slice(0, 35) || "Titre";
-    case "text":
-      return block.text.trim().slice(0, 35) || "Texte";
-    case "image":
-      return block.alt?.trim().slice(0, 35) || "Image";
-    case "spacer":
-      return `Espacement (${block.height}px)`;
-    case "hero":
-      return block.headline.trim().slice(0, 35) || "Hero";
-    case "split":
-      return block.title.trim().slice(0, 35) || "Section split";
-    case "step_bar":
-      return "Barre d'étape";
-    case "product_list":
-      return "Liste de produits";
-    default:
-      return "Bloc";
-  }
+  // Prefer user-set name
+  const n = (block as { name?: string }).name?.trim();
+  if (n) return n;
+  return defaultBlockName(block.type);
 }

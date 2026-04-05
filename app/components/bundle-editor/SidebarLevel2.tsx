@@ -121,18 +121,75 @@ function ensurePermanentProductBlock(design: StorefrontDesignV2): StorefrontDesi
   };
 }
 
-function blockIcon(type: string): string {
+import {
+  ListNumberedIcon,
+  ProductListIcon,
+  TextTitleIcon,
+  TextBlockIcon,
+  ImageIcon,
+  TextInColumnsIcon,
+  LayoutSidebarRightIcon,
+  LayoutBlockIcon,
+} from "@shopify/polaris-icons";
+
+function blockIconSource(type: string) {
   switch (type) {
-    case "step_bar": return "📊";
-    case "product_list": return "🛍️";
-    case "heading": return "🔤";
-    case "text": return "📝";
-    case "image": return "🖼️";
-    case "spacer": return "↕️";
-    case "hero": return "🎯";
-    case "split": return "◧";
-    default: return "▪️";
+    case "step_bar": return ListNumberedIcon;
+    case "product_list": return ProductListIcon;
+    case "heading": return TextTitleIcon;
+    case "text": return TextBlockIcon;
+    case "image": return ImageIcon;
+    case "spacer": return TextInColumnsIcon;
+    case "hero": return LayoutBlockIcon;
+    case "split": return LayoutSidebarRightIcon;
+    default: return TextBlockIcon;
   }
+}
+
+/** Native-styled library item (icon + label) for the block catalog */
+function LibraryItem({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+        padding: "6px 8px",
+        background: "none",
+        border: "none",
+        borderRadius: 6,
+        cursor: disabled ? "not-allowed" : "pointer",
+        color: disabled ? "var(--p-color-text-disabled)" : "var(--p-color-text)",
+        fontSize: "13px",
+        textAlign: "left",
+      }}
+      onMouseOver={(e) => {
+        if (!disabled) e.currentTarget.style.background = "var(--p-color-bg-surface-hover)";
+      }}
+      onMouseOut={(e) => {
+        e.currentTarget.style.background = "none";
+      }}
+    >
+      <span style={{ width: 20, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon source={icon} tone={disabled ? "subdued" : "base"} />
+      </span>
+      <span>{label}</span>
+    </button>
+  );
 }
 
 function SortableBlockRow({
@@ -180,13 +237,19 @@ function SortableBlockRow({
           >
             <Icon source={DragHandleIcon} />
           </div>
-          <span style={{ fontSize: "14px", flexShrink: 0, lineHeight: 1, width: 20, textAlign: "center" }}>
-            {blockIcon(block.type)}
+          <span style={{ flexShrink: 0, width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon source={blockIconSource(block.type)} tone="base" />
           </span>
-          <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-            <Button variant="plain" onClick={onClick} fullWidth textAlign="left">
+          <div
+            style={{ flex: 1, minWidth: 0, overflow: "hidden", cursor: "pointer" }}
+            onClick={onClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+          >
+            <Text as="span" variant="bodyMd" truncate>
               {blockDisplayLabel(block)}
-            </Button>
+            </Text>
           </div>
           <Tooltip content={isHidden ? "Afficher" : "Masquer"}>
             <Button
@@ -316,6 +379,8 @@ export function SidebarLevel2({
   onBlockClick,
   activeTab,
   onTabChange,
+  hiddenBlocks,
+  onToggleBlockVisibility,
 }: {
   stepIndex: number;
   step: UiStep;
@@ -328,6 +393,8 @@ export function SidebarLevel2({
   onBlockClick: (blockId: string) => void;
   activeTab: number;
   onTabChange: (t: number) => void;
+  hiddenBlocks: Set<string>;
+  onToggleBlockVisibility: (blockId: string) => void;
 }) {
   const shopifyBridge = useAppBridge();
   const safeDesign = ensurePermanentProductBlock(design);
@@ -344,7 +411,6 @@ export function SidebarLevel2({
   const variantsMetaFetcher = useFetcher<VariantsMetaJson>();
 
   const [showLibrary, setShowLibrary] = useState(false);
-  const [hiddenBlocks, setHiddenBlocks] = useState<Set<string>>(new Set());
   const [openCats, setOpenCats] = useState<Record<LibCategory, boolean>>({
     mep: true,
     text: false,
@@ -569,14 +635,7 @@ export function SidebarLevel2({
     onDesignChange({ ...safeDesign, version: 2, blocks: newBlocks });
   };
 
-  const toggleBlockVisibility = (blockId: string) => {
-    setHiddenBlocks((prev) => {
-      const next = new Set(prev);
-      if (next.has(blockId)) next.delete(blockId);
-      else next.add(blockId);
-      return next;
-    });
-  };
+  // toggleBlockVisibility is now provided by parent via props
 
   const handleBlockDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -631,27 +690,17 @@ export function SidebarLevel2({
             onToggle={() => toggleCat("mep")}
           >
             <BlockStack gap="100">
-              <Button
-                variant="plain"
-                fullWidth
-                textAlign="left"
-                onClick={() =>
-                  addBlock({ id: newBlockId(), type: "step_bar", style: {} })
-                }
+              <LibraryItem
+                icon={ListNumberedIcon}
+                label={stepsCount < 2 ? "Barre d'étape (≥2 étapes)" : "Barre d'étape"}
                 disabled={stepsCount < 2}
-              >
-                📊 Barre d'étape{stepsCount < 2 ? " (≥2 étapes)" : ""}
-              </Button>
-              <Button
-                variant="plain"
-                fullWidth
-                textAlign="left"
-                onClick={() =>
-                  addBlock({ id: newBlockId(), type: "spacer", height: 24 })
-                }
-              >
-                ↕️ Espacement
-              </Button>
+                onClick={() => addBlock({ id: newBlockId(), type: "step_bar", style: {} })}
+              />
+              <LibraryItem
+                icon={TextInColumnsIcon}
+                label="Espacement"
+                onClick={() => addBlock({ id: newBlockId(), type: "spacer", height: 24 })}
+              />
             </BlockStack>
           </CategoryRow>
 
@@ -662,10 +711,9 @@ export function SidebarLevel2({
             onToggle={() => toggleCat("text")}
           >
             <BlockStack gap="100">
-              <Button
-                variant="plain"
-                fullWidth
-                textAlign="left"
+              <LibraryItem
+                icon={TextTitleIcon}
+                label="Titre"
                 onClick={() =>
                   addBlock({
                     id: newBlockId(),
@@ -679,13 +727,10 @@ export function SidebarLevel2({
                     },
                   })
                 }
-              >
-                🔤 Titre
-              </Button>
-              <Button
-                variant="plain"
-                fullWidth
-                textAlign="left"
+              />
+              <LibraryItem
+                icon={TextBlockIcon}
+                label="Texte"
                 onClick={() =>
                   addBlock({
                     id: newBlockId(),
@@ -694,9 +739,7 @@ export function SidebarLevel2({
                     style: { color: "var(--p-color-text)" },
                   })
                 }
-              >
-                📝 Texte
-              </Button>
+              />
             </BlockStack>
           </CategoryRow>
 
@@ -707,10 +750,9 @@ export function SidebarLevel2({
             onToggle={() => toggleCat("media")}
           >
             <BlockStack gap="100">
-              <Button
-                variant="plain"
-                fullWidth
-                textAlign="left"
+              <LibraryItem
+                icon={ImageIcon}
+                label="Image"
                 onClick={() =>
                   addBlock({
                     id: newBlockId(),
@@ -720,13 +762,10 @@ export function SidebarLevel2({
                     style: { maxWidth: "100%" },
                   })
                 }
-              >
-                🖼️ Image
-              </Button>
-              <Button
-                variant="plain"
-                fullWidth
-                textAlign="left"
+              />
+              <LibraryItem
+                icon={LayoutBlockIcon}
+                label="Bannière (Hero)"
                 onClick={() =>
                   addBlock({
                     id: newBlockId(),
@@ -737,13 +776,10 @@ export function SidebarLevel2({
                     layout: "stack",
                   })
                 }
-              >
-                🎯 Bannière (Hero)
-              </Button>
-              <Button
-                variant="plain"
-                fullWidth
-                textAlign="left"
+              />
+              <LibraryItem
+                icon={LayoutSidebarRightIcon}
+                label="Section Split"
                 onClick={() =>
                   addBlock({
                     id: newBlockId(),
@@ -754,9 +790,7 @@ export function SidebarLevel2({
                     imageSide: "left",
                   })
                 }
-              >
-                ◧ Section Split
-              </Button>
+              />
             </BlockStack>
           </CategoryRow>
         </BlockStack>
@@ -788,7 +822,7 @@ export function SidebarLevel2({
                       onDuplicate={() => duplicateBlock(block.id)}
                       isLocked={block.type === "product_list"}
                       isHidden={hiddenBlocks.has(block.id)}
-                      onToggleVisibility={() => toggleBlockVisibility(block.id)}
+                      onToggleVisibility={() => onToggleBlockVisibility(block.id)}
                     />
                   ))}
                 </BlockStack>

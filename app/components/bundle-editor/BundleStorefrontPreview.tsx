@@ -6,6 +6,7 @@ import type {
   StorefrontDesignV2,
   TextStyleBlock,
 } from "../../utils/storefront-design";
+import { blockDisplayLabel } from "../../utils/storefront-design";
 import type { UiStep, UiStepProduct } from "../../utils/bundle-form.client";
 
 function textStyleToCss(st: TextStyleBlock | undefined): CSSProperties {
@@ -27,14 +28,16 @@ function textStyleToCss(st: TextStyleBlock | undefined): CSSProperties {
   };
 }
 
-// Wrapper that adds interactive hover/click behavior for preview blocks
+// Interactive wrapper with hover/click selection — uses inset boxShadow for reliable interaction
 function InteractiveBlockWrapper({
   blockId,
+  blockName,
   selectedBlockId,
   onSelectBlock,
   children,
 }: {
   blockId: string;
+  blockName: string;
   selectedBlockId: string | null;
   onSelectBlock: (id: string) => void;
   children: React.ReactNode;
@@ -52,15 +55,15 @@ function InteractiveBlockWrapper({
       onMouseLeave={() => setHovered(false)}
       style={{
         position: "relative",
-        outline: isSelected
-          ? "2px solid var(--p-color-border-interactive)"
+        boxShadow: isSelected
+          ? "inset 0 0 0 2px var(--p-color-border-interactive)"
           : hovered
-            ? "2px dashed var(--p-color-border-interactive)"
-            : "2px solid transparent",
-        outlineOffset: 2,
+            ? "inset 0 0 0 2px var(--p-color-border-interactive-hover, rgba(0,91,211,0.4))"
+            : "inset 0 0 0 2px transparent",
         borderRadius: 6,
         cursor: "pointer",
-        transition: "outline 0.15s ease",
+        transition: "box-shadow 0.15s ease",
+        padding: 2,
       }}
     >
       {children}
@@ -80,9 +83,10 @@ function InteractiveBlockWrapper({
             fontWeight: 600,
             lineHeight: "16px",
             pointerEvents: "none",
+            whiteSpace: "nowrap",
           }}
         >
-          {blockId.slice(0, 8)}
+          {blockName}
         </div>
       )}
     </div>
@@ -98,6 +102,7 @@ function RenderBlock({
   selectedBlockId: string | null;
   onSelectBlock: (id: string) => void;
 }) {
+  const name = blockDisplayLabel(block);
   let content: React.ReactNode = null;
 
   switch (block.type) {
@@ -144,7 +149,8 @@ function RenderBlock({
         <div
           style={{
             height: block.height,
-            background: "repeating-linear-gradient(45deg, transparent, transparent 5px, var(--p-color-bg-surface-secondary) 5px, var(--p-color-bg-surface-secondary) 10px)",
+            background:
+              "repeating-linear-gradient(45deg, transparent, transparent 5px, var(--p-color-bg-surface-secondary) 5px, var(--p-color-bg-surface-secondary) 10px)",
             borderRadius: 4,
             opacity: 0.3,
           }}
@@ -243,6 +249,7 @@ function RenderBlock({
   return (
     <InteractiveBlockWrapper
       blockId={block.id}
+      blockName={name}
       selectedBlockId={selectedBlockId}
       onSelectBlock={onSelectBlock}
     >
@@ -284,13 +291,13 @@ function StepBarPreview({
   if (steps.length < 2) return null;
   const st = block.style ?? {};
   const preset = (block as { preset?: string }).preset ?? "default";
-
-  // Determine dot size based on preset
   const dotSize = preset === "circles" ? 44 : preset === "minimal" ? 12 : 40;
+  const blockName = blockDisplayLabel(block);
 
   return (
     <InteractiveBlockWrapper
       blockId={block.id}
+      blockName={blockName}
       selectedBlockId={selectedBlockId}
       onSelectBlock={onSelectBlock}
     >
@@ -487,22 +494,69 @@ function ProductCard({ product }: { product: UiStepProduct }) {
   );
 }
 
+/** Product grid rendered inside the preview */
+function ProductGridPreview({
+  step,
+  blockId,
+  blockName,
+  selectedBlockId,
+  onSelectBlock,
+}: {
+  step: UiStep | undefined;
+  blockId: string;
+  blockName: string;
+  selectedBlockId: string | null;
+  onSelectBlock: (id: string) => void;
+}) {
+  return (
+    <InteractiveBlockWrapper
+      blockId={blockId}
+      blockName={blockName}
+      selectedBlockId={selectedBlockId}
+      onSelectBlock={onSelectBlock}
+    >
+      <div className="sar-bundle__body">
+        <div className="sar-bundle__products">
+          {step && step.products.length > 0 ? (
+            step.products.map((p) => (
+              <ProductCard key={p.variantGid} product={p} />
+            ))
+          ) : (
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                padding: "2rem",
+                textAlign: "center",
+                color: "var(--p-color-text-subdued)",
+                border: "2px dashed var(--p-color-border)",
+                borderRadius: 8,
+              }}
+            >
+              Aucun produit dans cette étape — ajoutez des produits dans la mise en page.
+            </div>
+          )}
+        </div>
+      </div>
+    </InteractiveBlockWrapper>
+  );
+}
+
 export function BundleStorefrontPreview({
   design,
   steps,
   activeStepIndex,
-  bundleTitle,
   onSelectStep,
   onSelectBlock,
   selectedBlockId,
+  hiddenBlocks,
 }: {
   design: StorefrontDesignV2;
   steps: UiStep[];
   activeStepIndex: number;
-  bundleTitle: string;
   onSelectStep?: (stepIndex: number) => void;
   onSelectBlock?: (blockId: string) => void;
   selectedBlockId?: string | null;
+  hiddenBlocks?: Set<string>;
 }) {
   const g = design.global;
   const safeIndex = Math.min(
@@ -510,8 +564,11 @@ export function BundleStorefrontPreview({
     Math.max(0, steps.length - 1),
   );
   const step = steps[safeIndex];
-  const hasProductListBlock = design.blocks.some((b) => b.type === "product_list");
   const blocks = useMemo(() => design.blocks ?? [], [design.blocks]);
+  const hidden = hiddenBlocks ?? new Set<string>();
+
+  // Check if any product_list block exists
+  const hasProductListBlock = blocks.some((b) => b.type === "product_list");
 
   const handleStepClick = (idx: number) => {
     onSelectStep?.(idx);
@@ -533,6 +590,9 @@ export function BundleStorefrontPreview({
           }}
         >
           {blocks.map((b) => {
+            // Skip hidden blocks
+            if (hidden.has(b.id)) return null;
+
             if (b.type === "step_bar") {
               return (
                 <StepBarPreview
@@ -546,7 +606,18 @@ export function BundleStorefrontPreview({
                 />
               );
             }
-            if (b.type === "product_list") return null;
+            if (b.type === "product_list") {
+              return (
+                <ProductGridPreview
+                  key={b.id}
+                  step={step}
+                  blockId={b.id}
+                  blockName={blockDisplayLabel(b)}
+                  selectedBlockId={selectedBlockId ?? null}
+                  onSelectBlock={handleBlockSelect}
+                />
+              );
+            }
             return (
               <RenderBlock
                 key={b.id}
@@ -558,23 +629,7 @@ export function BundleStorefrontPreview({
           })}
         </div>
 
-        <h2 className="sar-bundle__title">{bundleTitle.trim() || "Bundle"}</h2>
-
-        <div className="sar-bundle__steps">
-          {steps.map((s, i) => (
-            <span
-              key={i}
-              className={
-                "sar-bundle__step-pill" + (i === safeIndex ? " sar-bundle__step-pill--active" : "")
-              }
-              style={{ cursor: "pointer" }}
-              onClick={() => handleStepClick(i)}
-            >
-              {(s.name || `Étape ${i + 1}`).slice(0, 48)}
-            </span>
-          ))}
-        </div>
-
+        {/* Fallback: if no product_list block exists, show products anyway */}
         {!hasProductListBlock && step ? (
           <div className="sar-bundle__body">
             <div className="sar-bundle__products">

@@ -10,10 +10,10 @@ import {
   Box,
   Button,
   Card,
+  Icon,
   InlineStack,
   Text,
   Tooltip,
-  Icon,
 } from "@shopify/polaris";
 import {
   DndContext,
@@ -84,15 +84,16 @@ function SortableStepRow({
           >
             <Icon source={DragHandleIcon} />
           </div>
-          <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-            <Button
-              variant="plain"
-              onClick={onClick}
-              fullWidth
-              textAlign="left"
-            >
+          <div
+            style={{ flex: 1, minWidth: 0, overflow: "hidden", cursor: "pointer" }}
+            onClick={onClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+          >
+            <Text as="span" variant="bodyMd" truncate>
               {step.name.trim() || `Étape ${index + 1}`}
-            </Button>
+            </Text>
           </div>
           <Tooltip content="Supprimer l'étape">
             <Button
@@ -117,6 +118,8 @@ export function BundleVisualEditor({
   setForm: Dispatch<SetStateAction<BundleFormState>>;
 }) {
   const [nav, setNav] = useState<SidebarLevel>({ level: 1 });
+  // Lifted from SidebarLevel2 so it can be shared with the preview
+  const [hiddenBlocks, setHiddenBlocks] = useState<Set<string>>(new Set());
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -158,12 +161,27 @@ export function BundleVisualEditor({
           blocks: f.storefrontDesign.blocks.filter((b) => b.id !== blockId),
         },
       }));
+      // Remove from hidden set if present
+      setHiddenBlocks((prev) => {
+        const next = new Set(prev);
+        next.delete(blockId);
+        return next;
+      });
       setNav((n) =>
         n.level === 3 ? { level: 2, stepIndex: n.stepIndex, activeTab: 0 } : n,
       );
     },
     [setForm],
   );
+
+  const toggleBlockVisibility = useCallback((blockId: string) => {
+    setHiddenBlocks((prev) => {
+      const next = new Set(prev);
+      if (next.has(blockId)) next.delete(blockId);
+      else next.add(blockId);
+      return next;
+    });
+  }, []);
 
   const addStep = () => {
     setForm((f) => ({ ...f, steps: [...f.steps, emptyStep(f.steps.length)] }));
@@ -283,6 +301,8 @@ export function BundleVisualEditor({
           }
           activeTab={nav.activeTab}
           onTabChange={(t) => setNav({ ...nav, activeTab: t })}
+          hiddenBlocks={hiddenBlocks}
+          onToggleBlockVisibility={toggleBlockVisibility}
         />
       );
     }
@@ -298,6 +318,10 @@ export function BundleVisualEditor({
           step={step}
           design={form.storefrontDesign}
           onDesignChange={patchDesign}
+          onStepPatch={(patch) => patchStep(nav.stepIndex, patch)}
+          onStepProductsChange={(products) =>
+            patchStep(nav.stepIndex, { products })
+          }
           onBack={() =>
             setNav({ level: 2, stepIndex: nav.stepIndex, activeTab: 0 })
           }
@@ -350,8 +374,8 @@ export function BundleVisualEditor({
               design={form.storefrontDesign}
               steps={form.steps}
               activeStepIndex={activeStepIndex}
-              bundleTitle={form.name}
               selectedBlockId={nav.level === 3 ? nav.blockId : null}
+              hiddenBlocks={hiddenBlocks}
               onSelectStep={(idx) =>
                 setNav({ level: 2, stepIndex: idx, activeTab: 0 })
               }
