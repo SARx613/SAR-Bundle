@@ -27,8 +27,8 @@ async function enrichPayloadProductHandles(
   payload: SerializedBundle,
 ): Promise<void> {
   const ids: string[] = [];
-  for (const s of payload.steps) {
-    for (const p of s.products) {
+  for (const s of payload.steps ?? []) {
+    for (const p of (s.products ?? [])) {
       if (p?.variantGid && typeof p.variantGid === "string") ids.push(p.variantGid);
     }
   }
@@ -59,8 +59,8 @@ async function enrichPayloadProductHandles(
     }
   }
 
-  for (const s of payload.steps) {
-    s.products = s.products.map((p) => {
+  for (const s of payload.steps ?? []) {
+    s.products = (s.products ?? []).map((p) => {
       if (!p?.variantGid) return p;
       const handle = handleByVariantId.get(p.variantGid) ?? null;
       if (!handle) return p;
@@ -163,7 +163,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     const payload = parseBundlePayload(body);
     let warning: string | undefined;
     try {
-      await enrichPayloadProductHandles(admin, payload);
+      await enrichPayloadProductHandles(admin as any, payload as any);
     } catch (e) {
       console.warn("bundle save: productHandle enrich failed", e);
       warning =

@@ -47,7 +47,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     { variables: { first } },
   );
 
-  const body = await res.json();
+  const body = (await res.json()) as any;
   const errs = body?.errors;
   if (errs?.length) {
     return json(

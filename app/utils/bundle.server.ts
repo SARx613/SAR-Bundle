@@ -504,7 +504,7 @@ export function toPrismaBundleScalars(
     bundleGallery:
       data.bundleGallery.length > 0
         ? (data.bundleGallery as unknown as Prisma.InputJsonValue)
-        : null,
+        : undefined,
     productHandle: data.productHandle,
     seoTitle: data.seoTitle ?? null,
     seoDescription: data.seoDescription ?? null,

@@ -482,7 +482,7 @@ export function SidebarLevel2({
       multiple: true,
       action: "add",
     });
-    const sel = (selected as { selection?: Array<Record<string, unknown>> } | null)?.selection;
+    const sel = (selected as unknown as { selection?: Array<Record<string, unknown>> } | null)?.selection;
     if (!Array.isArray(sel) || sel.length === 0) return;
 
     const existing = new Set(step.products.map((p) => p.variantGid));

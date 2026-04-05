@@ -79,7 +79,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   await prisma.$transaction(
     updates.map((u) =>
-      prisma.bundleStepProduct.update({
+      prisma.stepProduct.update({
         where: { id: u.id },
         data: { productHandle: u.handle },
       }),
