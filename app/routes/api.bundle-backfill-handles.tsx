@@ -42,16 +42,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (uniqueIds.length === 0) return json({ ok: true as const, updated: 0 });
 
   const res = await admin.graphql(
-    `#graphql
-      query BackfillVariantHandles($ids: [ID!]!) {
-        ${PRODUCT_DISPLAY_FIELDS}
-        ${VARIANT_DISPLAY_FIELDS}
-        nodes(ids: $ids) {
-          ... on ProductVariant {
-            ...VariantDisplayFields
-          }
+    `query BackfillVariantHandles($ids: [ID!]!) {
+      ${PRODUCT_DISPLAY_FIELDS}
+      ${VARIANT_DISPLAY_FIELDS}
+      nodes(ids: $ids) {
+        ... on ProductVariant {
+          ...VariantDisplayFields
         }
-      }`,
+      }
+    }`,
     { variables: { ids: uniqueIds } },
   );
   const gql = await res.json();

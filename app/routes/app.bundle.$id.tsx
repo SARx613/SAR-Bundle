@@ -36,16 +36,15 @@ async function enrichPayloadProductHandles(
   if (uniqueIds.length === 0) return;
 
   const res = await admin.graphql(
-    `#graphql
-      query BundleSaveVariantHandles($ids: [ID!]!) {
-        ${PRODUCT_DISPLAY_FIELDS}
-        ${VARIANT_DISPLAY_FIELDS}
-        nodes(ids: $ids) {
-          ... on ProductVariant {
-            ...VariantDisplayFields
-          }
+    `query BundleSaveVariantHandles($ids: [ID!]!) {
+      ${PRODUCT_DISPLAY_FIELDS}
+      ${VARIANT_DISPLAY_FIELDS}
+      nodes(ids: $ids) {
+        ... on ProductVariant {
+          ...VariantDisplayFields
         }
-      }`,
+      }
+    }`,
     { variables: { ids: uniqueIds } },
   );
   const body = await res.json();
@@ -105,37 +104,42 @@ const emptyBundleState: SerializedBundle = {
 };
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { session, admin } = await authenticate.admin(request);
-  const id = params.id;
-  if (!id) throw new Response("Missing bundle id", { status: 400 });
+  try {
+    const { session, admin } = await authenticate.admin(request);
+    const id = params.id;
+    if (!id) throw new Response("Missing bundle id", { status: 400 });
 
-  if (id === "new") {
+    if (id === "new") {
+      return json({
+        isNew: true as const,
+        bundle: emptyBundleState,
+        shop: session.shop,
+      });
+    }
+
+    const bundle = await prisma.bundle.findFirst({
+      where: { id, shopDomain: session.shop },
+      include: bundleDetailInclude,
+    });
+
+    if (!bundle) throw new Response("Not found", { status: 404 });
+
+    // Enrich step products with Admin API data (titles, images, handles)
+    try {
+      await enrichBundleStepProductsForStorefront(admin as any, bundle);
+    } catch (e) {
+      console.warn("bundle editor: product enrichment failed", e);
+    }
+
     return json({
-      isNew: true as const,
-      bundle: emptyBundleState,
+      isNew: false as const,
+      bundle: serializeBundleTree(bundle) as unknown as SerializedBundle,
       shop: session.shop,
     });
+  } catch (err: any) {
+    console.error("APP.BUNDLE.$ID LOADER CRASH:", err);
+    throw new Response(err?.stack || err?.message || String(err), { status: 500, statusText: "Loader Error" });
   }
-
-  const bundle = await prisma.bundle.findFirst({
-    where: { id, shopDomain: session.shop },
-    include: bundleDetailInclude,
-  });
-
-  if (!bundle) throw new Response("Not found", { status: 404 });
-
-  // Enrich step products with Admin API data (titles, images, handles)
-  try {
-    await enrichBundleStepProductsForStorefront(admin, bundle);
-  } catch (e) {
-    console.warn("bundle editor: product enrichment failed", e);
-  }
-
-  return json({
-    isNew: false as const,
-    bundle: serializeBundleTree(bundle) as unknown as SerializedBundle,
-    shop: session.shop,
-  });
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
