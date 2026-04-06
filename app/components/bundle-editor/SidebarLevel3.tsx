@@ -17,6 +17,7 @@ import {
   TextField,
   Thumbnail,
   Tooltip,
+  ButtonGroup,
 } from "@shopify/polaris";
 import {
   ArrowLeftIcon,
@@ -885,30 +886,67 @@ function ProductListManager({
       </CollapsibleStyleSection>
 
       {/* Source */}
-      <Select
-        label="Source des produits"
-        options={[
-          { label: "Produits sélectionnés (étape)", value: "step_pick" },
-          { label: "Collection", value: "collection" },
-        ]}
-        value={source}
-        onChange={(v) =>
-          onPatch({
-            source: v as "step_pick" | "collection",
-            ...(v === "collection" ? {} : { collectionHandle: undefined }),
-          } as Partial<StorefrontBlockV2>)
-        }
-      />
+      <BlockStack gap="200">
+        <Text as="span" variant="bodyMd">Type de source</Text>
+        <Box>
+          <ButtonGroup variant="segmented">
+            <Button
+              pressed={source === "step_pick"}
+              onClick={() => onPatch({ source: "step_pick" } as Partial<StorefrontBlockV2>)}
+            >
+              Produits spécifiques
+            </Button>
+            <Button
+              pressed={source === "collection"}
+              onClick={() => onPatch({ source: "collection" } as Partial<StorefrontBlockV2>)}
+            >
+              Collections
+            </Button>
+            <Button
+              pressed={source === "all_products"}
+              onClick={() => onPatch({ source: "all_products" } as Partial<StorefrontBlockV2>)}
+            >
+              Tous les produits
+            </Button>
+          </ButtonGroup>
+        </Box>
+      </BlockStack>
 
       {source === "collection" ? (
         <BlockStack gap="200">
-          <TextField
-            label="Handle de collection"
-            value={block.collectionHandle ?? ""}
-            onChange={(v) => onPatch({ collectionHandle: v.trim() || undefined } as Partial<StorefrontBlockV2>)}
-            autoComplete="off"
-            helpText="Ex: /collections/mon-handle → mon-handle"
-          />
+          <Box
+            padding="300"
+            borderWidth="025"
+            borderColor="border"
+            borderRadius="200"
+            background="bg-surface"
+          >
+            <BlockStack gap="200">
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="p" variant="bodyMd" tone="subdued">
+                  Collection sélectionnée
+                </Text>
+                {block.collectionHandle && (
+                  <Button
+                    variant="plain"
+                    tone="critical"
+                    onClick={() => onPatch({ collectionHandle: undefined } as Partial<StorefrontBlockV2>)}
+                  >
+                    Retirer
+                  </Button>
+                )}
+              </InlineStack>
+              {block.collectionHandle ? (
+                <Text as="p" fontWeight="semibold" variant="bodyMd">
+                  /collections/{block.collectionHandle}
+                </Text>
+              ) : (
+                <Text as="p" variant="bodySm" tone="critical">
+                  Aucune collection choisie
+                </Text>
+              )}
+            </BlockStack>
+          </Box>
           <Button
             onClick={async () => {
               const selected = await shopifyBridge.resourcePicker({
@@ -922,9 +960,15 @@ function ProductListManager({
               }
             }}
           >
-            Sélectionner une collection
+            {block.collectionHandle ? "Modifier la collection" : "Sélectionner une collection"}
           </Button>
         </BlockStack>
+      ) : source === "all_products" ? (
+        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+          <Text as="p" variant="bodySm" tone="subdued">
+            Tous les produits de votre boutique seront affichés dans ce bloc.
+          </Text>
+        </Box>
       ) : (
         <BlockStack gap="300">
           <InlineStack gap="200" wrap>
@@ -959,6 +1003,11 @@ function ProductListManager({
                       <Text as="p" variant="bodySm" truncate>
                         {p.displayName}
                       </Text>
+                      {p.minQuantity != null || p.maxQuantity != null ? (
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Qté : {p.minQuantity ?? 0} - {p.maxQuantity ?? "∞"}
+                        </Text>
+                      ) : null}
                     </div>
                     <Tooltip content="Retirer">
                       <Button

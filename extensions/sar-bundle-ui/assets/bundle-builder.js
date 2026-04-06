@@ -1283,12 +1283,16 @@
                 inner.appendChild(body);
               }
 
-              if (designCtx.__productListSource === 'collection' && designCtx.__productListCollection) {
-                var loadId = 'loading-' + designCtx.__productListCollection;
+              var isCollection = designCtx.__productListSource === 'collection' && designCtx.__productListCollection;
+              var isAllProducts = designCtx.__productListSource === 'all_products';
+              
+              if (isCollection || isAllProducts) {
+                var handle = isAllProducts ? 'all' : designCtx.__productListCollection;
+                var loadId = 'loading-' + handle;
                 if (!grid.querySelector('#' + loadId)) {
                   grid.innerHTML = '<div id="' + loadId + '" class="sar-bundle__loading">Chargement des produits...</div>';
                 }
-                fetchCollectionProducts(designCtx.__productListCollection).then(function (products) {
+                fetchCollectionProducts(handle).then(function (products) {
                   grid.innerHTML = '';
                   stepProds = (products || []).map(function(p) {
                     var v0 = p.variants && p.variants[0];

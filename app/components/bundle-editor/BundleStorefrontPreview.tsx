@@ -1,15 +1,451 @@
-import { useEffect, useRef } from "react";
-import type { StorefrontDesignV2 } from "../../utils/storefront-design";
-import type { UiStep } from "../../utils/bundle-form.client";
+import { useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import type {
+  StepBarBlock,
+  ProductListBlock,
+  StorefrontBlockV2,
+  StorefrontDesignV2,
+  TextStyleBlock,
+} from "../../utils/storefront-design";
+import { blockDisplayLabel } from "../../utils/storefront-design";
+import type { UiStep, UiStepProduct } from "../../utils/bundle-form.client";
 
-declare global {
-  interface Window {
-    SARBundleJS?: {
-      mount: (el: HTMLElement, explicitBundleData?: any) => Promise<void>;
-      init: () => void;
-    };
-  }
+/* ─────────────────── helpers ─────────────────── */
+
+function textStyleToCss(st: TextStyleBlock | undefined): CSSProperties {
+  if (!st) return {};
+  return {
+    fontSize: st.fontSize,
+    fontWeight: st.fontWeight,
+    color: st.color,
+    backgroundColor: st.backgroundColor,
+    textAlign: st.textAlign,
+    marginTop: st.marginTop,
+    marginBottom: st.marginBottom,
+    padding: st.padding,
+    borderRadius: st.borderRadius,
+    borderWidth: st.borderWidth,
+    borderColor: st.borderColor,
+    borderStyle: st.borderWidth ? "solid" : undefined,
+    fontFamily: st.fontFamily,
+  };
 }
+
+/* ─────────────────── Interactive wrapper ─────────────────── */
+
+function InteractiveBlockWrapper({
+  blockId,
+  blockName,
+  selectedBlockId,
+  onSelectBlock,
+  children,
+}: {
+  blockId: string;
+  blockName: string;
+  selectedBlockId: string | null;
+  onSelectBlock: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const isSelected = blockId === selectedBlockId;
+
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelectBlock(blockId);
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: "relative",
+        boxShadow: isSelected
+          ? "inset 0 0 0 2px var(--p-color-border-interactive)"
+          : hovered
+            ? "inset 0 0 0 2px var(--p-color-border-interactive-hover, rgba(0,91,211,0.4))"
+            : "inset 0 0 0 2px transparent",
+        borderRadius: 6,
+        cursor: "pointer",
+        transition: "box-shadow 0.15s ease",
+        padding: 2,
+      }}
+    >
+      {children}
+      {(hovered || isSelected) && (
+        <div
+          style={{
+            position: "absolute",
+            top: -10,
+            left: 4,
+            background: isSelected
+              ? "var(--p-color-bg-fill-brand)"
+              : "var(--p-color-bg-surface-secondary)",
+            color: isSelected ? "#fff" : "var(--p-color-text-subdued)",
+            fontSize: "10px",
+            padding: "1px 6px",
+            borderRadius: 4,
+            fontWeight: 600,
+            lineHeight: "16px",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {blockName}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────── Step Bar Preview ─────────────────── */
+
+function StepBarPreview({
+  block,
+  steps,
+  activeStepIndex,
+  onSelectStep,
+}: {
+  block: StepBarBlock;
+  steps: UiStep[];
+  activeStepIndex: number;
+  onSelectStep: (i: number) => void;
+}) {
+  const st = block.style ?? {};
+
+  return (
+    <div
+      className="sar-stepbar"
+      style={{
+        marginBottom: "2.5rem",
+        ...(st.borderColor ? { "--sar-stepbar-border": st.borderColor } as any : {}),
+        ...(st.activeBg ? { "--sar-stepbar-active-bg": st.activeBg } as any : {}),
+        ...(st.inactiveBg ? { "--sar-stepbar-inactive-bg": st.inactiveBg } as any : {}),
+        ...(st.activeTextColor ? { "--sar-stepbar-active-text": st.activeTextColor } as any : {}),
+        ...(st.inactiveTextColor ? { "--sar-stepbar-inactive-text": st.inactiveTextColor } as any : {}),
+        ...(st.labelColor ? { "--sar-stepbar-label-color": st.labelColor } as any : {}),
+        ...(st.fontSize ? { "--sar-stepbar-font-size": st.fontSize } as any : {}),
+      }}
+    >
+      {steps.map((s, i) => {
+        const isActive = i <= activeStepIndex;
+        return (
+          <div
+            key={i}
+            className="sar-stepbar__item"
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              ...(i > 0 ? { flex: "1 1 0%" } : {}),
+            }}
+            onClick={() => onSelectStep(i)}
+          >
+            {i > 0 && (
+              <div
+                className={`sar-stepbar__line${isActive ? " sar-stepbar__line--active" : ""}`}
+              />
+            )}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+              <div className={`sar-stepbar__dot${isActive ? " sar-stepbar__dot--active" : ""}`}>
+                {i + 1}
+              </div>
+              <div
+                className="sar-stepbar__label"
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  marginTop: "8px",
+                  transform: "translateX(-50%)",
+                  left: "50%",
+                  width: "max-content",
+                  ...(st.labelColor ? { color: st.labelColor } : {}),
+                  ...(st.fontSize ? { fontSize: st.fontSize } : {}),
+                }}
+              >
+                {(s.name || `Étape ${i + 1}`).slice(0, 24)}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─────────────────── Product Grid Preview ─────────────────── */
+
+function ProductGridPreview({
+  block,
+  products,
+  isMobile,
+}: {
+  block: ProductListBlock | null;
+  products: UiStepProduct[];
+  isMobile?: boolean;
+}) {
+  const cols = block?.columns ?? 3;
+  const colsMobile = block?.columnsMobile ?? 2;
+  const gapX = block?.gapX ?? 16;
+  const gapY = block?.gapY ?? 16;
+  const cardLayout = block?.cardLayout ?? "classic";
+  const buttonText = block?.buttonText || "Add to box";
+
+  if (products.length === 0) {
+    return (
+      <div
+        style={{
+          padding: "2rem",
+          textAlign: "center",
+          color: "var(--p-color-text-subdued, #999)",
+          border: "2px dashed var(--p-color-border, #e1e3e5)",
+          borderRadius: 8,
+        }}
+      >
+        Aucun produit dans cette étape. Ajoutez des produits via l'onglet Paramètres.
+      </div>
+    );
+  }
+
+  const effectiveCols = isMobile ? colsMobile : cols;
+
+  return (
+    <div
+      className="sar-bundle__products"
+      style={{
+        "--grid-cols-desktop": cols,
+        "--grid-cols-mobile": colsMobile,
+        "--grid-gap-x": `${gapX}px`,
+        "--grid-gap-y": `${gapY}px`,
+        gridTemplateColumns: `repeat(${effectiveCols}, 1fr)`,
+      } as any}
+    >
+      {products.map((p) => (
+        <ProductCard
+          key={p.variantGid}
+          product={p}
+          layout={cardLayout}
+          buttonText={buttonText}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ProductCard({
+  product,
+  layout,
+  buttonText,
+}: {
+  product: UiStepProduct;
+  layout: "classic" | "overlay";
+  buttonText: string;
+}) {
+  const [qty, setQty] = useState(0);
+
+  return (
+    <div className={`sar-bundle__product sar-bundle__product--${layout}`}>
+      <div className="sar-bundle__product-img-wrapper">
+        {product.imageUrl ? (
+          <img src={product.imageUrl} alt="" />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              aspectRatio: "1",
+              background: "var(--sar-color-bg-subtle, #f6f6f7)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#999",
+              fontSize: "0.8rem",
+            }}
+          >
+            📷
+          </div>
+        )}
+        {layout === "overlay" && (
+          <div className={`sar-bundle__product-atc-wrapper${qty > 0 ? " is-added" : ""}`}>
+            {qty > 0 ? (
+              <div className="sar-bundle__product-qty-box">
+                <button type="button" className="sar-bundle__product-qty-btn" onClick={() => setQty(Math.max(0, qty - 1))}>−</button>
+                <span className="sar-bundle__product-qty-val">{qty}</span>
+                <button type="button" className="sar-bundle__product-qty-btn" onClick={() => setQty(qty + 1)}>+</button>
+              </div>
+            ) : (
+              <button type="button" className="sar-bundle__product-atc-btn" onClick={() => setQty(1)}>
+                {buttonText}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      <p className="sar-bundle__product-title">{product.displayName || "Produit"}</p>
+      {layout === "classic" && (
+        <div className="sar-bundle__product-atc-wrapper">
+          {qty > 0 ? (
+            <div className="sar-bundle__product-qty-box">
+              <button type="button" className="sar-bundle__product-qty-btn" onClick={() => setQty(Math.max(0, qty - 1))}>−</button>
+              <span className="sar-bundle__product-qty-val">{qty}</span>
+              <button type="button" className="sar-bundle__product-qty-btn" onClick={() => setQty(qty + 1)}>+</button>
+            </div>
+          ) : (
+            <button type="button" className="sar-bundle__product-atc-btn" onClick={() => setQty(1)}>
+              {buttonText}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────── Block renderer ─────────────────── */
+
+function RenderBlock({
+  block,
+  selectedBlockId,
+  onSelectBlock,
+  steps,
+  activeStepIndex,
+  onSelectStep,
+  isMobile,
+}: {
+  block: StorefrontBlockV2;
+  selectedBlockId: string | null;
+  onSelectBlock: (id: string) => void;
+  steps: UiStep[];
+  activeStepIndex: number;
+  onSelectStep: (i: number) => void;
+  isMobile?: boolean;
+}) {
+  const name = blockDisplayLabel(block);
+  let content: React.ReactNode = null;
+
+  switch (block.type) {
+    case "heading": {
+      const Tag = block.tag;
+      content = <Tag style={textStyleToCss(block.style)}>{block.text}</Tag>;
+      break;
+    }
+    case "text":
+      content = <p style={textStyleToCss(block.style)}>{block.text}</p>;
+      break;
+    case "image":
+      content = block.url ? (
+        <img
+          src={block.url}
+          alt={block.alt}
+          loading="lazy"
+          style={{
+            display: "block",
+            maxWidth: block.style.maxWidth || "100%",
+            ...textStyleToCss(block.style),
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            background: "var(--p-color-bg-surface-secondary)",
+            border: "2px dashed var(--p-color-border)",
+            borderRadius: 8,
+            height: 120,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--p-color-text-subdued)",
+            fontSize: "0.85rem",
+          }}
+        >
+          🖼️ Image (non définie)
+        </div>
+      );
+      break;
+    case "spacer":
+      content = (
+        <div
+          style={{
+            height: block.height,
+            background:
+              "repeating-linear-gradient(45deg, transparent, transparent 5px, var(--p-color-bg-surface-secondary) 5px, var(--p-color-bg-surface-secondary) 10px)",
+            borderRadius: 4,
+            opacity: 0.3,
+          }}
+        />
+      );
+      break;
+    case "hero": {
+      const layout = block.layout ?? "stack";
+      content = (
+        <section className={`sar-bundle__hero sar-bundle__hero--${layout}`}>
+          {block.imageUrl ? (
+            <img src={block.imageUrl} alt="" loading="lazy" className="sar-bundle__hero-img" />
+          ) : (
+            <div style={{ width: 320, height: 200, background: "var(--p-color-bg-surface-secondary)", border: "2px dashed var(--p-color-border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--p-color-text-subdued)", fontSize: "0.85rem" }}>
+              🎯 Image Hero
+            </div>
+          )}
+          <div className="sar-bundle__hero-text">
+            <h2>{block.headline}</h2>
+            {block.subtext ? <p>{block.subtext}</p> : null}
+          </div>
+        </section>
+      );
+      break;
+    }
+    case "split": {
+      content = (
+        <section className={`sar-bundle__split sar-bundle__split--img-${block.imageSide === "right" ? "right" : "left"}`}>
+          {block.imageUrl ? (
+            <img src={block.imageUrl} alt="" loading="lazy" className="sar-bundle__split-img" />
+          ) : (
+            <div style={{ width: 200, height: 140, background: "var(--p-color-bg-surface-secondary)", border: "2px dashed var(--p-color-border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--p-color-text-subdued)", fontSize: "0.85rem" }}>
+              🖼️ Image
+            </div>
+          )}
+          <div className="sar-bundle__split-body">
+            <h3>{block.title}</h3>
+            <p>{block.body}</p>
+          </div>
+        </section>
+      );
+      break;
+    }
+    case "step_bar":
+      content = (
+        <StepBarPreview
+          block={block}
+          steps={steps}
+          activeStepIndex={activeStepIndex}
+          onSelectStep={onSelectStep}
+        />
+      );
+      break;
+    case "product_list":
+      content = (
+        <ProductGridPreview
+          block={block}
+          products={steps[activeStepIndex]?.products ?? []}
+          isMobile={isMobile}
+        />
+      );
+      break;
+    default:
+      return null;
+  }
+
+  return (
+    <InteractiveBlockWrapper
+      blockId={block.id}
+      blockName={name}
+      selectedBlockId={selectedBlockId}
+      onSelectBlock={onSelectBlock}
+    >
+      {content}
+    </InteractiveBlockWrapper>
+  );
+}
+
+/* ─────────────────── Main Preview Component ─────────────────── */
 
 export function BundleStorefrontPreview({
   design,
@@ -30,56 +466,69 @@ export function BundleStorefrontPreview({
   hiddenBlocks?: Record<string, boolean>;
   isMobile?: boolean;
 }) {
-  const mountRef = useRef<HTMLDivElement>(null);
+  const visibleBlocks = useMemo(
+    () => (design.blocks ?? []).filter((b) => !(hiddenBlocks ?? {})[b.id]),
+    [design.blocks, hiddenBlocks],
+  );
 
-  // Remonte le composant avec SARBundleJS nativement (ce qui garantit 100% de parité avec la vitrine Shopify)
-  useEffect(() => {
-    if (!mountRef.current || !window.SARBundleJS) return;
-    
-    // Pass the actual JS structure format
-    const bundleData = {
-       steps: steps,
-       stepIndex: activeStepIndex,
-       storefrontDesign: design,
-       __editorMode: true,
-       __selectedBlockId: selectedBlockId
-    };
+  const g = design.global ?? {};
+  const step = steps[activeStepIndex];
 
-    mountRef.current.innerHTML = `<div data-sar-loading></div><div data-sar-inner></div>`;
-    
-    window.SARBundleJS.mount(mountRef.current, bundleData).catch(console.error);
-
-  }, [design, steps, activeStepIndex, selectedBlockId, isMobile]);
-
-  // Écoute les clics sur les blocks interactifs poussés par le vanilla JS
-  useEffect(() => {
-    const handleSelect = (e: any) => {
-      if (e.detail) {
-        onSelectBlock(e.detail);
-      }
-    };
-    window.addEventListener('sar-editor-select-block', handleSelect);
-    return () => window.removeEventListener('sar-editor-select-block', handleSelect);
-  }, [onSelectBlock]);
+  // Check if there is a product_list block
+  const hasProductListBlock = visibleBlocks.some((b) => b.type === "product_list");
 
   return (
     <div
+      className="sar-bundle"
       style={{
-        position: "relative",
-        background: design.global?.pageBackground || "transparent",
-        fontFamily: design.global?.fontBody || "inherit",
-        minHeight: "100%",
-        padding: "1rem",
-        // En mode mobile de l'éditeur, on force les variables pour qu'elles écrasent --grid-cols-desktop
-        ...(isMobile ? { '--grid-cols-desktop': 'var(--grid-cols-mobile, 2)' } : {})
-      } as React.CSSProperties}
+        fontFamily: g.fontBody || "inherit",
+        background: g.pageBackground || "transparent",
+      }}
+      onClick={() => onSelectBlock(null)}
     >
-      <div 
-        ref={mountRef} 
-        id="sar-bundle-root"
-        data-heading="Composez votre pack"
-        data-show-progress="true"
-      />
+      <div
+        className="sar-bundle__design"
+        style={{
+          maxWidth: g.contentMaxWidth || "720px",
+          marginBottom: "1rem",
+        }}
+      >
+        {visibleBlocks.map((block) => (
+          <RenderBlock
+            key={block.id}
+            block={block}
+            selectedBlockId={selectedBlockId}
+            onSelectBlock={onSelectBlock}
+            steps={steps}
+            activeStepIndex={activeStepIndex}
+            onSelectStep={onSelectStep}
+            isMobile={isMobile}
+          />
+        ))}
+      </div>
+
+      {/* If no product_list block exists, show the default product grid */}
+      {!hasProductListBlock && step && (
+        <ProductGridPreview
+          block={null}
+          products={step.products}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* Footer: Total + Navigation */}
+      <div className="sar-bundle__footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginTop: "1rem" }}>
+        <div className="sar-bundle__bundle-total">
+          <span className="sar-bundle__bundle-total-label">Total du pack</span>
+          <span className="sar-bundle__bundle-total-value"><strong>0,00 €</strong></span>
+        </div>
+        <div className="sar-bundle__nav" style={{ display: "flex", gap: "0.75rem" }}>
+          <button type="button" className="sar-bundle__btn sar-bundle__btn--secondary">Précédent</button>
+          <button type="button" className="sar-bundle__btn sar-bundle__btn--primary">
+            {activeStepIndex === steps.length - 1 ? "Ajouter au panier" : "Suivant"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

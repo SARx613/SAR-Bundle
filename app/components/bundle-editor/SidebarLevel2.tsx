@@ -897,57 +897,7 @@ export function SidebarLevel2({
         </DropZone>
       )}
 
-      <Divider />
-      <Text as="h4" variant="headingSm">
-        Produits éligibles
-      </Text>
-      <InlineStack gap="200" wrap>
-        <Button onClick={openVariantPicker}>Sélectionner des variants</Button>
-        <Button onClick={openProductPicker} variant="secondary">
-          Sélectionner des produits
-        </Button>
-      </InlineStack>
-      {step.products.length === 0 ? (
-        <Text as="p" variant="bodySm" tone="subdued">
-          Aucun variant sélectionné.
-        </Text>
-      ) : (
-        <BlockStack gap="200">
-          {step.products.map((p, pi) => (
-            <Box
-              key={p.variantGid}
-              padding="200"
-              borderWidth="025"
-              borderColor="border"
-              borderRadius="200"
-              background="bg-surface"
-            >
-              <InlineStack gap="200" blockAlign="center" wrap={false}>
-                {p.imageUrl ? (
-                  <Thumbnail source={p.imageUrl} alt="" size="small" />
-                ) : null}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Text as="p" variant="bodySm" truncate>
-                    {p.displayName}
-                  </Text>
-                </div>
-                <Button
-                  variant="plain"
-                  tone="critical"
-                  onClick={() =>
-                    onStepProductsChange(step.products.filter((_, k) => k !== pi))
-                  }
-                  accessibilityLabel="Retirer"
-                >
-                  ✕
-                </Button>
-              </InlineStack>
-            </Box>
-          ))}
-        </BlockStack>
-      )}
 
-      <Divider />
       <Text as="h4" variant="headingSm">
         Sélections requises
       </Text>

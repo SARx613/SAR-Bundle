@@ -143,7 +143,7 @@ export type ProductListBlock = {
   id: string;
   name?: string;
   type: "product_list";
-  source?: "step_pick" | "collection";
+  source?: "step_pick" | "collection" | "all_products";
   /** Utilisé quand source = collection */
   collectionHandle?: string;
   /** Card layout style */
