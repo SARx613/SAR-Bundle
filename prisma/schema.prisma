@@ -229,3 +229,16 @@ model StepLineItemProperty {
 
   @@index([stepId, sortOrder])
 }
+
+/// Merchant-customized UI text overrides for bundle storefront
+model TranslationOverride {
+  id         String @id @default(cuid())
+  shopDomain String
+  /// Translation key, e.g. "btn_add_to_cart", "btn_next", "label_total"
+  key        String
+  /// Custom text value set by the merchant
+  value      String
+
+  @@unique([shopDomain, key])
+  @@index([shopDomain])
+}

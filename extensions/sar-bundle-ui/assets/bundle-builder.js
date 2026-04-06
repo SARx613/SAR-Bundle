@@ -607,7 +607,7 @@
       el.getAttribute('data-bundle-id') ||
       ''
     ).trim();
-    var heading = el.getAttribute('data-heading') || 'Composez votre pack';
+    var heading = el.getAttribute('data-heading') || '';
     var showProgress = el.getAttribute('data-show-progress') !== 'false';
     var loading = el.querySelector('[data-sar-loading]');
     var inner = el.querySelector('[data-sar-inner]');
@@ -856,7 +856,7 @@
             title.style.marginBottom = '16px';
             title.style.fontSize = '18px';
             title.style.fontWeight = '700';
-            title.textContent = b.title || 'Options Supplémentaires';
+            title.textContent = b.title || (bundle.translations && bundle.translations.label_upsell_title) || 'Extra Options';
             container.appendChild(title);
 
             var list = document.createElement('div');
@@ -1348,6 +1348,8 @@
                   var qCurrent = state.selections[originalGid] || 0;
                   var isSelected = qCurrent > 0;
 
+                  var atcText = (bundle.translations && bundle.translations.btn_add_to_box) || designCtx.__productListButtonText || (bundle.storefrontDesign && bundle.storefrontDesign.global && bundle.storefrontDesign.global.addToBoxText) || 'Add to box';
+
                   if (isSelected) {
                     atcWrapper.className += ' is-added';
                     var qtyBox = document.createElement('div');
@@ -1373,10 +1375,10 @@
                     qtyBox.appendChild(val);
                     qtyBox.appendChild(plus);
                     atcWrapper.appendChild(qtyBox);
+                  } else {
                     var addBtn = document.createElement('button');
                     addBtn.type = 'button';
                     addBtn.className = 'sar-bundle__product-atc-btn';
-                    var atcText = designCtx.__productListButtonText || bundle.storefrontDesign?.global?.addToBoxText || 'Ajouter';
                     addBtn.textContent = atcText;
                     if (designCtx.__productListButtonBackground) addBtn.style.background = designCtx.__productListButtonBackground;
                     if (designCtx.__productListButtonColor) addBtn.style.color = designCtx.__productListButtonColor;
@@ -1483,7 +1485,7 @@
             totalBox.className = 'sar-bundle__bundle-total';
             var totalLabel = document.createElement('span');
             totalLabel.className = 'sar-bundle__bundle-total-label';
-            totalLabel.textContent = 'Total du pack';
+            totalLabel.textContent = (bundle.translations && bundle.translations.label_total) || 'Bundle total';
             var totalVal = document.createElement('span');
             totalVal.className = 'sar-bundle__bundle-total-value';
             if (disp.compareAt != null) {
@@ -1546,7 +1548,7 @@
             var prev = document.createElement('button');
             prev.type = 'button';
             prev.className = 'sar-bundle__btn sar-bundle__btn--secondary';
-            prev.textContent = 'Précédent';
+            prev.textContent = (bundle.translations && bundle.translations.btn_previous) || 'Previous';
             prev.disabled = state.stepIndex === 0;
             prev.addEventListener('click', function () {
               state.stepIndex--;
@@ -1558,7 +1560,9 @@
             var next = document.createElement('button');
             next.type = 'button';
             next.className = 'sar-bundle__btn sar-bundle__btn--primary';
-            next.textContent = isLast ? 'Ajouter au panier' : 'Suivant';
+            var txtAddToCart = (bundle.translations && bundle.translations.btn_add_to_cart) || 'Add to cart';
+            var txtNext = (bundle.translations && bundle.translations.btn_next) || 'Next';
+            next.textContent = isLast ? txtAddToCart : txtNext;
             next.addEventListener('click', function () {
               errBox.hidden = true;
               if (!isLast) {
@@ -1600,16 +1604,16 @@
               if (requiredExact != null && !Number.isNaN(requiredExact)) {
                 if (totals.totalItemCount !== requiredExact) {
                   errBox.textContent =
-                    'Ce pack requiert exactement ' +
+                    'This bundle requires exactly ' +
                     String(requiredExact) +
-                    ' article(s) au total. Actuellement : ' +
+                    ' item(s). Currently: ' +
                     String(totals.totalItemCount) +
                     '.';
                   errBox.hidden = false;
                   return;
                 }
               } else if (totals.totalItemCount < 1) {
-                errBox.textContent = 'Sélectionnez au moins un produit.';
+                errBox.textContent = (bundle.translations && bundle.translations.label_select_product) || 'Select at least one product.';
                 errBox.hidden = false;
                 return;
               }

@@ -139,66 +139,20 @@ function StepBarPreview({
             key={i}
             className={`sar-stepbar__item ${isActive ? "active" : ""} ${isCompleted ? "completed" : ""}`}
             onClick={() => onSelectStep(i)}
-            style={{ 
-              flex: 1, 
-              position: "relative",
-              textAlign: "center"
-            }}
           >
             {i < steps.length - 1 && isShowLine && (
-              <div 
-                className="sar-stepbar__line" 
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "24px",
-                  width: "100%",
-                  height: "1px",
-                  background: isCompleted ? "var(--sar-stepbar-completed-bg)" : "var(--sar-stepbar-lineColor)",
-                  zIndex: 0
-                }}
-              />
+              <div className="sar-stepbar__line" />
             )}
 
-            <div 
-              className="sar-stepbar__icon-circle"
-              style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                margin: "0 auto 8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-                zIndex: 1,
-                background: isActive 
-                  ? "var(--sar-stepbar-active-bg)" 
-                  : isCompleted 
-                  ? "var(--sar-stepbar-completed-bg)" 
-                  : "var(--sar-stepbar-inactive-bg)",
-                color: isActive || isCompleted
-                  ? "var(--sar-stepbar-active-text)"
-                  : "var(--sar-stepbar-inactive-text)",
-                border: isActive || isCompleted ? "none" : "1px solid var(--sar-stepbar-borderColor)",
-                transition: "all 0.2s"
-              }}
-            >
+            <div className="sar-stepbar__icon-circle">
               {s.imageUrl ? (
-                <img src={s.imageUrl} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />
+                <img src={s.imageUrl} alt="" />
               ) : (
-                <span style={{ fontSize: "16px", fontWeight: "600" }}>{i + 1}</span>
+                <span>{i + 1}</span>
               )}
             </div>
 
-            <div
-              className="sar-stepbar__label"
-              style={{
-                fontSize: "var(--sar-stepbar-font-size)",
-                color: isActive ? "#000" : "var(--sar-stepbar-label-color)",
-                fontWeight: isActive ? "600" : "400"
-              }}
-            >
+            <div className="sar-stepbar__label">
               {(s.name || `Étape ${i + 1}`).slice(0, 24)}
             </div>
           </div>

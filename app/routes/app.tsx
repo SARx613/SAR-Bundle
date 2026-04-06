@@ -25,6 +25,7 @@ export default function App() {
           Accueil
         </Link>
         <Link to="/app/bundles">Bundles</Link>
+        <Link to="/app/translations">Textes &amp; Langues</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

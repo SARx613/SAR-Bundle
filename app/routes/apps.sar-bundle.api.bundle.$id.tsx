@@ -4,6 +4,7 @@ import prisma from "../db.server";
 import { authenticate, unauthenticated } from "../shopify.server";
 import { bundleDetailInclude, serializeBundleTree } from "../utils/bundle.server";
 import { enrichBundleStepProductsForStorefront } from "../utils/storefront-bundle-enrich.server";
+import { buildTranslations } from "../utils/translations";
 
 /**
  * App Proxy → GET /apps/sar-bundle/api/bundle/:id
@@ -44,7 +45,33 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       console.warn("storefront bundle enrich (Admin API)", e);
     }
 
-    return json(serializeBundleTree(bundle), {
+    // Build translations dictionary
+    let translationOverrides: { key: string; value: string }[] = [];
+    try {
+      translationOverrides = await (prisma as any).translationOverride.findMany({
+        where: { shopDomain: shop },
+        select: { key: true, value: true },
+      });
+    } catch {
+      // Table may not exist yet
+    }
+
+    // Detect shop locale from session (if available) or fallback to request
+    let shopLocale: string | null = null;
+    try {
+      const session = await prisma.session.findFirst({
+        where: { shop },
+        select: { locale: true },
+      });
+      shopLocale = session?.locale ?? null;
+    } catch {
+      // locale field may not exist
+    }
+
+    const translations = buildTranslations(shopLocale, translationOverrides);
+
+    const serialized = serializeBundleTree(bundle);
+    return json({ ...serialized, translations }, {
       headers: {
         "Cache-Control": "public, max-age=60",
         "Content-Type": "application/json",

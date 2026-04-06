@@ -531,7 +531,7 @@ function StepBarStyleFields({
   if (block.type !== "step_bar") return null;
   const style = block.style || {};
   const currentPreset = block.preset || "default";
-  
+
   const patchStyle = (s: Partial<StepBarBlock["style"]>) =>
     onPatch({ style: { ...style, ...s } } as Partial<StorefrontBlockV2>);
 
@@ -918,7 +918,7 @@ function ProductListManager({
               pressed={source === "step_pick"}
               onClick={() => onPatch({ source: "step_pick" } as Partial<StorefrontBlockV2>)}
             >
-              Produits spécifiques
+              Produits
             </Button>
             <Button
               pressed={source === "collection"}
