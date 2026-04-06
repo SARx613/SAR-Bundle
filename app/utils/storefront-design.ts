@@ -124,7 +124,6 @@ export type StepBarBlock = {
   id: string;
   name?: string;
   type: "step_bar";
-  /** Visual preset: default (numbered dots), circles (gold with check), lines (flat squares), minimal (small dots), custom (free colors) */
   preset?: "default" | "circles" | "lines" | "minimal" | "custom";
   style?: {
     borderColor?: string;
@@ -134,6 +133,10 @@ export type StepBarBlock = {
     inactiveTextColor?: string;
     labelColor?: string;
     completedBg?: string;
+    hoverBg?: string;
+    hoverTextColor?: string;
+    showLine?: boolean;
+    lineColor?: string;
     dotSize?: number;
     fontSize?: string;
   };
@@ -144,20 +147,37 @@ export type ProductListBlock = {
   name?: string;
   type: "product_list";
   source?: "step_pick" | "collection" | "all_products";
-  /** Utilisé quand source = collection */
   collectionHandle?: string;
-  /** Card layout style */
   cardLayout?: "classic" | "overlay";
-  /** Number of columns in the grid */
   columns?: number;
-  /** Number of columns in the grid (mobile) */
   columnsMobile?: number;
-  /** Horizontal gap between cards (px) */
-  gapX?: number;
-  /** Vertical gap between cards (px) */
-  gapY?: number;
-  /** Add to box button text */
   buttonText?: string;
+  buttonBackground?: string;
+  buttonColor?: string;
+  buttonBorderRadius?: string;
+};
+
+export type UpsellItem = {
+  id: string;
+  variantGid: string;
+  variantId: number;
+  productTitle: string;
+  priceAmount: string;
+  currencyCode: string;
+  defaultImageUrl?: string;
+  overrideLabel?: string;
+  overrideImage?: string;
+  shortDescription?: string;
+  defaultEnabled: boolean;
+};
+
+export type UpsellBlock = {
+  id: string;
+  name?: string;
+  title: string;
+  type: "upsell";
+  behavior: "single" | "multiple";
+  items: UpsellItem[];
 };
 
 export type StorefrontBlockV2 =
@@ -165,7 +185,8 @@ export type StorefrontBlockV2 =
   | HeroBlock
   | SplitBlock
   | StepBarBlock
-  | ProductListBlock;
+  | ProductListBlock
+  | UpsellBlock;
 
 export type StorefrontDesignV2 = {
   version: 2;

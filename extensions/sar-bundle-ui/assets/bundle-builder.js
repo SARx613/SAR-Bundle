@@ -696,6 +696,7 @@
             selections: {},
             selected: {},
             variantChoice: {},
+            upsellSelections: {}, // item.id -> boolean
           };
 
           for (var si = 0; si < bundle.steps.length; si++) {
@@ -738,70 +739,221 @@
           function renderStepBarBlock(wrapEl, b, ctx) {
             if (!ctx || !ctx.steps || ctx.steps.length < 2) return;
             var st = b.style || {};
-            // CSS variables consumed by .sar-stepbar*
-            wrapEl.style.setProperty('--sar-stepbar-border', st.borderColor || '');
-            wrapEl.style.setProperty('--sar-stepbar-active-bg', st.activeBg || '');
-            wrapEl.style.setProperty('--sar-stepbar-inactive-bg', st.inactiveBg || '');
-            wrapEl.style.setProperty('--sar-stepbar-active-text', st.activeTextColor || '');
-            wrapEl.style.setProperty('--sar-stepbar-inactive-text', st.inactiveTextColor || '');
-            wrapEl.style.setProperty('--sar-stepbar-label-color', st.labelColor || '');
-
             var bar = document.createElement('div');
             bar.className = 'sar-stepbar';
-            
-            if (st.fontSize) {
-              bar.style.setProperty('--sar-stepbar-font-size', st.fontSize);
-            }
+
+            var activeIdx = ctx.stepIndex;
+            var isShowLine = st.showLine !== false;
+
+            // Set CSS vars for the whole bar
+            bar.style.setProperty('--sar-stepbar-borderColor', st.borderColor || 'transparent');
+            bar.style.setProperty('--sar-stepbar-lineColor', st.lineColor || st.borderColor || '#e1e3e5');
+            bar.style.setProperty('--sar-stepbar-active-bg', st.activeBg || 'var(--sar-color-primary, #008060)');
+            bar.style.setProperty('--sar-stepbar-completed-bg', st.completedBg || st.activeBg || 'var(--sar-color-primary, #008060)');
+            bar.style.setProperty('--sar-stepbar-inactive-bg', st.inactiveBg || '#f1f1f1');
+            bar.style.setProperty('--sar-stepbar-active-text', st.activeTextColor || '#ffffff');
+            bar.style.setProperty('--sar-stepbar-inactive-text', st.inactiveTextColor || '#999999');
+            bar.style.setProperty('--sar-stepbar-hover-bg', st.hoverBg || '');
+            bar.style.setProperty('--sar-stepbar-hover-text', st.hoverTextColor || '');
+            bar.style.setProperty('--sar-stepbar-label-color', st.labelColor || '#666');
+            if (st.fontSize) bar.style.setProperty('--sar-stepbar-font-size', st.fontSize);
 
             for (var i = 0; i < ctx.steps.length; i++) {
-              var stepInfo = ctx.steps[i] || {};
-              var item = document.createElement('div');
-              item.className = 'sar-stepbar__item';
+              (function(idx) {
+                var stepInfo = ctx.steps[idx] || {};
+                var isActive = idx === activeIdx;
+                var isCompleted = idx < activeIdx;
 
-              if (i < ctx.steps.length - 1) {
-                var prefix = document.createElement('div');
-                prefix.className = 'sar-stepbar__prefix';
-                item.appendChild(prefix);
-              }
+                var item = document.createElement('div');
+                item.className = 'sar-stepbar__item' + (isActive ? ' active' : '') + (isCompleted ? ' completed' : '');
+                item.style.flex = '1';
+                item.style.position = 'relative';
+                item.style.textAlign = 'center';
+                item.style.cursor = 'pointer';
 
-              var dot = document.createElement('div');
-              dot.className =
-                'sar-stepbar__dot' + (i <= ctx.stepIndex ? ' sar-stepbar__dot--active' : '');
-              
-              if (stepInfo.imageUrl) {
-                var img = document.createElement('img');
-                img.src = stepInfo.imageUrl;
-                img.alt = '';
-                dot.appendChild(img);
-              } else {
-                dot.textContent = String(i + 1);
-              }
-              item.appendChild(dot);
+                // Horizontal Line
+                if (idx < ctx.steps.length - 1 && isShowLine) {
+                  var line = document.createElement('div');
+                  line.className = 'sar-stepbar__line';
+                  line.style.position = 'absolute';
+                  line.style.left = '50%';
+                  line.style.top = '24px';
+                  line.style.width = '100%';
+                  line.style.height = '1px';
+                  line.style.zIndex = '0';
+                  line.style.background = isCompleted ? 'var(--sar-stepbar-completed-bg)' : 'var(--sar-stepbar-lineColor)';
+                  item.appendChild(line);
+                }
 
-              var label = document.createElement('div');
-              label.className = 'sar-stepbar__label';
-              var nm = stepInfo.name || '';
-              label.textContent = (nm || 'Étape ' + (i + 1)).slice(0, 24);
-              if (st.labelColor) label.style.color = st.labelColor;
-              if (st.fontSize) label.style.fontSize = st.fontSize;
-              item.appendChild(label);
+                // Circle Icon/Number
+                var circle = document.createElement('div');
+                circle.className = 'sar-stepbar__icon-circle';
+                circle.style.width = '48px';
+                circle.style.height = '48px';
+                circle.style.borderRadius = '50%';
+                circle.style.margin = '0 auto 8px';
+                circle.style.display = 'flex';
+                circle.style.alignItems = 'center';
+                circle.style.justifyContent = 'center';
+                circle.style.position = 'relative';
+                circle.style.zIndex = '1';
+                circle.style.transition = 'all 0.2s';
+                
+                circle.style.background = isActive ? 'var(--sar-stepbar-active-bg)' : (isCompleted ? 'var(--sar-stepbar-completed-bg)' : 'var(--sar-stepbar-inactive-bg)');
+                circle.style.color = (isActive || isCompleted) ? 'var(--sar-stepbar-active-text)' : 'var(--sar-stepbar-inactive-text)';
+                if (!isActive && !isCompleted) circle.style.border = '1px solid var(--sar-stepbar-borderColor)';
 
-              item.addEventListener('click', (function(idx) {
-                return function(e) {
-                  if (e.target.closest('.sar-stepbar__item')) {
-                    state.stepIndex = idx;
-                    render();
-                  }
-                };
-              })(i));
-              
-              bar.appendChild(item);
+                if (stepInfo.imageUrl) {
+                  var img = document.createElement('img');
+                  img.src = stepInfo.imageUrl;
+                  img.style.width = '24px';
+                  img.style.height = '24px';
+                  img.style.objectFit = 'contain';
+                  circle.appendChild(img);
+                } else {
+                  var span = document.createElement('span');
+                  span.textContent = String(idx + 1);
+                  span.style.fontSize = '16px';
+                  span.style.fontWeight = '600';
+                  circle.appendChild(span);
+                }
+                item.appendChild(circle);
+
+                // Label
+                var label = document.createElement('div');
+                label.className = 'sar-stepbar__label';
+                label.textContent = (stepInfo.name || 'Étape ' + (idx + 1)).slice(0, 24);
+                label.style.fontSize = 'var(--sar-stepbar-font-size, 12px)';
+                label.style.color = isActive ? '#000' : 'var(--sar-stepbar-label-color)';
+                label.style.fontWeight = isActive ? '600' : '400';
+                item.appendChild(label);
+
+                item.addEventListener('click', function(e) {
+                  state.stepIndex = idx;
+                  render();
+                });
+
+                bar.appendChild(item);
+              })(i);
             }
-            
-            // Add some margin bottom to the bar to account for the absolute positioned labels
-            bar.style.marginBottom = '2.5rem';
-
             wrapEl.appendChild(bar);
+          }
+
+          function renderUpsellBlock(wrapEl, b, ctx) {
+            var items = b.items || [];
+            if (items.length === 0) return;
+
+            var container = document.createElement('div');
+            container.className = 'sar-bundle__upsell';
+            container.style.margin = '24px 0';
+            container.style.padding = '20px';
+            container.style.background = '#fff';
+            container.style.border = '1px solid #e1e3e5';
+            container.style.borderRadius = '12px';
+            container.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
+
+            var title = document.createElement('div');
+            title.style.marginBottom = '16px';
+            title.style.fontSize = '18px';
+            title.style.fontWeight = '700';
+            title.textContent = b.title || 'Options Supplémentaires';
+            container.appendChild(title);
+
+            var list = document.createElement('div');
+            list.style.display = 'flex';
+            list.style.flexDirection = 'column';
+            list.style.gap = '12px';
+            container.appendChild(list);
+
+            var behavior = b.behavior || 'multiple';
+
+            for (var i = 0; i < items.length; i++) {
+              (function(item) {
+                var isSelected = state.upsellSelections[item.id];
+                if (state.upsellSelections[item.id] === undefined && item.defaultEnabled) {
+                  state.upsellSelections[item.id] = true;
+                  isSelected = true;
+                }
+
+                var row = document.createElement('div');
+                row.className = 'sar-bundle__upsell-item' + (isSelected ? ' is-selected' : '');
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.gap = '12px';
+                row.style.padding = '12px';
+                row.style.borderRadius = '8px';
+                row.style.border = '1px solid ' + (isSelected ? 'var(--sar-color-primary, #008060)' : '#e1e3e5');
+                row.style.background = isSelected ? 'var(--sar-color-bg-subtle, #f0f7f5)' : 'transparent';
+                row.style.cursor = 'pointer';
+                row.style.transition = 'all 0.2s';
+
+                var check = document.createElement('div');
+                check.style.width = '20px';
+                check.style.height = '20px';
+                check.style.borderRadius = behavior === 'single' ? '50%' : '4px';
+                check.style.border = '2px solid ' + (isSelected ? 'var(--sar-color-primary, #008060)' : '#d1d3d5');
+                check.style.display = 'flex';
+                check.style.alignItems = 'center';
+                check.style.justifyContent = 'center';
+                check.style.background = isSelected ? 'var(--sar-color-primary, #008060)' : '#fff';
+                if (isSelected) {
+                  var inner = document.createElement('div');
+                  inner.style.width = behavior === 'single' ? '8px' : '10px';
+                  inner.style.height = behavior === 'single' ? '8px' : '10px';
+                  inner.style.borderRadius = behavior === 'single' ? '50%' : '2px';
+                  inner.style.background = '#fff';
+                  check.appendChild(inner);
+                }
+                row.appendChild(check);
+
+                if (item.defaultImageUrl) {
+                  var img = document.createElement('img');
+                  img.src = item.defaultImageUrl;
+                  img.style.width = '48px';
+                  img.style.height = '48px';
+                  img.style.objectFit = 'cover';
+                  img.style.borderRadius = '4px';
+                  row.appendChild(img);
+                }
+
+                var info = document.createElement('div');
+                info.style.flex = '1';
+                var lab = document.createElement('div');
+                lab.style.fontWeight = '600';
+                lab.style.fontSize = '14px';
+                lab.textContent = item.overrideLabel || item.productTitle;
+                info.appendChild(lab);
+                if (item.shortDescription) {
+                  var sd = document.createElement('div');
+                  sd.style.fontSize = '12px';
+                  sd.style.color = '#666';
+                  sd.style.marginTop = '2px';
+                  sd.textContent = item.shortDescription;
+                  info.appendChild(sd);
+                }
+                row.appendChild(info);
+
+                var price = document.createElement('div');
+                price.style.fontWeight = '700';
+                price.style.fontSize = '14px';
+                price.style.color = 'var(--sar-color-primary, #008060)';
+                price.textContent = '+' + formatMoneyDisplay(item.priceAmount, item.currencyCode);
+                row.appendChild(price);
+
+                row.addEventListener('click', function() {
+                  if (behavior === 'single') {
+                    for (var j = 0; j < items.length; j++) state.upsellSelections[items[j].id] = false;
+                    state.upsellSelections[item.id] = true;
+                  } else {
+                    state.upsellSelections[item.id] = !state.upsellSelections[item.id];
+                  }
+                  render();
+                });
+
+                list.appendChild(row);
+              })(items[i]);
+            }
+            wrapEl.appendChild(container);
           }
 
           function fetchCollectionProducts(handle) {
@@ -837,16 +989,18 @@
             ctx.__renderedProductList = true;
             ctx.__productListCardLayout = b.cardLayout || 'classic';
             ctx.__productListColumns = b.columns || 3;
-            // Mobile columns are handled via CSS queries or logic. For simplicity, we just fallback gracefully
             ctx.__productListColumnsMobile = b.columnsMobile || 2;
-            ctx.__productListGapX = b.gapX != null ? b.gapX : 16;
-            ctx.__productListGapY = b.gapY != null ? b.gapY : 16;
             ctx.__productListSource = b.source || 'step_pick';
             ctx.__productListCollection = b.collectionHandle || '';
             ctx.__productListButtonText = b.buttonText || '';
 
             var container = document.createElement('div');
             container.className = 'sar-bundle__products';
+            
+            if (b.buttonBackground) container.style.setProperty('--sar-color-primary', b.buttonBackground);
+            if (b.buttonColor) container.style.setProperty('--sar-button-text', b.buttonColor);
+            if (b.buttonBorderRadius) container.style.setProperty('--sar-button-radius', b.buttonBorderRadius);
+            
             ctx.__productListMount = container;
             wrapEl.appendChild(container);
           }
@@ -970,6 +1124,8 @@
                 renderStepBarBlock(blockWrap, b, ctx);
               } else if (b.type === 'product_list') {
                 renderProductListBlock(blockWrap, b, ctx);
+              } else if (b.type === 'upsell') {
+                renderUpsellBlock(blockWrap, b, ctx);
               }
               
               if (isInteractive) {
@@ -1083,15 +1239,13 @@
 
             // Always render products - whether from a product_list block or default fallback
             {
-              if (designCtx.__productListMount && !designCtx.__productListMount.style.display) {
-                var cols = designCtx.__productListColumns || 3;
-                var colsMobile = designCtx.__productListColumnsMobile || 2;
-                var gx = designCtx.__productListGapX || 16;
-                var gy = designCtx.__productListGapY || 16;
-                designCtx.__productListMount.style.setProperty('--grid-cols-desktop', cols);
+              if (designCtx.__productListMount) {
+                var colsDesk = designCtx.__productListColumns || 3;
+                var colsMobile = designCtx.__productListColumnsMobile || Math.min(2, colsDesk);
+                designCtx.__productListMount.style.setProperty('--grid-cols-desktop', colsDesk);
                 designCtx.__productListMount.style.setProperty('--grid-cols-mobile', colsMobile);
-                designCtx.__productListMount.style.setProperty('--grid-gap-x', gx + 'px');
-                designCtx.__productListMount.style.setProperty('--grid-gap-y', gy + 'px');
+                designCtx.__productListMount.style.setProperty('--grid-gap-x', '16px');
+                designCtx.__productListMount.style.setProperty('--grid-gap-y', '16px');
                 designCtx.__productListMount.style.display = 'grid';
               }
               function renderProductsLoop() {
@@ -1219,12 +1373,15 @@
                     qtyBox.appendChild(val);
                     qtyBox.appendChild(plus);
                     atcWrapper.appendChild(qtyBox);
-                  } else {
                     var addBtn = document.createElement('button');
                     addBtn.type = 'button';
                     addBtn.className = 'sar-bundle__product-atc-btn';
-                    var atcText = designCtx.__productListButtonText || bundle.storefrontDesign?.global?.addToBoxText || 'Add to box';
+                    var atcText = designCtx.__productListButtonText || bundle.storefrontDesign?.global?.addToBoxText || 'Ajouter';
                     addBtn.textContent = atcText;
+                    if (designCtx.__productListButtonBackground) addBtn.style.background = designCtx.__productListButtonBackground;
+                    if (designCtx.__productListButtonColor) addBtn.style.color = designCtx.__productListButtonColor;
+                    if (designCtx.__productListButtonBorderRadius) addBtn.style.borderRadius = designCtx.__productListButtonBorderRadius;
+                    
                     addBtn.addEventListener('click', function(e) { e.stopPropagation(); setQty(1); });
                     atcWrapper.appendChild(addBtn);
                   }
@@ -1516,6 +1673,28 @@
                 quantity: 1,
                 properties: masterProps,
               });
+
+              // Add Upsells
+              var designBlocks = (bundle.storefrontDesign && bundle.storefrontDesign.blocks) || [];
+              for (var dbi = 0; dbi < designBlocks.length; dbi++) {
+                var db = designBlocks[dbi];
+                if (db.type === 'upsell') {
+                  var uItems = db.items || [];
+                  for (var uji = 0; uji < uItems.length; uji++) {
+                    var uItem = uItems[uji];
+                    if (state.upsellSelections[uItem.id]) {
+                      items.push({
+                        id: uItem.variantId || variantGidToNumericId(uItem.variantGid),
+                        quantity: 1,
+                        properties: { 
+                          _sar_upsell_for: configId,
+                          _sar_bundle_name: String(bundle.name || '')
+                        }
+                      });
+                    }
+                  }
+                }
+              }
 
               fetch(joinRoot('cart/add.js'), {
                 method: 'POST',

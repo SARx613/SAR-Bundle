@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import type {
   StepBarBlock,
   ProductListBlock,
+  UpsellBlock,
   StorefrontBlockV2,
   StorefrontDesignV2,
   TextStyleBlock,
@@ -116,41 +117,86 @@ function StepBarPreview({
     <div
       className="sar-stepbar"
       style={{
-        ...(st.borderColor ? { "--sar-stepbar-border": st.borderColor } as any : {}),
-        ...(st.activeBg ? { "--sar-stepbar-active-bg": st.activeBg } as any : {}),
-        ...(st.inactiveBg ? { "--sar-stepbar-inactive-bg": st.inactiveBg } as any : {}),
-        ...(st.activeTextColor ? { "--sar-stepbar-active-text": st.activeTextColor } as any : {}),
-        ...(st.inactiveTextColor ? { "--sar-stepbar-inactive-text": st.inactiveTextColor } as any : {}),
-        ...(st.labelColor ? { "--sar-stepbar-label-color": st.labelColor } as any : {}),
-        ...(st.fontSize ? { "--sar-stepbar-font-size": st.fontSize } as any : {}),
-      }}
+        "--sar-stepbar-borderColor": st.borderColor || "transparent",
+        "--sar-stepbar-lineColor": st.lineColor || st.borderColor || "#e1e3e5",
+        "--sar-stepbar-active-bg": st.activeBg || "var(--p-color-bg-fill-brand, #008060)",
+        "--sar-stepbar-completed-bg": st.completedBg || st.activeBg || "var(--p-color-bg-fill-brand, #008060)",
+        "--sar-stepbar-inactive-bg": st.inactiveBg || "#f1f1f1",
+        "--sar-stepbar-active-text": st.activeTextColor || "#ffffff",
+        "--sar-stepbar-inactive-text": st.inactiveTextColor || "#999999",
+        "--sar-stepbar-label-color": st.labelColor || "#666",
+        "--sar-stepbar-font-size": st.fontSize || "12px",
+        cursor: "pointer",
+      } as any}
     >
       {steps.map((s, i) => {
-        const isActive = i <= activeStepIndex;
+        const isActive = i === activeStepIndex;
+        const isCompleted = i < activeStepIndex;
+        const isShowLine = st.showLine !== false;
+
         return (
           <div
             key={i}
-            className="sar-stepbar__item"
+            className={`sar-stepbar__item ${isActive ? "active" : ""} ${isCompleted ? "completed" : ""}`}
             onClick={() => onSelectStep(i)}
-            style={{ cursor: "pointer" }}
+            style={{ 
+              flex: 1, 
+              position: "relative",
+              textAlign: "center"
+            }}
           >
-            {i < steps.length - 1 && (
-              <div className="sar-stepbar__prefix" />
+            {i < steps.length - 1 && isShowLine && (
+              <div 
+                className="sar-stepbar__line" 
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "24px",
+                  width: "100%",
+                  height: "1px",
+                  background: isCompleted ? "var(--sar-stepbar-completed-bg)" : "var(--sar-stepbar-lineColor)",
+                  zIndex: 0
+                }}
+              />
             )}
-            
-            <div className={`sar-stepbar__dot${isActive ? " sar-stepbar__dot--active" : ""}`}>
+
+            <div 
+              className="sar-stepbar__icon-circle"
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "50%",
+                margin: "0 auto 8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                zIndex: 1,
+                background: isActive 
+                  ? "var(--sar-stepbar-active-bg)" 
+                  : isCompleted 
+                  ? "var(--sar-stepbar-completed-bg)" 
+                  : "var(--sar-stepbar-inactive-bg)",
+                color: isActive || isCompleted
+                  ? "var(--sar-stepbar-active-text)"
+                  : "var(--sar-stepbar-inactive-text)",
+                border: isActive || isCompleted ? "none" : "1px solid var(--sar-stepbar-borderColor)",
+                transition: "all 0.2s"
+              }}
+            >
               {s.imageUrl ? (
-                <img src={s.imageUrl} alt="" />
+                <img src={s.imageUrl} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />
               ) : (
-                i + 1
+                <span style={{ fontSize: "16px", fontWeight: "600" }}>{i + 1}</span>
               )}
             </div>
-            
+
             <div
               className="sar-stepbar__label"
               style={{
-                ...(st.labelColor ? { color: st.labelColor } : {}),
-                ...(st.fontSize ? { fontSize: st.fontSize } : {}),
+                fontSize: "var(--sar-stepbar-font-size)",
+                color: isActive ? "#000" : "var(--sar-stepbar-label-color)",
+                fontWeight: isActive ? "600" : "400"
               }}
             >
               {(s.name || `Étape ${i + 1}`).slice(0, 24)}
@@ -217,6 +263,110 @@ function ProductGridPreview({
           buttonText={buttonText}
         />
       ))}
+    </div>
+  );
+}
+
+/* ─────────────────── Upsell Preview (Order Bump) ─────────────────── */
+
+function UpsellPreview({
+  block,
+}: {
+  block: UpsellBlock;
+}) {
+  const behavior = block.behavior ?? "multiple";
+  const items = block.items ?? [];
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    items.filter((it: any) => it.defaultEnabled).map((it: any) => it.id)
+  );
+
+  const toggle = (id: string) => {
+    if (behavior === "single") {
+      setSelectedIds([id]);
+    } else {
+      setSelectedIds((prev: string[]) => 
+        prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      );
+    }
+  };
+
+  return (
+    <div className="sar-bundle__upsell" style={{ 
+      margin: "24px 0",
+      padding: "20px",
+      background: "#fff",
+      border: "1px solid #e1e3e5",
+      borderRadius: "12px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+    }}>
+      <div style={{ marginBottom: "16px", fontSize: "18px", fontWeight: "700" }}>
+        {block.title || "Options Supplémentaires"}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        {items.map((item: any) => {
+          const isSelected = selectedIds.includes(item.id);
+          return (
+            <div 
+              key={item.id}
+              onClick={() => toggle(item.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "12px",
+                borderRadius: "8px",
+                border: `1px solid ${isSelected ? "var(--sar-color-primary, #008060)" : "#e1e3e5"}`,
+                background: isSelected ? "var(--sar-color-bg-subtle, #f0f7f5)" : "transparent",
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+            >
+              <div style={{
+                width: "20px",
+                height: "20px",
+                borderRadius: behavior === "single" ? "50%" : "4px",
+                border: `2px solid ${isSelected ? "var(--sar-color-primary, #008060)" : "#d1d3d5"}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: isSelected ? "var(--sar-color-primary, #008060)" : "#fff"
+              }}>
+                {isSelected && (
+                  <div style={{ 
+                    width: behavior === "single" ? "8px" : "10px", 
+                    height: behavior === "single" ? "8px" : "10px", 
+                    borderRadius: behavior === "single" ? "50%" : "2px",
+                    background: "#fff" 
+                  }} />
+                )}
+              </div>
+              
+              {item.defaultImageUrl && (
+                <img 
+                  src={item.defaultImageUrl} 
+                  alt="" 
+                  style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "4px" }} 
+                />
+              )}
+              
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: "600", fontSize: "14px" }}>
+                  {item.overrideLabel || item.productTitle}
+                </div>
+                {item.shortDescription && (
+                  <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>
+                    {item.shortDescription}
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--sar-color-primary, #008060)" }}>
+                +{item.priceAmount} {item.currencyCode}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -418,6 +568,9 @@ function RenderBlock({
           isMobile={isMobile}
         />
       );
+      break;
+    case "upsell":
+      content = <UpsellPreview block={block as UpsellBlock} />;
       break;
     default:
       return null;

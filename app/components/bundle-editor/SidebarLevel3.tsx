@@ -18,12 +18,16 @@ import {
   Thumbnail,
   Tooltip,
   ButtonGroup,
+  Checkbox,
+  Divider,
 } from "@shopify/polaris";
 import {
   ArrowLeftIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   DeleteIcon,
+  PlusIcon,
+  CashEuroIcon,
 } from "@shopify/polaris-icons";
 import {
   type HeroBlock,
@@ -549,16 +553,40 @@ function StepBarStyleFields({
       {(currentPreset === "custom" || currentPreset === "circles") && (
         <CollapsibleStyleSection title="Couleurs" id="sec-stepbar-colors" defaultOpen>
           <BlockStack gap="300">
-            <ColorField
-              label="Couleur de ligne"
-              value={style.borderColor ?? ""}
-              onChange={(v) => patchStyle({ borderColor: v || undefined })}
+            <Checkbox
+              label="Afficher la ligne entre les étapes"
+              checked={style.showLine !== false}
+              onChange={(v) => patchStyle({ showLine: v })}
             />
+            {style.showLine !== false && (
+              <ColorField
+                label="Couleur de la ligne"
+                value={style.lineColor ?? ""}
+                onChange={(v) => patchStyle({ lineColor: v || undefined })}
+              />
+            )}
             <ColorField
               label="Fond étape active"
               value={style.activeBg ?? ""}
               onChange={(v) => patchStyle({ activeBg: v || undefined })}
             />
+            <ColorField
+              label="Fond étape terminée"
+              value={style.completedBg ?? ""}
+              onChange={(v) => patchStyle({ completedBg: v || undefined })}
+            />
+            <InlineGrid columns={2} gap="300">
+              <ColorField
+                label="Fond au survol"
+                value={style.hoverBg ?? ""}
+                onChange={(v) => patchStyle({ hoverBg: v || undefined })}
+              />
+              <ColorField
+                label="Texte au survol"
+                value={style.hoverTextColor ?? ""}
+                onChange={(v) => patchStyle({ hoverTextColor: v || undefined })}
+              />
+            </InlineGrid>
             <ColorField
               label="Fond étape inactive"
               value={style.inactiveBg ?? ""}
@@ -715,8 +743,6 @@ function ProductListManager({
   const source = block.source ?? "step_pick";
   const products = step?.products ?? [];
   const columns = block.columns ?? 3;
-  const gapX = block.gapX ?? 16;
-  const gapY = block.gapY ?? 16;
   const cardLayout = block.cardLayout ?? "classic";
 
   const enrichVariants = (gids: string[]) => {
@@ -837,12 +863,31 @@ function ProductListManager({
           <Select
             label="Style de carte"
             options={[
-              { label: "Classique (bouton Add to box)", value: "classic" },
+              { label: "Classique (bouton Ajouter)", value: "classic" },
               { label: "Overlay (bouton au survol)", value: "overlay" },
             ]}
             value={cardLayout}
             onChange={(v) => onPatch({ cardLayout: v as ProductListBlock["cardLayout"] } as Partial<StorefrontBlockV2>)}
           />
+          <TextField
+            label="Texte du bouton"
+            value={block.buttonText ?? "Ajouter"}
+            onChange={(v) => onPatch({ buttonText: v } as Partial<StorefrontBlockV2>)}
+            placeholder="ex: Ajouter"
+            autoComplete="off"
+          />
+          <InlineGrid columns={2} gap="300">
+            <ColorField
+              label="Fond du bouton"
+              value={block.buttonBackground ?? ""}
+              onChange={(v) => onPatch({ buttonBackground: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+            <ColorField
+              label="Couleur texte"
+              value={block.buttonColor ?? ""}
+              onChange={(v) => onPatch({ buttonColor: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+          </InlineGrid>
           <InlineGrid columns={["oneHalf", "oneHalf"]} gap="200">
             <SliderNumericField
               label="Colonnes (Bureau)"
@@ -861,27 +906,6 @@ function ProductListManager({
               suffix=""
             />
           </InlineGrid>
-          <TextField
-              label="Texte du bouton"
-              value={block.buttonText ?? "Add to box"}
-              onChange={(v) => onPatch({ buttonText: v } as Partial<StorefrontBlockV2>)}
-              placeholder="ex: Ajouter"
-              autoComplete="off"
-          />
-          <SliderNumericField
-            label="Espace horizontal"
-            value={gapX}
-            onChange={(v) => onPatch({ gapX: v } as Partial<StorefrontBlockV2>)}
-            min={0}
-            max={100}
-          />
-          <SliderNumericField
-            label="Espace vertical"
-            value={gapY}
-            onChange={(v) => onPatch({ gapY: v } as Partial<StorefrontBlockV2>)}
-            min={0}
-            max={100}
-          />
         </BlockStack>
       </CollapsibleStyleSection>
 
@@ -889,7 +913,7 @@ function ProductListManager({
       <BlockStack gap="200">
         <Text as="span" variant="bodyMd">Type de source</Text>
         <Box>
-          <ButtonGroup variant="segmented">
+          <ButtonGroup variant="segmented" fullWidth>
             <Button
               pressed={source === "step_pick"}
               onClick={() => onPatch({ source: "step_pick" } as Partial<StorefrontBlockV2>)}
@@ -1025,6 +1049,139 @@ function ProductListManager({
           )}
         </BlockStack>
       )}
+    </BlockStack>
+  );
+}
+
+/* ────────────────────── Options Supplémentaires (Upsell) Manager ────────────────────── */
+
+function UpsellManager({
+  block,
+  onPatch,
+}: {
+  block: StorefrontBlockV2;
+  onPatch: (patch: Partial<StorefrontBlockV2>) => void;
+}) {
+  const shopifyBridge = useAppBridge();
+  if (block.type !== "upsell") return null;
+
+  const items = block.items ?? [];
+
+  const patchItems = (newItems: any[]) => {
+    onPatch({ items: newItems } as Partial<StorefrontBlockV2>);
+  };
+
+  const openPicker = async () => {
+    const selected = await shopifyBridge.resourcePicker({
+      type: "variant",
+      multiple: true,
+      action: "add",
+    });
+    const variants = variantsFromPickerSafe(selected);
+    if (!variants.length) return;
+
+    const newItems = [...items];
+    variants.forEach((v: any) => {
+      // Check if already exists
+      if (newItems.some((it) => it.variantGid === v.id)) return;
+
+      newItems.push({
+        id: Math.random().toString(36).substring(2, 9),
+        variantGid: v.id,
+        variantId: parseInt(v.id.split("/").pop() || "0"),
+        productTitle: v.displayName || "Produit",
+        priceAmount: v.price || "0.00",
+        currencyCode: "EUR",
+        defaultImageUrl: v.image?.url ?? "",
+        defaultEnabled: false,
+      });
+    });
+    patchItems(newItems);
+  };
+
+  const removeItem = (idx: number) => {
+    const next = [...items];
+    next.splice(idx, 1);
+    patchItems(next);
+  };
+
+  const updateItem = (idx: number, patch: any) => {
+    const next = [...items];
+    next[idx] = { ...next[idx], ...patch };
+    patchItems(next);
+  };
+
+  return (
+    <BlockStack gap="400">
+      <TextField
+        label="Titre du bloc"
+        value={block.title}
+        onChange={(v) => onPatch({ title: v } as Partial<StorefrontBlockV2>)}
+        autoComplete="off"
+      />
+      <Select
+        label="Comportement"
+        options={[
+          { label: "Choix multiple (Cases à cocher)", value: "multiple" },
+          { label: "Choix unique (Boutons radio)", value: "single" },
+        ]}
+        value={block.behavior}
+        onChange={(v) => onPatch({ behavior: v as "single" | "multiple" } as Partial<StorefrontBlockV2>)}
+      />
+
+      <Divider />
+
+      <BlockStack gap="200">
+        <InlineStack align="space-between" blockAlign="center">
+          <Text as="h3" variant="headingSm">Options (Items)</Text>
+          <Button variant="plain" onClick={openPicker} icon={PlusIcon}>Ajouter un produit</Button>
+        </InlineStack>
+
+        {items.length === 0 && (
+          <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+            <Text as="p" variant="bodySm" tone="subdued">Aucune option. Sélectionnez un produit Shopify.</Text>
+          </Box>
+        )}
+
+        {items.map((item, idx) => (
+          <Box key={item.id} padding="300" background="bg-surface" borderStyle="solid" borderWidth="025" borderColor="border" borderRadius="200">
+            <BlockStack gap="200">
+              <InlineStack align="space-between" blockAlign="center">
+                <InlineStack gap="200" blockAlign="center">
+                  {item.defaultImageUrl && <Thumbnail source={item.defaultImageUrl} alt="" size="small" />}
+                  <BlockStack gap="050">
+                    <Text as="span" variant="bodySm" fontWeight="bold">{item.productTitle}</Text>
+                    <Text as="span" variant="bodyXs" tone="subdued">{item.priceAmount} {item.currencyCode}</Text>
+                  </BlockStack>
+                </InlineStack>
+                <Button variant="plain" icon={DeleteIcon} tone="critical" onClick={() => removeItem(idx)} />
+              </InlineStack>
+
+              <TextField
+                label="Libellé de remplacement"
+                value={item.overrideLabel ?? ""}
+                onChange={(v) => updateItem(idx, { overrideLabel: v })}
+                placeholder={item.productTitle}
+                autoComplete="off"
+              />
+
+              <TextField
+                label="Description courte"
+                value={item.shortDescription ?? ""}
+                onChange={(v) => updateItem(idx, { shortDescription: v })}
+                placeholder="Ex: Emballage cadeau luxe"
+                autoComplete="off"
+              />
+
+              <Checkbox
+                label="Activé par défaut"
+                checked={item.defaultEnabled}
+                onChange={(v) => updateItem(idx, { defaultEnabled: v })}
+              />
+            </BlockStack>
+          </Box>
+        ))}
+      </BlockStack>
     </BlockStack>
   );
 }

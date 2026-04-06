@@ -30,6 +30,7 @@ import {
   MenuHorizontalIcon,
   SettingsIcon,
   ViewIcon,
+  PlusIcon,
 } from "@shopify/polaris-icons";
 import {
   DndContext,
@@ -689,7 +690,6 @@ export function SidebarLevel2({
             isOpen={openCats.mep}
             onToggle={() => toggleCat("mep")}
           >
-            <BlockStack gap="100">
               <LibraryItem
                 icon={ListNumberedIcon}
                 label={stepsCount < 2 ? "Barre d'étape (≥2 étapes)" : "Barre d'étape"}
@@ -697,11 +697,21 @@ export function SidebarLevel2({
                 onClick={() => addBlock({ id: newBlockId(), type: "step_bar", style: {} })}
               />
               <LibraryItem
+                icon={PlusIcon}
+                label="Options Supplémentaires"
+                onClick={() => addBlock({ 
+                  id: newBlockId(), 
+                  type: "upsell", 
+                  title: "Complétez votre commande", 
+                  behavior: "multiple", 
+                  items: [] 
+                })}
+              />
+              <LibraryItem
                 icon={TextInColumnsIcon}
                 label="Espacement"
                 onClick={() => addBlock({ id: newBlockId(), type: "spacer", height: 24 })}
               />
-            </BlockStack>
           </CategoryRow>
 
           <CategoryRow
