@@ -1069,17 +1069,17 @@
               inner.appendChild(pills);
             }
 
-            // Design blocks (editor order), excluding step bar + product_list marker
+            // Design blocks (editor order), excluding step bar (already rendered above)
             if (bundle.storefrontDesign) {
               var designMount = document.createElement('div');
               renderDesignBlocks(designMount, bundle.storefrontDesign, designCtx, variantCache);
-              // Drop any nested step bars or product_list containers from the design mount
-              var toRemove = designMount.querySelectorAll('.sar-stepbar, .sar-bundle__products');
+              // Drop only nested step bars from the design mount (they were already rendered above)
+              var toRemove = designMount.querySelectorAll('.sar-stepbar');
               for (var ri = 0; ri < toRemove.length; ri++) {
                 var n = toRemove[ri];
                 if (n && n.parentNode) n.parentNode.removeChild(n);
               }
-              // Append remaining design blocks
+              // Append remaining design blocks (including product_list containers)
               while (designMount.firstChild) {
                 inner.appendChild(designMount.firstChild);
               }
@@ -1094,12 +1094,11 @@
             }
 
             var grid = designCtx.__productListMount || document.createElement('div');
-            grid.className = 'sar-bundle__products';
+            if (!designCtx.__productListMount) grid.className = 'sar-bundle__products';
             var stepProds = step.products || [];
 
-            // Si un bloc product_list est présent, il contrôle l'emplacement (et peut utiliser une collection).
-            // Pour source=step_pick, on remplit designCtx.__productListMount; sinon collection mode remplit lui-même.
-            if (!designCtx.__renderedProductList || designCtx.__productListMount) {
+            // Always render products - whether from a product_list block or default fallback
+            {
               if (designCtx.__productListMount && !designCtx.__productListMount.style.display) {
                 var cols = designCtx.__productListColumns || 3;
                 var colsMobile = designCtx.__productListColumnsMobile || 2;
@@ -1275,13 +1274,13 @@
                 })(stepProds[pj]);
                 }
                 
+                // If no product_list block claimed the grid, put it in the body
                 if (!designCtx.__renderedProductList) {
                   body.appendChild(grid);
                 }
                 
-                if (!inner.contains(body)) {
-                  inner.appendChild(body);
-                }
+                // Always ensure body (description + products) is in the DOM
+                inner.appendChild(body);
               }
 
               if (designCtx.__productListSource === 'collection' && designCtx.__productListCollection) {
@@ -1316,9 +1315,6 @@
               } else {
                 renderProductsLoop();
               }
-            }
-            if (!designCtx.__renderedProductList) {
-              body.appendChild(grid);
             }
 
             if (step.rules && step.rules.length) {

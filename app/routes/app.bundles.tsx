@@ -12,6 +12,8 @@ import {
   Badge,
   Button,
   Box,
+  BlockStack,
+  InlineGrid,
   Thumbnail,
   useIndexResourceState,
   INDEX_TABLE_SELECT_ALL_ITEMS,
@@ -55,19 +57,24 @@ type BundleRow = {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
-  const rows = await prisma.bundle.findMany({
-    where: { shopDomain: shop },
-    select: {
-      id: true,
-      name: true,
-      status: true,
-      imageUrl: true,
-      shopifyProductId: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+  const [rows, totalCount, activeCount, draftCount] = await Promise.all([
+    prisma.bundle.findMany({
+      where: { shopDomain: shop },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        imageUrl: true,
+        shopifyProductId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.bundle.count({ where: { shopDomain: shop } }),
+    prisma.bundle.count({ where: { shopDomain: shop, status: "ACTIVE" } }),
+    prisma.bundle.count({ where: { shopDomain: shop, status: "DRAFT" } }),
+  ]);
 
   const gids = rows
     .map((r) => r.shopifyProductId)
@@ -105,7 +112,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     };
   });
 
-  return json({ bundles, shop });
+  return json({ bundles, shop, stats: { total: totalCount, active: activeCount, draft: draftCount } });
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -247,7 +254,7 @@ const dateFmt: Intl.DateTimeFormatOptions = {
 };
 
 export default function AppBundles() {
-  const { bundles } = useLoaderData<typeof loader>();
+  const { bundles, stats } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
@@ -419,55 +426,78 @@ export default function AppBundles() {
           Créer un bundle
         </button>
       </TitleBar>
-      <Layout>
-        <Layout.Section>
-          <Card>
-            {bundles.length === 0 ? (
-              <EmptyState
-                heading="Créez votre premier bundle"
-                action={{
-                  content: "Créer un bundle",
-                  onAction: () => navigate("/app/bundle/new"),
-                }}
-                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-              >
-                <p>
-                  Les bundles par étapes apparaîtront ici une fois configurés.
-                </p>
-              </EmptyState>
-            ) : (
-              <IndexTable
-                resourceName={resourceName}
-                itemCount={bundles.length}
-                selectable
-                selectedItemsCount={
-                  allResourcesSelected
-                    ? INDEX_TABLE_SELECT_ALL_ITEMS
-                    : selectedResources.length
-                }
-                onSelectionChange={handleSelectionChange}
-                promotedBulkActions={[
-                  {
-                    content: "Supprimer la sélection",
-                    onAction: submitBulkDelete,
-                  },
-                ]}
-                headings={[
-                  { title: "Image" },
-                  { title: "Nom" },
-                  { title: "Chemin URL" },
-                  { title: "Statut" },
-                  { title: "Actions" },
-                  { title: "Créé le" },
-                  { title: "Mis à jour le" },
-                ]}
-              >
-                {rowMarkup}
-              </IndexTable>
-            )}
+      <BlockStack gap="400">
+        <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+          <Card padding="400">
+            <BlockStack gap="200">
+              <Text as="span" variant="bodySm" tone="subdued">Total</Text>
+              <Text as="p" variant="headingXl">{stats.total}</Text>
+            </BlockStack>
           </Card>
-        </Layout.Section>
-      </Layout>
+          <Card padding="400">
+            <BlockStack gap="200">
+              <Text as="span" variant="bodySm" tone="subdued">Actifs</Text>
+              <Text as="p" variant="headingXl" tone="success">{stats.active}</Text>
+            </BlockStack>
+          </Card>
+          <Card padding="400">
+            <BlockStack gap="200">
+              <Text as="span" variant="bodySm" tone="subdued">Brouillons</Text>
+              <Text as="p" variant="headingXl">{stats.draft}</Text>
+            </BlockStack>
+          </Card>
+        </InlineGrid>
+
+        <Layout>
+          <Layout.Section>
+            <Card>
+              {bundles.length === 0 ? (
+                <EmptyState
+                  heading="Créez votre premier bundle"
+                  action={{
+                    content: "Créer un bundle",
+                    onAction: () => navigate("/app/bundle/new"),
+                  }}
+                  image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                >
+                  <p>
+                    Les bundles par étapes apparaîtront ici une fois configurés.
+                  </p>
+                </EmptyState>
+              ) : (
+                <IndexTable
+                  resourceName={resourceName}
+                  itemCount={bundles.length}
+                  selectable
+                  selectedItemsCount={
+                    allResourcesSelected
+                      ? INDEX_TABLE_SELECT_ALL_ITEMS
+                      : selectedResources.length
+                  }
+                  onSelectionChange={handleSelectionChange}
+                  promotedBulkActions={[
+                    {
+                      content: "Supprimer la sélection",
+                      onAction: submitBulkDelete,
+                    },
+                  ]}
+                  headings={[
+                    { title: "Image" },
+                    { title: "Nom" },
+                    { title: "Chemin URL" },
+                    { title: "Statut" },
+                    { title: "Actions" },
+                    { title: "Créé le" },
+                    { title: "Mis à jour le" },
+                  ]}
+                >
+                  {rowMarkup}
+                </IndexTable>
+              )}
+            </Card>
+          </Layout.Section>
+        </Layout>
+      </BlockStack>
     </Page>
   );
 }

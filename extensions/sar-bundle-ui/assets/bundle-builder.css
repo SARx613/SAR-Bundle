@@ -108,9 +108,10 @@
 
 .sar-stepbar__label {
   margin-top: 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--sar-stepbar-font-size, 0.85rem);
   text-align: center;
-  color: var(--sar-color-text, #121212);
+  color: var(--sar-stepbar-label-color, var(--sar-color-text, #121212));
+  cursor: pointer;
 }
 
 .sar-bundle__step-pill {
@@ -125,11 +126,7 @@
   border-color: var(--sar-color-primary, #008060);
 }
 
-.sar-bundle__products {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 1rem;
-}
+/* Product grid - see responsive rules below */
 
 .sar-bundle__product--media-left-stack,
 .sar-bundle__product--row-compact {

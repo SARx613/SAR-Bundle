@@ -170,41 +170,8 @@ export default function AppHome() {
           </BlockStack>
         </Card>
 
-        <Card>
-          <BlockStack gap="400">
-            <Text as="h2" variant="headingMd">
-              Activité boutique
-            </Text>
-            <Text as="p" variant="bodySm" tone="subdued">
-              Toutes commandes avec statut financier{" "}
-              <strong>payé</strong> (fenêtre API standard : 60 derniers jours
-              sans <code>read_all_orders</code>).
-            </Text>
-            <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
-              <MetricTile
-                label="Revenu total"
-                value={formatMoney(c.totalRevenue, c.currencyCode)}
-              />
-              <MetricTile
-                label="Total des commandes"
-                value={String(c.totalOrders)}
-              />
-              <MetricTile
-                label="Valeur moyenne des commandes"
-                value={
-                  c.avgOrderValue != null
-                    ? formatMoney(c.avgOrderValue, c.currencyCode)
-                    : "N/A"
-                }
-              />
-              <MetricTile
-                label="Revenu mensuel des box"
-                value={formatMoney(c.monthlyBundleRevenue, c.currencyCode)}
-                help="Somme des lignes bundle sur le mois civil en cours."
-              />
-            </InlineGrid>
-          </BlockStack>
-        </Card>
+
+
 
         <Card>
           <BlockStack gap="400">
