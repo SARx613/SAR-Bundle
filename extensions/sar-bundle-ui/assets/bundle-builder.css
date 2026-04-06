@@ -58,60 +58,66 @@
 /* Step Bar (nouveau design) */
 .sar-stepbar {
   display: flex;
-  justify-content: center;
-  gap: 0;
-  margin: 0 0 1rem;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  margin: 0 0 1.5rem;
+  overflow: hidden;
 }
 
 .sar-stepbar__item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 80px;
+  position: relative;
+  width: 100%;
+  padding: 0 4px;
+  text-align: center;
+  flex: 1;
 }
 
-.sar-stepbar__top {
-  display: flex;
-  align-items: center;
+.sar-stepbar__prefix {
+  position: absolute;
   width: 100%;
+  height: 2px;
+  z-index: 0;
+  left: 50%;
+  top: 24px;
+  background-color: var(--sar-stepbar-border, var(--sar-color-border, #e1e3e5));
 }
 
 .sar-stepbar__dot {
-  width: 40px;
-  height: 40px;
+  position: relative;
+  z-index: 1;
+  margin: 0 auto 4px;
   border-radius: 50%;
-  border: 2px solid var(--sar-stepbar-border, var(--sar-color-border, #e1e3e5));
-  background: var(--sar-stepbar-inactive-bg, transparent);
-  color: var(--sar-stepbar-inactive-text, var(--sar-color-text, #121212));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  padding: 4px;
+  font-size: 20px;
+  background: var(--sar-stepbar-inactive-bg, #fff);
+  color: var(--sar-stepbar-inactive-text, var(--sar-color-text, #121212));
+  border: 1px solid var(--sar-stepbar-border, var(--sar-color-border, #e1e3e5));
 }
 
 .sar-stepbar__dot--active {
   background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #008060));
   color: var(--sar-stepbar-active-text, #fff);
+  border-color: var(--sar-stepbar-active-bg, var(--sar-color-primary, #008060));
 }
 
-.sar-stepbar__line {
-  flex: 1;
-  border-top: 2px solid var(--sar-stepbar-border, var(--sar-color-border, #e1e3e5));
-  margin: 0 0.5rem;
-  height: 0;
-}
-
-.sar-stepbar__line--active {
-  border-top-color: var(--sar-stepbar-active-bg, var(--sar-color-primary, #008060));
+.sar-stepbar__dot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .sar-stepbar__label {
-  margin-top: 0.5rem;
-  font-size: var(--sar-stepbar-font-size, 0.85rem);
-  text-align: center;
+  font-size: var(--sar-stepbar-font-size, 16px);
   color: var(--sar-stepbar-label-color, var(--sar-color-text, #121212));
-  cursor: pointer;
+  margin-top: 4px;
+  line-height: normal;
 }
 
 .sar-bundle__step-pill {

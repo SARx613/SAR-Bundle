@@ -116,7 +116,6 @@ function StepBarPreview({
     <div
       className="sar-stepbar"
       style={{
-        marginBottom: "2.5rem",
         ...(st.borderColor ? { "--sar-stepbar-border": st.borderColor } as any : {}),
         ...(st.activeBg ? { "--sar-stepbar-active-bg": st.activeBg } as any : {}),
         ...(st.inactiveBg ? { "--sar-stepbar-inactive-bg": st.inactiveBg } as any : {}),
@@ -132,38 +131,29 @@ function StepBarPreview({
           <div
             key={i}
             className="sar-stepbar__item"
-            style={{
-              position: "relative",
-              display: "flex",
-              alignItems: "center",
-              ...(i > 0 ? { flex: "1 1 0%" } : {}),
-            }}
             onClick={() => onSelectStep(i)}
+            style={{ cursor: "pointer" }}
           >
-            {i > 0 && (
-              <div
-                className={`sar-stepbar__line${isActive ? " sar-stepbar__line--active" : ""}`}
-              />
+            {i < steps.length - 1 && (
+              <div className="sar-stepbar__prefix" />
             )}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-              <div className={`sar-stepbar__dot${isActive ? " sar-stepbar__dot--active" : ""}`}>
-                {i + 1}
-              </div>
-              <div
-                className="sar-stepbar__label"
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  marginTop: "8px",
-                  transform: "translateX(-50%)",
-                  left: "50%",
-                  width: "max-content",
-                  ...(st.labelColor ? { color: st.labelColor } : {}),
-                  ...(st.fontSize ? { fontSize: st.fontSize } : {}),
-                }}
-              >
-                {(s.name || `Étape ${i + 1}`).slice(0, 24)}
-              </div>
+            
+            <div className={`sar-stepbar__dot${isActive ? " sar-stepbar__dot--active" : ""}`}>
+              {s.imageUrl ? (
+                <img src={s.imageUrl} alt="" />
+              ) : (
+                i + 1
+              )}
+            </div>
+            
+            <div
+              className="sar-stepbar__label"
+              style={{
+                ...(st.labelColor ? { color: st.labelColor } : {}),
+                ...(st.fontSize ? { fontSize: st.fontSize } : {}),
+              }}
+            >
+              {(s.name || `Étape ${i + 1}`).slice(0, 24)}
             </div>
           </div>
         );

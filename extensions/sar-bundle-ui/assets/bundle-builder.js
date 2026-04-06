@@ -754,54 +754,38 @@
             }
 
             for (var i = 0; i < ctx.steps.length; i++) {
+              var stepInfo = ctx.steps[i] || {};
               var item = document.createElement('div');
               item.className = 'sar-stepbar__item';
-              item.style.position = 'relative';
-              item.style.display = 'flex';
-              item.style.alignItems = 'center';
-              
-              if (i > 0) {
-                item.style.flex = '1';
-              }
 
-              if (i > 0) {
-                var line = document.createElement('div');
-                line.className =
-                  'sar-stepbar__line' +
-                  (i <= ctx.stepIndex ? ' sar-stepbar__line--active' : '');
-                item.appendChild(line);
+              if (i < ctx.steps.length - 1) {
+                var prefix = document.createElement('div');
+                prefix.className = 'sar-stepbar__prefix';
+                item.appendChild(prefix);
               }
-
-              var dotWrap = document.createElement('div');
-              dotWrap.style.display = 'flex';
-              dotWrap.style.flexDirection = 'column';
-              dotWrap.style.alignItems = 'center';
 
               var dot = document.createElement('div');
               dot.className =
                 'sar-stepbar__dot' + (i <= ctx.stepIndex ? ' sar-stepbar__dot--active' : '');
-              dot.textContent = String(i + 1);
-              dotWrap.appendChild(dot);
+              
+              if (stepInfo.imageUrl) {
+                var img = document.createElement('img');
+                img.src = stepInfo.imageUrl;
+                img.alt = '';
+                dot.appendChild(img);
+              } else {
+                dot.textContent = String(i + 1);
+              }
+              item.appendChild(dot);
 
               var label = document.createElement('div');
               label.className = 'sar-stepbar__label';
-              var nm = ctx.steps[i] && (ctx.steps[i].name || '');
+              var nm = stepInfo.name || '';
               label.textContent = (nm || 'Étape ' + (i + 1)).slice(0, 24);
               if (st.labelColor) label.style.color = st.labelColor;
               if (st.fontSize) label.style.fontSize = st.fontSize;
-              label.style.position = 'absolute';
-              label.style.top = '100%';
-              label.style.marginTop = '8px';
-              // Centered below the dot wrapper (using transform)
-              label.style.transform = 'translateX(-50%)';
-              // If it's the first element and has no line, dotWrap is at the start (left), its left/center is its own width
-              // Actually, position absolute left:50% inside the dotWrap works if dotWrap is position:relative
-              dotWrap.style.position = 'relative';
-              label.style.left = '50%';
-              label.style.width = 'max-content';
+              item.appendChild(label);
 
-              dotWrap.appendChild(label);
-              item.appendChild(dotWrap);
               item.addEventListener('click', (function(idx) {
                 return function(e) {
                   if (e.target.closest('.sar-stepbar__item')) {
@@ -810,7 +794,7 @@
                   }
                 };
               })(i));
-
+              
               bar.appendChild(item);
             }
             
@@ -1498,14 +1482,9 @@
               var lineProps = {
                 _sar_bundle_line: '1',
                 _sar_bundle_config_id: configId,
-                _sar_bundle_components: componentsJson,
               };
               if (bundle.name) {
                 lineProps._sar_bundle_name = String(bundle.name);
-              }
-              var compVisible = formatCompositionVisibleLines(components);
-              if (compVisible) {
-                lineProps.Composition = compVisible;
               }
 
               var masterProps = Object.assign({}, lineProps);
@@ -1516,34 +1495,27 @@
                 if (val != null && val !== '') masterProps[pk] = String(val);
               }
 
-              // Inventory-safe: add parent + component lines, then Cart Transform merges.
-              var groupKey = 'sar-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+              var artCount = 1;
+              for (var ci = 0; ci < components.length; ci++) {
+                var c = components[ci];
+                if (!c || !c.quantity) continue;
+                var name = c.productTitle || c.variantTitle || '';
+                if (c.variantTitle && c.variantTitle !== 'Default Title' && c.variantTitle !== 'Default') {
+                  name += ' - ' + c.variantTitle;
+                }
+                masterProps['Article ' + artCount] = c.quantity + 'x ' + name;
+                if (c.imageUrl) {
+                  masterProps['_image_' + artCount] = c.imageUrl;
+                }
+                artCount++;
+              }
 
               var items = [];
-              // Parent line (pricing / display)
               items.push({
                 id: parentNumericId,
                 quantity: 1,
-                properties: Object.assign({}, masterProps, {
-                  _sar_bundle_group: groupKey,
-                  _sar_bundle_parent: '1',
-                }),
+                properties: masterProps,
               });
-
-              // Component lines (inventory deduction)
-              for (var ci = 0; ci < components.length; ci++) {
-                var comp = components[ci];
-                if (!comp || !comp.variantId || !comp.quantity) continue;
-                items.push({
-                  id: comp.variantId,
-                  quantity: comp.quantity,
-                  properties: {
-                    _sar_bundle_group: groupKey,
-                    _sar_bundle_child: '1',
-                    _sar_bundle_config_id: configId,
-                  },
-                });
-              }
 
               fetch(joinRoot('cart/add.js'), {
                 method: 'POST',
