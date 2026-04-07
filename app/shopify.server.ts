@@ -9,7 +9,8 @@ import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prism
 import prisma from "./db.server";
 
 // ─── Plan definitions (shared — importable client & server) ────────────────
-export { BILLING_PLANS, type BillingPlanHandle } from "./utils/billing-plans";
+import { BILLING_PLANS, type BillingPlanHandle } from "./utils/billing-plans";
+export { BILLING_PLANS, type BillingPlanHandle };
 
 // ─── Scopes ──────────────────────────────────────────────────────────────────
 const DEFAULT_SCOPES_FROM_TOML = [
@@ -41,21 +42,18 @@ const shopify = shopifyApp({
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   billing: {
-    starter_tier: {
+    sar_bundle_plan: {
       lineItems: [
         {
-          amount: 14.99,
-          currencyCode: "USD",
+          amount: BILLING_PLANS.sar_bundle_plan.amount,
+          currencyCode: BILLING_PLANS.sar_bundle_plan.currencyCode,
           interval: BillingInterval.Every30Days,
         },
-      ],
-    },
-    pro_tier: {
-      lineItems: [
         {
-          amount: 39.99,
-          currencyCode: "USD",
-          interval: BillingInterval.Every30Days,
+          terms: BILLING_PLANS.sar_bundle_plan.usageTerms,
+          amount: BILLING_PLANS.sar_bundle_plan.cappedAmount,
+          currencyCode: BILLING_PLANS.sar_bundle_plan.currencyCode,
+          interval: BillingInterval.Usage,
         },
       ],
     },
@@ -66,8 +64,9 @@ const shopify = shopifyApp({
   },
   hooks: {
     afterAuth: async ({ session, admin }) => {
-      // Register the orders/paid webhook programmatically so it doesn't
-      // need to be in shopify.app.toml (avoids "protected customer data" CLI block).
+      const shop = session.shop;
+
+      // 1. Register the orders/paid webhook programmatically
       const appUrl = process.env.SHOPIFY_APP_URL || "";
       const callbackUrl = `${appUrl}/webhooks/orders/paid`;
       try {
@@ -76,7 +75,6 @@ const shopify = shopifyApp({
           mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
             webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
               userErrors { field message }
-              webhookSubscription { id }
             }
           }`,
           {
@@ -91,6 +89,64 @@ const shopify = shopifyApp({
         );
       } catch (err) {
         console.error("[SAR] Failed to register orders/paid webhook:", err);
+      }
+
+      // 2. Extract and store the usage subscription line item ID
+      try {
+        const response = await admin.graphql(
+          `#graphql
+          query {
+            currentAppInstallation {
+              activeSubscriptions {
+                id
+                name
+                lineItems {
+                  id
+                  plan {
+                    pricingDetails {
+                      __typename
+                    }
+                  }
+                }
+              }
+            }
+          }`
+        );
+        const data = await response.json();
+        const subscriptions = data.data?.currentAppInstallation?.activeSubscriptions || [];
+        
+        // Find the SAR Bundle SAR plan subscription
+        const sarSub = subscriptions.find((s: any) => s.name === BILLING_PLANS.sar_bundle_plan.name);
+        
+        let usageLineItemId = null;
+        if (sarSub && sarSub.lineItems) {
+          const usageLineItem = sarSub.lineItems.find((li: any) => 
+            li.plan?.pricingDetails?.__typename === "AppUsagePricing"
+          );
+          if (usageLineItem) {
+            usageLineItemId = usageLineItem.id;
+          }
+        }
+
+        // Upsert ShopBilling to store this ID
+        if (usageLineItemId) {
+          await prisma.shopBilling.upsert({
+            where: { shopDomain: shop },
+            create: {
+              shopDomain: shop,
+              subscriptionLineItemId: usageLineItemId,
+            },
+            update: {
+              subscriptionLineItemId: usageLineItemId,
+              updatedAt: new Date(),
+            },
+          });
+          console.log(`[SAR] Stored usage line item ID for ${shop}`);
+        } else {
+          console.warn(`[SAR] No usage line item ID found for ${shop} — billing might not be active yet.`);
+        }
+      } catch (err) {
+        console.error("[SAR] Failed to sync subscriptionLineItemId:", err);
       }
     },
   },

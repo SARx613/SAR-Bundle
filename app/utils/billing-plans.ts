@@ -5,26 +5,13 @@
  */
 
 export const BILLING_PLANS = {
-  free_tier: {
-    handle: "free_tier",
-    name: "Free",
-    amount: 0,
-    currencyCode: "USD",
-    revenueLimit: 200, // USD/month
-  },
-  starter_tier: {
-    handle: "starter_tier",
-    name: "Starter",
-    amount: 14.99,
-    currencyCode: "USD",
-    revenueLimit: 1500, // USD/month
-  },
-  pro_tier: {
-    handle: "pro_tier",
-    name: "Pro",
-    amount: 39.99,
-    currencyCode: "USD",
-    revenueLimit: Infinity, // Unlimited
+  sar_bundle_plan: {
+    handle: "sar_bundle_plan",
+    name: "SAR Bundle",
+    amount: 0, // Recurring is 0, we charge via usage API
+    currencyCode: "EUR",
+    cappedAmount: 39.99, // Plafond mensuel
+    usageTerms: "Gratuit jusqu'à 200€ de CA généré. +14.99€ si >200€. +25.00€ si >1200€ (Max 39.99€/mois)",
   },
 } as const;
 

@@ -23,52 +23,28 @@ function startOfCurrentMonthUTC(): Date {
 // ─── Loader ──────────────────────────────────────────────────────────────────
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Fetch billing record — if none, default to free_tier with 0 revenue
-  let activePlan: BillingPlanHandle = "free_tier";
-  let monthlyRevenue = 0;
-
-  try {
-    const billing = await prisma.shopBilling.findUnique({
-      where: { shopDomain: shop },
-    });
-    if (billing) {
-      activePlan = billing.activePlan as BillingPlanHandle;
-      // Check if revenue needs a monthly reset
-      const monthStart = startOfCurrentMonthUTC();
-      if (billing.revenueResetAt < monthStart) {
-        monthlyRevenue = 0;
-      } else {
-        monthlyRevenue = billing.monthlyBundleRevenue;
-      }
-    }
-  } catch (err) {
-    // Table may not exist yet before first migration — fail silently
-    console.error("[SAR/app] prisma.shopBilling.findUnique failed (migration pending?):", err);
-  }
-
-  const planConfig = BILLING_PLANS[activePlan];
-  const revenueLimit = planConfig.revenueLimit;
-  const planWarning =
-    revenueLimit !== Infinity && monthlyRevenue > revenueLimit;
+  // Enforce the usage-based billing plan!
+  await billing.require({
+    plans: [BILLING_PLANS.sar_bundle_plan.handle],
+    isTest: process.env.NODE_ENV !== "production",
+    onFailure: async () => billing.request({
+      plan: BILLING_PLANS.sar_bundle_plan.handle,
+      isTest: process.env.NODE_ENV !== "production",
+    }),
+  });
 
   return json({
     apiKey: process.env.SHOPIFY_API_KEY || "",
-    activePlan,
-    monthlyRevenue,
-    revenueLimit,
-    planWarning,
-    planName: planConfig.name,
   });
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { apiKey, planWarning, activePlan, planName } =
-    useLoaderData<typeof loader>();
+  const { apiKey } = useLoaderData<typeof loader>();
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
@@ -82,25 +58,6 @@ export default function App() {
       </NavMenu>
 
       <BlockStack gap="0">
-        {planWarning && (
-          <div style={{ padding: "16px 16px 0" }}>
-            <Banner
-              tone="critical"
-              title="Limite de chiffre d'affaires dépassée"
-              action={{
-                content: "Passer au plan supérieur",
-                url: "/app/pricing",
-              }}
-            >
-              <p>
-                Vous avez dépassé la limite de revenus de votre plan{" "}
-                <strong>{planName}</strong>. Veuillez passer au plan supérieur
-                pour continuer à profiter de toutes les fonctionnalités SAR
-                Bundle sans interruption.
-              </p>
-            </Banner>
-          </div>
-        )}
         <Outlet />
       </BlockStack>
     </AppProvider>

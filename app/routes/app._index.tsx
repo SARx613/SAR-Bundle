@@ -50,26 +50,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       take: 5,
     }),
     fetchCommerceDashboardStats(admin),
-    prisma.shopBilling.findUnique({ where: { shopDomain: session.shop } }).catch((err) => {
+    prisma.shopBilling.findUnique({ where: { shopDomain: session.shop } }).catch((err: any) => {
       console.error("[SAR/index] prisma.shopBilling.findUnique failed (migration pending?):", err);
       return null;
     }),
   ]);
 
-  const activePlan: BillingPlanHandle =
-    (shopBilling?.activePlan as BillingPlanHandle) ?? "free_tier";
   const monthlyRevenue = shopBilling?.monthlyBundleRevenue ?? 0;
-  const planConfig = BILLING_PLANS[activePlan];
+  const currentCharges = (shopBilling?.charged200 ? 14.99 : 0) + (shopBilling?.charged1200 ? 25.0 : 0);
 
   return json({
     stats: { total, active, draft },
     recent,
     commerce,
     billing: {
-      activePlan,
-      planName: planConfig.name,
       monthlyRevenue,
-      revenueLimit: planConfig.revenueLimit === Infinity ? null : planConfig.revenueLimit,
+      currentCharges,
     },
   });
 };
@@ -79,12 +75,8 @@ export default function AppHome() {
   const navigate = useNavigate();
   const c = commerce;
   const b = billing;
-  const revenuePercent =
-    b.revenueLimit != null && b.revenueLimit > 0
-      ? Math.min(100, (b.monthlyRevenue / b.revenueLimit) * 100)
-      : null;
-  const planWarning =
-    b.revenueLimit != null && b.monthlyRevenue > b.revenueLimit;
+  const nextThreshold = b.monthlyRevenue < 200 ? 200 : b.monthlyRevenue < 1200 ? 1200 : null;
+  const progressPercent = nextThreshold ? Math.min(100, (b.monthlyRevenue / nextThreshold) * 100) : 100;
 
   return (
     <Page>
@@ -117,59 +109,37 @@ export default function AppHome() {
             <InlineStack align="space-between" blockAlign="center">
               <BlockStack gap="100">
                 <Text as="h2" variant="headingMd">
-                  Votre abonnement
+                  Votre abonnement (Usage-based)
                 </Text>
                 <Text as="p" variant="bodySm" tone="subdued">
                   Revenus générés via SAR Bundle ce mois-ci
                 </Text>
               </BlockStack>
               <InlineStack gap="200" blockAlign="center">
-                <Badge
-                  tone={
-                    b.activePlan === "free_tier"
-                      ? "new"
-                      : b.activePlan === "starter_tier"
-                        ? "info"
-                        : "success"
-                  }
-                >
-                  {b.planName}
+                <Badge tone="success">
+                  {`Facture en cours : ${b.currentCharges.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€`}
                 </Badge>
                 <Button variant="plain" onClick={() => navigate("/app/pricing")}>
-                  Gérer
+                  Détails
                 </Button>
               </InlineStack>
             </InlineStack>
 
-            {planWarning && (
-              <Banner
-                tone="critical"
-                title="Limite dépassée"
-                action={{ content: "Passer au plan supérieur", url: "/app/pricing" }}
-              >
-                <p>
-                  Vous avez dépassé la limite de ${b.revenueLimit?.toLocaleString("fr-FR")} de
-                  revenus de votre plan {b.planName}.
-                </p>
-              </Banner>
-            )}
-
             <InlineStack align="space-between">
               <Text as="span" variant="bodyMd">
-                ${b.monthlyRevenue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} générés
+                {b.monthlyRevenue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€ générés
               </Text>
-              <Text as="span" variant="bodyMd" tone="subdued">
-                Limite :{" "}
-                {b.revenueLimit != null
-                  ? `$${b.revenueLimit.toLocaleString("fr-FR")}`
-                  : "Illimitée"}
-              </Text>
+              {nextThreshold && (
+                <Text as="span" variant="bodySm" tone="subdued">
+                  Prochain seuil : {nextThreshold}€
+                </Text>
+              )}
             </InlineStack>
 
-            {revenuePercent !== null && (
+            {nextThreshold && (
               <ProgressBar
-                progress={revenuePercent}
-                tone={planWarning ? "critical" : revenuePercent > 75 ? "highlight" : "primary"}
+                progress={progressPercent}
+                tone={progressPercent > 90 ? "highlight" : "primary"}
                 size="small"
               />
             )}

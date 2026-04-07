@@ -1,6 +1,6 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
+import type { LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -8,30 +8,17 @@ import {
   Text,
   BlockStack,
   InlineStack,
-  Button,
   Badge,
   Box,
   Divider,
-  Banner,
+  ProgressBar,
   Icon,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { CheckIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
-import { BILLING_PLANS, type BillingPlanHandle } from "../utils/billing-plans";
+import { BILLING_PLANS } from "../utils/billing-plans";
 import prisma from "../db.server";
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function startOfCurrentMonthUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-}
-
-function formatRevLimit(limit: number) {
-  if (limit === Infinity) return "Illimité";
-  return `$${limit.toLocaleString("fr-FR")}`;
-}
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
 
@@ -45,365 +32,177 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     billing = auth.billing;
   } catch (err) {
     console.error("[SAR/pricing] authenticate.admin failed:", err);
-    throw err; // Let Shopify handle auth errors (redirect to login)
+    throw err;
   }
 
   const shop = session.shop;
-  console.log(`[SAR/pricing] Loading pricing page for shop: ${shop}`);
 
-  // ── Read ShopBilling record safely (table may not exist yet) ──────────────
-  let activePlan: BillingPlanHandle = "free_tier";
+  // Enforce billing
+  await billing.require({
+    plans: [BILLING_PLANS.sar_bundle_plan.handle],
+    isTest: process.env.NODE_ENV !== "production",
+    onFailure: async () => billing.request({
+      plan: BILLING_PLANS.sar_bundle_plan.handle,
+      isTest: process.env.NODE_ENV !== "production",
+    }),
+  });
+
   let monthlyRevenue = 0;
+  let charged200 = false;
+  let charged1200 = false;
 
   try {
     const shopBilling = await prisma.shopBilling.findUnique({
       where: { shopDomain: shop },
     });
     if (shopBilling) {
-      activePlan = (shopBilling.activePlan as BillingPlanHandle) ?? "free_tier";
       monthlyRevenue = shopBilling.monthlyBundleRevenue ?? 0;
-      console.log(`[SAR/pricing] ShopBilling found: plan=${activePlan}, revenue=${monthlyRevenue}`);
-    } else {
-      console.log(`[SAR/pricing] No ShopBilling record yet — defaulting to free_tier`);
+      charged200 = shopBilling.charged200 ?? false;
+      charged1200 = shopBilling.charged1200 ?? false;
     }
   } catch (err) {
-    // Table may not exist yet if migration hasn't run
     console.error("[SAR/pricing] prisma.shopBilling.findUnique failed (migration pending?):", err);
   }
 
-  // ── Check Shopify subscription safely ─────────────────────────────────────
-  let activeShopifySubscription: string | null = null;
-
-  try {
-    const billingResult = await billing.check({
-      plans: ["starter_tier", "pro_tier"],
-      isTest: process.env.NODE_ENV !== "production",
-    });
-    console.log(`[SAR/pricing] billing.check result:`, JSON.stringify(billingResult));
-    if (billingResult.hasActivePayment && billingResult.appSubscriptions?.length > 0) {
-      activeShopifySubscription = billingResult.appSubscriptions[0].name ?? null;
-    }
-  } catch (err) {
-    // No active subscription or billing not configured — not a critical error
-    console.error("[SAR/pricing] billing.check failed (likely no subscription):", err);
-  }
-
-  console.log(`[SAR/pricing] Returning: activePlan=${activePlan}, activeShopifySub=${activeShopifySubscription}`);
+  const currentCharges = (charged200 ? 14.99 : 0) + (charged1200 ? 25.0 : 0);
 
   return json({
-    activePlan,
     monthlyRevenue,
-    activeShopifySubscription,
+    currentCharges,
+    charged200,
+    charged1200,
     shop,
   });
-};
-
-// ─── Action ──────────────────────────────────────────────────────────────────
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
-  const shop = session.shop;
-  const formData = await request.formData();
-  const intent = formData.get("intent") as string;
-
-  if (intent === "subscribe_starter" || intent === "subscribe_pro") {
-    const planHandle = intent === "subscribe_starter" ? "starter_tier" : "pro_tier";
-    await billing.request({
-      plan: planHandle,
-      isTest: process.env.NODE_ENV !== "production",
-      returnUrl: `${process.env.SHOPIFY_APP_URL}/app/pricing?success=1`,
-    });
-    // billing.request() throws a redirect — this line won't be reached
-  }
-
-  if (intent === "cancel") {
-    // Downgrade to free: update our DB, Shopify cancels on their side
-    await prisma.shopBilling.upsert({
-      where: { shopDomain: shop },
-      create: { shopDomain: shop, activePlan: "free_tier" },
-      update: { activePlan: "free_tier", updatedAt: new Date() },
-    });
-
-    // Cancel active Shopify subscription
-    try {
-      const { appSubscriptions } = await billing.check({
-        plans: ["starter_tier", "pro_tier"],
-        isTest: process.env.NODE_ENV !== "production",
-      });
-      if (appSubscriptions.length > 0) {
-        await billing.cancel({
-          subscriptionId: appSubscriptions[0].id,
-          isTest: process.env.NODE_ENV !== "production",
-          prorate: true,
-        });
-      }
-    } catch {
-      // Already cancelled or no subscription
-    }
-
-    return redirect("/app/pricing?cancelled=1");
-  }
-
-  return json({ ok: true });
-};
-
-// ─── Plan card features ───────────────────────────────────────────────────────
-
-const PLAN_FEATURES: Record<BillingPlanHandle, string[]> = {
-  free_tier: [
-    "Jusqu'à $200 de revenus générés/mois",
-    "Bundles illimités créés",
-    "Éditeur visuel complet",
-    "App Block Storefront",
-  ],
-  starter_tier: [
-    "Jusqu'à $1 500 de revenus générés/mois",
-    "Tout ce qui est inclus dans Free",
-    "Support prioritaire par email",
-    "Analytics de performance",
-  ],
-  pro_tier: [
-    "Revenus illimités",
-    "Tout ce qui est inclus dans Starter",
-    "Support dédié",
-    "Accès anticipé aux nouvelles fonctionnalités",
-  ],
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function PricingPage() {
-  const { activePlan, monthlyRevenue, activeShopifySubscription } =
-    useLoaderData<typeof loader>();
-  const submit = useSubmit();
-  const navigation = useNavigation();
-  const isLoading = navigation.state === "submitting";
+  const { monthlyRevenue, currentCharges, charged200, charged1200 } = useLoaderData<typeof loader>();
 
-  const url = new URL(
-    typeof window !== "undefined" ? window.location.href : "http://localhost",
-  );
-  const justSucceeded = url.searchParams.get("success") === "1";
-  const justCancelled = url.searchParams.get("cancelled") === "1";
-
-  function handleSubscribe(intent: string) {
-    submit({ intent }, { method: "POST" });
-  }
-
-  const planConfig = [
-    {
-      handle: "free_tier" as BillingPlanHandle,
-      badge: null,
-    },
-    {
-      handle: "starter_tier" as BillingPlanHandle,
-      badge: "Populaire",
-    },
-    {
-      handle: "pro_tier" as BillingPlanHandle,
-      badge: null,
-    },
-  ];
+  const nextThreshold = monthlyRevenue < 200 ? 200 : monthlyRevenue < 1200 ? 1200 : null;
+  const progressPercent = nextThreshold ? Math.min(100, (monthlyRevenue / nextThreshold) * 100) : 100;
 
   return (
     <Page>
-      <TitleBar title="Abonnement & Tarification" />
+      <TitleBar title="Abonnement & Facturation" />
       <BlockStack gap="600">
-        {justSucceeded && (
-          <Banner tone="success" title="Abonnement activé !">
-            <p>Votre abonnement est maintenant actif. Merci de faire confiance à SAR Bundle !</p>
-          </Banner>
-        )}
-        {justCancelled && (
-          <Banner tone="info" title="Abonnement annulé">
-            <p>
-              Vous êtes repassé au plan <strong>Free</strong>. Votre accès reste actif jusqu'à la
-              fin de la période en cours.
-            </p>
-          </Banner>
-        )}
 
         <BlockStack gap="200">
           <Text as="h1" variant="headingXl">
-            Choisissez votre plan
+            Votre Abonnement SAR Bundle
           </Text>
           <Text as="p" variant="bodyMd" tone="subdued">
-            Payez uniquement quand vos bundles génèrent des revenus. Votre plan est déterminé par
-            le chiffre d'affaires mensuel généré via l'application.
+            Un abonnement unique, juste et transparent. Vous payez uniquement en fonction du chiffre d'affaires mesuré généré via l'application ce mois-ci.
           </Text>
         </BlockStack>
 
-        {/* Current month revenue indicator */}
-        <Card>
-          <InlineStack align="space-between" blockAlign="center">
-            <BlockStack gap="100">
-              <Text as="h2" variant="headingMd">
-                Revenus du mois en cours
-              </Text>
-              <Text as="p" variant="bodySm" tone="subdued">
-                Cumulé depuis le 1er du mois (UTC) — commandes contenant un bundle SAR
-              </Text>
-            </BlockStack>
-            <BlockStack inlineAlign="end" gap="100">
-              <Text as="p" variant="headingXl">
-                ${monthlyRevenue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}
-              </Text>
-              <Badge tone={activePlan === "free_tier" ? "new" : activePlan === "starter_tier" ? "info" : "success"}>
-                {`Plan actuel : ${BILLING_PLANS[activePlan].name}`}
-              </Badge>
-            </BlockStack>
-          </InlineStack>
-        </Card>
-
-        {/* Pricing cards */}
         <Layout>
-          {planConfig.map(({ handle, badge }) => {
-            const plan = BILLING_PLANS[handle];
-            const features = PLAN_FEATURES[handle];
-            const isCurrent = activePlan === handle;
-            const isUpgrade =
-              handle === "pro_tier" ||
-              (handle === "starter_tier" && activePlan === "free_tier");
-            const isDowngrade = !isCurrent && !isUpgrade;
+          {/* Main usage card */}
+          <Layout.Section variant="oneHalf">
+            <Card>
+              <BlockStack gap="400">
+                <Text as="h2" variant="headingLg">Utilisation du mois en cours (UTC)</Text>
+                
+                <InlineStack align="space-between" blockAlign="center">
+                  <Text as="p" variant="heading3xl">
+                    {monthlyRevenue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€
+                  </Text>
+                  <Badge tone={currentCharges > 0 ? "warning" : "success"}>
+                    {`Facture générée : ${currentCharges.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€`}
+                  </Badge>
+                </InlineStack>
 
-            return (
-              <Layout.Section key={handle} variant="oneThird">
-                <div
-                  style={{
-                    height: "100%",
-                    border: isCurrent
-                      ? "2px solid var(--p-color-border-interactive)"
-                      : "1px solid var(--p-color-border)",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                    background: isCurrent
-                      ? "var(--p-color-bg-surface-selected)"
-                      : "var(--p-color-bg-surface)",
-                  }}
-                >
-                  <Box padding="500">
-                    <BlockStack gap="400">
-                      {/* Header */}
-                      <InlineStack align="space-between" blockAlign="start">
-                        <BlockStack gap="100">
-                          <Text as="h2" variant="headingLg">
-                            {plan.name}
-                          </Text>
-                          {badge && <Badge tone="attention">{badge}</Badge>}
-                        </BlockStack>
-                        {isCurrent && <Badge tone="success">Plan actuel ✓</Badge>}
-                      </InlineStack>
+                <Box paddingBlockStart="200">
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between">
+                      <Text as="span" variant="bodySm">Progression jusqu'au {nextThreshold ? `prochain seuil (${nextThreshold}€)` : `plafond atteint`}</Text>
+                      <Text as="span" variant="bodySm">
+                        {progressPercent.toFixed(0)}%
+                      </Text>
+                    </InlineStack>
+                    <ProgressBar
+                      progress={progressPercent}
+                      tone={progressPercent > 90 ? "highlight" : "primary"}
+                    />
+                  </BlockStack>
+                </Box>
 
-                      {/* Price */}
-                      <BlockStack gap="050">
-                        <InlineStack gap="100" blockAlign="end">
-                          <Text as="p" variant="heading2xl">
-                            {plan.amount === 0 ? "Gratuit" : `$${plan.amount}`}
-                          </Text>
-                          {plan.amount > 0 && (
-                            <Text as="p" variant="bodyMd" tone="subdued">
-                              / mois
-                            </Text>
-                          )}
-                        </InlineStack>
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          Limite : {formatRevLimit(plan.revenueLimit)} de CA/mois
-                        </Text>
-                      </BlockStack>
+                <Divider />
 
-                      <Divider />
+                <BlockStack gap="200">
+                  <Text as="h3" variant="headingMd">État des montants</Text>
+                  
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="200">
+                      <div style={{ color: "var(--p-color-icon-success)" }}>
+                        <Icon source={CheckIcon} tone="success" />
+                      </div>
+                      <Text as="span" variant="bodyMd">Installation & Utilisation de Base (jusqu'à 200€)</Text>
+                    </InlineStack>
+                    <Text as="span" variant="bodyMd">0.00€</Text>
+                  </InlineStack>
 
-                      {/* Features */}
-                      <BlockStack gap="200">
-                        {features.map((f) => (
-                          <InlineStack key={f} gap="200" blockAlign="start">
-                            <div style={{ color: "var(--p-color-icon-success)", flexShrink: 0 }}>
-                              <Icon source={CheckIcon} tone="success" />
-                            </div>
-                            <Text as="span" variant="bodyMd">
-                              {f}
-                            </Text>
-                          </InlineStack>
-                        ))}
-                      </BlockStack>
+                  <InlineStack align="space-between" blockAlign="center">
+                     <InlineStack gap="200">
+                      <div style={{ color: charged200 ? "var(--p-color-icon-success)" : "var(--p-color-icon-subdued)" }}>
+                        <Icon source={CheckIcon} tone={charged200 ? "success" : "subdued"} />
+                      </div>
+                      <Text as="span" variant="bodyMd" tone={charged200 ? "base" : "subdued"}>Seuil de 200€ dépassé (+14.99€)</Text>
+                    </InlineStack>
+                    <Text as="span" variant="bodyMd" tone={charged200 ? "base" : "subdued"}>
+                      {charged200 ? "14.99€" : "0.00€"}
+                    </Text>
+                  </InlineStack>
 
-                      {/* CTA */}
-                      <Box paddingBlockStart="200">
-                        {isCurrent ? (
-                          <>
-                            <Button disabled fullWidth>
-                              Plan actuel
-                            </Button>
-                            {handle !== "free_tier" && (
-                              <Box paddingBlockStart="200">
-                                <Button
-                                  variant="plain"
-                                  tone="critical"
-                                  fullWidth
-                                  loading={isLoading}
-                                  onClick={() => handleSubscribe("cancel")}
-                                >
-                                  Annuler l'abonnement
-                                </Button>
-                              </Box>
-                            )}
-                          </>
-                        ) : handle === "free_tier" ? (
-                          <Button
-                            variant="plain"
-                            tone="critical"
-                            fullWidth
-                            loading={isLoading}
-                            onClick={() => handleSubscribe("cancel")}
-                          >
-                            Rétrograder vers Free
-                          </Button>
-                        ) : (
-                          <Button
-                            variant={isUpgrade ? "primary" : "secondary"}
-                            fullWidth
-                            loading={isLoading}
-                            onClick={() =>
-                              handleSubscribe(
-                                handle === "starter_tier"
-                                  ? "subscribe_starter"
-                                  : "subscribe_pro",
-                              )
-                            }
-                          >
-                            {isDowngrade ? "Rétrograder" : "S'abonner"} — {plan.name}
-                          </Button>
-                        )}
-                      </Box>
-                    </BlockStack>
-                  </Box>
-                </div>
-              </Layout.Section>
-            );
-          })}
+                  <InlineStack align="space-between" blockAlign="center">
+                     <InlineStack gap="200">
+                      <div style={{ color: charged1200 ? "var(--p-color-icon-success)" : "var(--p-color-icon-subdued)" }}>
+                        <Icon source={CheckIcon} tone={charged1200 ? "success" : "subdued"} />
+                      </div>
+                      <Text as="span" variant="bodyMd" tone={charged1200 ? "base" : "subdued"}>Seuil de 1200€ dépassé (+25.00€)</Text>
+                    </InlineStack>
+                    <Text as="span" variant="bodyMd" tone={charged1200 ? "base" : "subdued"}>
+                      {charged1200 ? "25.00€" : "0.00€"}
+                    </Text>
+                  </InlineStack>
+                </BlockStack>
+
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+
+          {/* Explanation notes */}
+          <Layout.Section variant="oneHalf">
+            <Card>
+              <BlockStack gap="400">
+                <Text as="h2" variant="headingMd">Comment fonctionne la facturation ?</Text>
+                
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd">
+                    💳 <strong>Facturation Automatique</strong><br />
+                    L'application est 100% gratuite jusqu'à 200€ de chiffre d'affaires mesuré (commandes payées contenant vos bundles) par mois.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    📈 <strong>Paliers</strong>
+                    <ul>
+                      <li>Au-delà de 200€, vous serez facturé de 14.99€.</li>
+                      <li>Au-delà de 1200€, vous serez facturé de 25.00€ de plus.</li>
+                    </ul>
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    🛡️ <strong>Plafond Mensuel</strong><br />
+                    Le coût total ne dépassera jamais 39.99€ par mois. L'application reste active et sans restrictions même si vous générez des millions !
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    🗓️ <strong>Remise à Zéro</strong><br />
+                    L'historique et les seuils sont réinitialisés le 1er jour de chaque mois.
+                  </Text>
+                </BlockStack>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
         </Layout>
-
-        {/* Info note */}
-        <Card>
-          <BlockStack gap="200">
-            <Text as="h2" variant="headingMd">
-              Comment ça fonctionne ?
-            </Text>
-            <BlockStack gap="100">
-              <Text as="p" variant="bodyMd">
-                📊 Chaque commande Shopify contenant un bundle SAR est détectée automatiquement
-                via le webhook <code>orders/paid</code>.
-              </Text>
-              <Text as="p" variant="bodyMd">
-                🗓️ Le compteur de revenus est remis à zéro le <strong>1er de chaque mois (UTC)</strong>.
-              </Text>
-              <Text as="p" variant="bodyMd">
-                ⚠️ Si vous dépassez la limite de votre plan, une notification apparaîtra dans
-                votre tableau de bord. Aucune fonctionnalité n'est bloquée, mais nous vous
-                encourageons à passer au plan supérieur pour continuer sans interruption.
-              </Text>
-            </BlockStack>
-          </BlockStack>
-        </Card>
       </BlockStack>
     </Page>
   );

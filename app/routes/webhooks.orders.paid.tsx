@@ -31,19 +31,18 @@ function startOfCurrentMonthUTC(): Date {
 // ─── Action ──────────────────────────────────────────────────────────────────
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, topic, payload } = await authenticate.webhook(request);
+  const { admin, shop, topic, payload } = await authenticate.webhook(request);
 
   console.log(`[SAR] Webhook received: ${topic} for ${shop}`);
 
   const order = payload as unknown as ShopifyOrder;
 
-  // Only process paid orders (webhook topic is already ORDERS_PAID,
-  // but we guard against retries with other financial statuses just in case)
+  // Only process paid orders
   if (order.financial_status !== "paid") {
     return new Response(null, { status: 200 });
   }
 
-  // ── Find line items that contain a SAR bundle ──────────────────────────────
+  // ── Find line items that contain a SAR bundle
   let bundleRevenue = 0;
 
   for (const item of order.line_items ?? []) {
@@ -59,53 +58,86 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   if (bundleRevenue <= 0) {
-    // No SAR bundle in this order — nothing to do
     return new Response(null, { status: 200 });
   }
 
-  console.log(
-    `[SAR] Order contains $${bundleRevenue.toFixed(2)} of bundle revenue for ${shop}`,
-  );
+  console.log(`[SAR] Order contains ${bundleRevenue.toFixed(2)}€ of bundle revenue for ${shop}`);
 
-  // ── Upsert ShopBilling with monthly reset logic ────────────────────────────
+  // ── Upsert ShopBilling with monthly reset logic
   const monthStart = startOfCurrentMonthUTC();
 
-  const existing = await prisma.shopBilling.findUnique({
+  let existing = await prisma.shopBilling.findUnique({
     where: { shopDomain: shop },
   });
 
   if (!existing) {
-    // First time we see this shop — create record
-    await prisma.shopBilling.create({
+    existing = await prisma.shopBilling.create({
       data: {
         shopDomain: shop,
-        activePlan: "free_tier",
-        monthlyBundleRevenue: bundleRevenue,
+        monthlyBundleRevenue: 0,
         revenueResetAt: monthStart,
       },
     });
-  } else {
-    // Check if we need to reset (new calendar month)
-    const needsReset =
-      existing.revenueResetAt < monthStart;
+  }
 
-    await prisma.shopBilling.update({
-      where: { shopDomain: shop },
-      data: {
-        monthlyBundleRevenue: needsReset
-          ? bundleRevenue                              // Reset + this order
-          : existing.monthlyBundleRevenue + bundleRevenue, // Accumulate
-        revenueResetAt: needsReset ? monthStart : existing.revenueResetAt,
-        updatedAt: new Date(),
-      },
-    });
+  const needsReset = existing.revenueResetAt < monthStart;
+  
+  const newTotal = needsReset 
+    ? bundleRevenue 
+    : existing.monthlyBundleRevenue + bundleRevenue;
 
-    if (needsReset) {
-      console.log(
-        `[SAR] Monthly reset applied for ${shop}. New total: $${bundleRevenue.toFixed(2)}`,
+  // ── Logic Usage Charges
+  let charged200_update = needsReset ? false : existing.charged200;
+  let charged1200_update = needsReset ? false : existing.charged1200;
+  
+  const { createUsageRecord } = await import("../utils/billing.server");
+
+  // Threshold 1: 200€
+  if (newTotal > 200 && !charged200_update) {
+    if (existing.subscriptionLineItemId) {
+      const success = await createUsageRecord(
+        admin, 
+        existing.subscriptionLineItemId, 
+        14.99, 
+        "Dépassement du seuil de base (200€) — SAR Bundle"
       );
+      if (success) charged200_update = true;
+    } else {
+      console.warn(`[SAR] Reached 200 threshold for ${shop} but no subscriptionLineItemId is stored.`);
     }
+  }
+
+  // Threshold 2: 1200€
+  if (newTotal > 1200 && !charged1200_update) {
+    if (existing.subscriptionLineItemId) {
+      const success = await createUsageRecord(
+        admin, 
+        existing.subscriptionLineItemId, 
+        25.00, 
+        "Dépassement du seuil pro (1200€) — SAR Bundle"
+      );
+      if (success) charged1200_update = true;
+    } else {
+      console.warn(`[SAR] Reached 1200 threshold for ${shop} but no subscriptionLineItemId is stored.`);
+    }
+  }
+
+  // Update record in database
+  await prisma.shopBilling.update({
+    where: { shopDomain: shop },
+    data: {
+      monthlyBundleRevenue: newTotal,
+      revenueResetAt: needsReset ? monthStart : existing.revenueResetAt,
+      charged200: charged200_update,
+      charged1200: charged1200_update,
+      updatedAt: new Date(),
+    },
+  });
+
+  if (needsReset) {
+    console.log(`[SAR] Monthly reset applied for ${shop}. New total: ${bundleRevenue.toFixed(2)}€`);
   }
 
   return new Response(null, { status: 200 });
 };
+
