@@ -29,10 +29,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Enforce the usage-based billing plan!
   await billing.require({
     plans: [BILLING_PLANS.sar_bundle_plan.handle],
-    isTest: process.env.NODE_ENV !== "production",
+    isTest: true, // MUST BE true for Development Stores!
     onFailure: async () => billing.request({
       plan: BILLING_PLANS.sar_bundle_plan.handle,
-      isTest: process.env.NODE_ENV !== "production",
+      isTest: true, // MUST BE true for Development Stores!
     }),
   });
 
