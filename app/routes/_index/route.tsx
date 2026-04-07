@@ -22,36 +22,37 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>SAR Bundle</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          The ultimate interactive bundle builder for Shopify. Boost your AOV with custom mix & match offers.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
             <label className={styles.label}>
               <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
+              <input className={styles.input} type="text" name="shop" placeholder="my-shop.myshopify.com" />
             </label>
             <button className={styles.button} type="submit">
-              Log in
+              Install App
             </button>
           </Form>
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Mix & Match Bundles</strong>. Let customers build their own packs with our interactive multi-step builder.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Usage-Based Pricing</strong>. Pay only as you grow. 100% free until you reach 200€ in bundle revenue.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>OS 2.0 Compatible</strong>. Seamlessly integrate with your theme using App Blocks. No code required.
           </li>
         </ul>
+
+        <footer style={{ marginTop: "40px", display: "flex", gap: "20px", fontSize: "0.9rem", opacity: 0.7 }}>
+          <a href="/privacy" style={{ color: "inherit" }}>Privacy Policy</a>
+          <a href="/faq" style={{ color: "inherit" }}>FAQ</a>
+        </footer>
       </div>
     </div>
   );
