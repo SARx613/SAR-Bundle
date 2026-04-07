@@ -756,8 +756,8 @@
             // Set CSS vars for the whole bar
             bar.style.setProperty('--sar-stepbar-borderColor', st.borderColor || 'transparent');
             bar.style.setProperty('--sar-stepbar-lineColor', st.lineColor || st.borderColor || '#e1e3e5');
-            bar.style.setProperty('--sar-stepbar-active-bg', st.activeBg || 'var(--sar-color-primary, #008060)');
-            bar.style.setProperty('--sar-stepbar-completed-bg', st.completedBg || st.activeBg || 'var(--sar-color-primary, #008060)');
+            bar.style.setProperty('--sar-stepbar-active-bg', st.activeBg || 'var(--sar-color-primary, #1a1a1a)');
+            bar.style.setProperty('--sar-stepbar-completed-bg', st.completedBg || st.activeBg || 'var(--sar-color-primary, #1a1a1a)');
             bar.style.setProperty('--sar-stepbar-inactive-bg', st.inactiveBg || '#f1f1f1');
             bar.style.setProperty('--sar-stepbar-active-text', st.activeTextColor || '#ffffff');
             bar.style.setProperty('--sar-stepbar-inactive-text', st.inactiveTextColor || '#999999');
@@ -781,36 +781,15 @@
 
                 // Horizontal Line
                 if (idx < ctx.steps.length - 1 && isShowLine) {
-                  var line = document.createElement('div');
-                  line.className = 'sar-stepbar__line';
-                  line.style.position = 'absolute';
-                  line.style.left = '50%';
-                  line.style.top = '24px';
-                  line.style.width = '100%';
-                  line.style.height = '1px';
-                  line.style.zIndex = '0';
-                  line.style.background = isCompleted ? 'var(--sar-stepbar-completed-bg)' : 'var(--sar-stepbar-lineColor)';
+                  var line = document.createElement("div");
+                  line.className = "sar-stepbar__line";
                   item.appendChild(line);
                 }
 
                 // Circle Icon/Number
-                var circle = document.createElement('div');
-                circle.className = 'sar-stepbar__icon-circle';
-                circle.style.width = '48px';
-                circle.style.height = '48px';
-                circle.style.borderRadius = '50%';
-                circle.style.margin = '0 auto 8px';
-                circle.style.display = 'flex';
-                circle.style.alignItems = 'center';
-                circle.style.justifyContent = 'center';
-                circle.style.position = 'relative';
-                circle.style.zIndex = '1';
-                circle.style.transition = 'all 0.2s';
+                var circle = document.createElement("div");
+                circle.className = "sar-stepbar__icon-circle";
                 
-                circle.style.background = isActive ? 'var(--sar-stepbar-active-bg)' : (isCompleted ? 'var(--sar-stepbar-completed-bg)' : 'var(--sar-stepbar-inactive-bg)');
-                circle.style.color = (isActive || isCompleted) ? 'var(--sar-stepbar-active-text)' : 'var(--sar-stepbar-inactive-text)';
-                if (!isActive && !isCompleted) circle.style.border = '1px solid var(--sar-stepbar-borderColor)';
-
                 if (stepInfo.imageUrl) {
                   var img = document.createElement('img');
                   img.src = stepInfo.imageUrl;
@@ -890,7 +869,7 @@
                 row.style.gap = '12px';
                 row.style.padding = '12px';
                 row.style.borderRadius = '8px';
-                row.style.border = '1px solid ' + (isSelected ? 'var(--sar-color-primary, #008060)' : '#e1e3e5');
+                row.style.border = '1px solid ' + (isSelected ? 'var(--sar-color-primary, #1a1a1a)' : '#e1e3e5');
                 row.style.background = isSelected ? 'var(--sar-color-bg-subtle, #f0f7f5)' : 'transparent';
                 row.style.cursor = 'pointer';
                 row.style.transition = 'all 0.2s';
@@ -899,11 +878,11 @@
                 check.style.width = '20px';
                 check.style.height = '20px';
                 check.style.borderRadius = behavior === 'single' ? '50%' : '4px';
-                check.style.border = '2px solid ' + (isSelected ? 'var(--sar-color-primary, #008060)' : '#d1d3d5');
+                check.style.border = '2px solid ' + (isSelected ? 'var(--sar-color-primary, #1a1a1a)' : '#d1d3d5');
                 check.style.display = 'flex';
                 check.style.alignItems = 'center';
                 check.style.justifyContent = 'center';
-                check.style.background = isSelected ? 'var(--sar-color-primary, #008060)' : '#fff';
+                check.style.background = isSelected ? 'var(--sar-color-primary, #1a1a1a)' : '#fff';
                 if (isSelected) {
                   var inner = document.createElement('div');
                   inner.style.width = behavior === 'single' ? '8px' : '10px';
@@ -944,7 +923,7 @@
                 var price = document.createElement('div');
                 price.style.fontWeight = '700';
                 price.style.fontSize = '14px';
-                price.style.color = 'var(--sar-color-primary, #008060)';
+                price.style.color = 'var(--sar-color-primary, #1a1a1a)';
                 price.textContent = '+' + formatMoneyDisplay(item.priceAmount, item.currencyCode);
                 row.appendChild(price);
 

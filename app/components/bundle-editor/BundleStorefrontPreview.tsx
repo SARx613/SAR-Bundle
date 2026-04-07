@@ -119,8 +119,8 @@ function StepBarPreview({
       style={{
         "--sar-stepbar-borderColor": st.borderColor || "transparent",
         "--sar-stepbar-lineColor": st.lineColor || st.borderColor || "#e1e3e5",
-        "--sar-stepbar-active-bg": st.activeBg || "var(--p-color-bg-fill-brand, #008060)",
-        "--sar-stepbar-completed-bg": st.completedBg || st.activeBg || "var(--p-color-bg-fill-brand, #008060)",
+        "--sar-stepbar-active-bg": st.activeBg || "var(--p-color-bg-fill-brand, #1a1a1a)",
+        "--sar-stepbar-completed-bg": st.completedBg || st.activeBg || "var(--p-color-bg-fill-brand, #1a1a1a)",
         "--sar-stepbar-inactive-bg": st.inactiveBg || "#f1f1f1",
         "--sar-stepbar-active-text": st.activeTextColor || "#ffffff",
         "--sar-stepbar-inactive-text": st.inactiveTextColor || "#999999",
@@ -269,7 +269,7 @@ function UpsellPreview({
                 gap: "12px",
                 padding: "12px",
                 borderRadius: "8px",
-                border: `1px solid ${isSelected ? "var(--sar-color-primary, #008060)" : "#e1e3e5"}`,
+                border: `1px solid ${isSelected ? "var(--sar-color-primary, #1a1a1a)" : "#e1e3e5"}`,
                 background: isSelected ? "var(--sar-color-bg-subtle, #f0f7f5)" : "transparent",
                 cursor: "pointer",
                 transition: "all 0.2s"
@@ -279,11 +279,11 @@ function UpsellPreview({
                 width: "20px",
                 height: "20px",
                 borderRadius: behavior === "single" ? "50%" : "4px",
-                border: `2px solid ${isSelected ? "var(--sar-color-primary, #008060)" : "#d1d3d5"}`,
+                border: `2px solid ${isSelected ? "var(--sar-color-primary, #1a1a1a)" : "#d1d3d5"}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: isSelected ? "var(--sar-color-primary, #008060)" : "#fff"
+                background: isSelected ? "var(--sar-color-primary, #1a1a1a)" : "#fff"
               }}>
                 {isSelected && (
                   <div style={{ 
@@ -314,7 +314,7 @@ function UpsellPreview({
                 )}
               </div>
               
-              <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--sar-color-primary, #008060)" }}>
+              <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--sar-color-primary, #1a1a1a)" }}>
                 +{item.priceAmount} {item.currencyCode}
               </div>
             </div>
@@ -580,7 +580,7 @@ export function BundleStorefrontPreview({
       style={{
         fontFamily: g.fontBody || "inherit",
         background: g.pageBackground || "transparent",
-        "--sar-color-primary": g.colorPrimary || "#008060",
+        "--sar-color-primary": g.colorPrimary || "#1a1a1a",
         "--sar-color-border": g.colorBorder || "#e1e3e5",
         "--sar-color-bg": g.colorBackground || "#ffffff",
         "--sar-color-text": g.colorText || "#121212",

@@ -76,9 +76,9 @@
 }
 
 .sar-bundle__step-pill--active {
-  background: var(--sar-color-primary, #008060);
+  background: var(--sar-color-primary, #1a1a1a);
   color: #fff;
-  border-color: var(--sar-color-primary, #008060);
+  border-color: var(--sar-color-primary, #1a1a1a);
 }
 
 /* ─── Step Bar (icon-circle design) ─── */
@@ -108,6 +108,10 @@
   background: var(--sar-stepbar-lineColor, #e1e3e5);
 }
 
+
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
+}
 .sar-stepbar__icon-circle {
   width: 48px;
   height: 48px;
@@ -132,23 +136,35 @@
   object-fit: contain;
 }
 
-.sar-stepbar__item.active .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #008060));
+.sar-stepbar__item.active 
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
+}
+.sar-stepbar__icon-circle {
+  background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #1a1a1a));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
 
-.sar-stepbar__item.completed .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #008060));
+.sar-stepbar__item.completed 
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
+}
+.sar-stepbar__icon-circle {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
 
 /* Hover effects */
-.sar-stepbar__item:not(.active):not(.completed):hover .sar-stepbar__icon-circle {
+.sar-stepbar__item:not(.active):not(.completed):hover 
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
+}
+.sar-stepbar__icon-circle {
   background: var(--sar-stepbar-hover-bg, var(--sar-color-bg-subtle, #f0f7f5));
-  color: var(--sar-stepbar-hover-text, var(--sar-color-primary, #008060));
-  border-color: var(--sar-color-primary, #008060);
+  color: var(--sar-stepbar-hover-text, var(--sar-color-primary, #1a1a1a));
+  border-color: var(--sar-color-primary, #1a1a1a);
 }
 
 .sar-stepbar__label {
@@ -190,12 +206,12 @@
 }
 
 .sar-bundle__upsell-item.is-selected {
-  border-color: var(--sar-color-primary, #008060);
+  border-color: var(--sar-color-primary, #1a1a1a);
   background: var(--sar-color-bg-subtle, #f0f7f5);
 }
 
 .sar-bundle__upsell-item:hover {
-  border-color: var(--sar-color-primary, #008060);
+  border-color: var(--sar-color-primary, #1a1a1a);
 }
 
 /* ─── Product Grid ─── */
@@ -335,10 +351,10 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  background: var(--sar-color-primary, #008060);
+  background: var(--sar-color-primary, #1a1a1a);
   color: var(--sar-button-text, #fff);
   transition: all 0.15s ease;
-  border-color: var(--sar-color-primary, #008060);
+  border-color: var(--sar-color-primary, #1a1a1a);
 }
 
 .sar-bundle__product-atc-btn:hover {
@@ -402,7 +418,7 @@
 }
 
 .sar-bundle__btn--primary {
-  background: var(--sar-color-primary, #008060);
+  background: var(--sar-color-primary, #1a1a1a);
   color: #fff;
 }
 
@@ -413,8 +429,8 @@
 
 .sar-bundle__btn--secondary {
   background: transparent;
-  color: var(--sar-color-primary, #008060);
-  border: 2px solid var(--sar-color-primary, #008060);
+  color: var(--sar-color-primary, #1a1a1a);
+  border: 2px solid var(--sar-color-primary, #1a1a1a);
 }
 
 .sar-bundle__btn--secondary:hover {

@@ -937,13 +937,13 @@ export function SidebarLevel2({
         tabs={[
           {
             id: "layout",
-            content: "Mise en page",
-            accessibilityLabel: "Mise en page",
+            content: "Design",
+            accessibilityLabel: "Design",
           },
           {
             id: "settings",
-            content: "Paramètres",
-            accessibilityLabel: "Paramètres",
+            content: "Options",
+            accessibilityLabel: "Options",
           },
         ]}
         selected={activeTab}
