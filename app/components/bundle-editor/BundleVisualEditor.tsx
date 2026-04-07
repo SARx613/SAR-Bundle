@@ -13,6 +13,7 @@ import {
   Icon,
   InlineStack,
   Text,
+  TextField,
   Tooltip,
 } from "@shopify/polaris";
 import {
@@ -43,6 +44,7 @@ import type { StorefrontDesignV2 } from "../../utils/storefront-design";
 
 type SidebarLevel =
   | { level: 1 }
+  | { level: "global" }
   | { level: 2; stepIndex: number; activeTab: number }
   | { level: 3; stepIndex: number; blockId: string; activeTab: number };
 
@@ -124,7 +126,7 @@ export function BundleVisualEditor({
   const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
-    if (nav.level !== 1) {
+    if (nav.level === 2 || nav.level === 3) {
       const si = nav.stepIndex;
       if (si >= form.steps.length) {
         setNav({ level: 1 });
@@ -190,7 +192,7 @@ export function BundleVisualEditor({
   const deleteStep = (i: number) => {
     setForm((f) => ({ ...f, steps: f.steps.filter((_, j) => j !== i) }));
     setNav((n) => {
-      if (n.level === 1) return n;
+      if (n.level === 1 || n.level === "global") return n;
       if (n.stepIndex === i) return { level: 1 };
       if (n.stepIndex > i) return { ...n, stepIndex: n.stepIndex - 1 };
       return n;
@@ -207,13 +209,13 @@ export function BundleVisualEditor({
       steps: arrayMove(f.steps, oldIndex, newIndex),
     }));
     setNav((n) => {
-      if (n.level === 1) return n;
+      if (n.level === 1 || n.level === "global") return n;
       if (n.stepIndex === oldIndex) return { ...n, stepIndex: newIndex };
       return n;
     });
   };
 
-  const activeStepIndex = nav.level === 1 ? 0 : nav.stepIndex;
+  const activeStepIndex = (nav.level === 1 || nav.level === "global") ? 0 : nav.stepIndex;
   const currentStep = form.steps[activeStepIndex];
   const productCount = currentStep?.products.length ?? 0;
 
@@ -269,6 +271,79 @@ export function BundleVisualEditor({
           <Button variant="primary" onClick={addStep} fullWidth>
             + Ajouter une étape
           </Button>
+
+          <Box paddingBlockStart="400" paddingBlockEnd="200">
+            <Text as="h3" variant="headingSm">
+              Apparence de la section
+            </Text>
+          </Box>
+          <Button
+            onClick={() => setNav({ level: "global" })}
+            fullWidth
+            textAlign="left"
+          >
+            🎨 Éditer les Couleurs et Polices
+          </Button>
+        </BlockStack>
+      );
+    }
+
+    if (nav.level === "global") {
+      const g = form.storefrontDesign.global || {};
+      const updateGlobal = (patch: Partial<StorefrontDesignV2["global"]>) => {
+        patchDesign({
+          ...form.storefrontDesign,
+          version: 2,
+          global: { ...g, ...patch },
+        });
+      };
+
+      return (
+        <BlockStack gap="300">
+          <InlineStack gap="200" blockAlign="center">
+            <Tooltip content="Retour">
+              <Button onClick={() => setNav({ level: 1 })} variant="plain" accessibilityLabel="Retour">
+                ← Retour
+              </Button>
+            </Tooltip>
+            <Text as="h2" variant="headingMd">
+              Styles Globaux
+            </Text>
+          </InlineStack>
+
+          <Box paddingBlockStart="200">
+            <BlockStack gap="400">
+              <TextField
+                label="Couleur principale (Hex)"
+                value={g.colorPrimary ?? ""}
+                onChange={(v) => updateGlobal({ colorPrimary: v || undefined })}
+                placeholder="#008060"
+                helpText="Utilisée pour le bouton d'ajout au panier, étape active, etc."
+                autoComplete="off"
+              />
+              <TextField
+                label="Couleur des bordures (Hex)"
+                value={g.colorBorder ?? ""}
+                onChange={(v) => updateGlobal({ colorBorder: v || undefined })}
+                placeholder="#e1e3e5"
+                autoComplete="off"
+              />
+              <TextField
+                label="Arrière-plan (Hex)"
+                value={g.colorBackground ?? ""}
+                onChange={(v) => updateGlobal({ colorBackground: v || undefined })}
+                placeholder="#ffffff"
+                autoComplete="off"
+              />
+              <TextField
+                label="Couleur du texte (Hex)"
+                value={g.colorText ?? ""}
+                onChange={(v) => updateGlobal({ colorText: v || undefined })}
+                placeholder="#121212"
+                autoComplete="off"
+              />
+            </BlockStack>
+          </Box>
         </BlockStack>
       );
     }
@@ -406,19 +481,23 @@ export function BundleVisualEditor({
                 steps={form.steps}
                 activeStepIndex={activeStepIndex}
                 selectedBlockId={nav.level === 3 ? nav.blockId : null}
-                hiddenBlocks={hiddenBlocks}
+                hiddenBlocks={Object.fromEntries(Array.from(hiddenBlocks).map(id => [id, true]))}
                 isMobile={isMobilePreview}
                 onSelectStep={(idx) =>
                   setNav({ level: 2, stepIndex: idx, activeTab: 0 })
                 }
-                onSelectBlock={(blockId) =>
-                  setNav({
-                    level: 3,
-                    stepIndex: activeStepIndex,
-                    blockId,
-                    activeTab: 0,
-                  })
-                }
+                onSelectBlock={(blockId) => {
+                  if (blockId) {
+                    setNav({
+                      level: 3,
+                      stepIndex: activeStepIndex,
+                      blockId,
+                      activeTab: 0,
+                    });
+                  } else {
+                    setNav({ level: 1 });
+                  }
+                }}
               />
             </div>
             {currentStep ? (

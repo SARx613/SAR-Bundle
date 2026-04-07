@@ -242,3 +242,19 @@ model TranslationOverride {
   @@unique([shopDomain, key])
   @@index([shopDomain])
 }
+
+/// Billing plan & monthly revenue tracking per shop
+model ShopBilling {
+  id                   String   @id @default(cuid())
+  shopDomain           String   @unique
+  /// free_tier | starter_tier | pro_tier
+  activePlan           String   @default("free_tier")
+  /// Cumulative bundle revenue since last monthly reset (USD)
+  monthlyBundleRevenue Float    @default(0.0)
+  /// 1st day of the current calendar month (UTC) — used to detect when to reset
+  revenueResetAt       DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([shopDomain])
+}

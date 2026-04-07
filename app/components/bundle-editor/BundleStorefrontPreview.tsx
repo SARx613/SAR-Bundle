@@ -580,7 +580,11 @@ export function BundleStorefrontPreview({
       style={{
         fontFamily: g.fontBody || "inherit",
         background: g.pageBackground || "transparent",
-      }}
+        "--sar-color-primary": g.colorPrimary || "#008060",
+        "--sar-color-border": g.colorBorder || "#e1e3e5",
+        "--sar-color-bg": g.colorBackground || "#ffffff",
+        "--sar-color-text": g.colorText || "#121212",
+      } as React.CSSProperties}
       onClick={() => onSelectBlock(null)}
     >
       <div

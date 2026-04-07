@@ -13,12 +13,14 @@ import {
   Icon,
   InlineGrid,
   Banner,
+  Badge,
+  ProgressBar,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { PackageIcon, PlusIcon } from "@shopify/polaris-icons";
 
 import prisma from "../db.server";
-import { authenticate } from "../shopify.server";
+import { authenticate, BILLING_PLANS, type BillingPlanHandle } from "../shopify.server";
 import { fetchCommerceDashboardStats } from "../utils/shopify-dashboard-stats.server";
 import { formatMoney } from "../utils/money";
 
@@ -31,6 +33,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     draft,
     recent,
     commerce,
+    shopBilling,
   ] = await Promise.all([
     prisma.bundle.count({ where: { shopDomain: session.shop } }),
     prisma.bundle.count({
@@ -46,19 +49,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       take: 5,
     }),
     fetchCommerceDashboardStats(admin),
+    prisma.shopBilling.findUnique({ where: { shopDomain: session.shop } }).catch(() => null),
   ]);
+
+  const activePlan: BillingPlanHandle =
+    (shopBilling?.activePlan as BillingPlanHandle) ?? "free_tier";
+  const monthlyRevenue = shopBilling?.monthlyBundleRevenue ?? 0;
+  const planConfig = BILLING_PLANS[activePlan];
 
   return json({
     stats: { total, active, draft },
     recent,
     commerce,
+    billing: {
+      activePlan,
+      planName: planConfig.name,
+      monthlyRevenue,
+      revenueLimit: planConfig.revenueLimit === Infinity ? null : planConfig.revenueLimit,
+    },
   });
 };
 
 export default function AppHome() {
-  const { stats, recent, commerce } = useLoaderData<typeof loader>();
+  const { stats, recent, commerce, billing } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const c = commerce;
+  const b = billing;
+  const revenuePercent =
+    b.revenueLimit != null && b.revenueLimit > 0
+      ? Math.min(100, (b.monthlyRevenue / b.revenueLimit) * 100)
+      : null;
+  const planWarning =
+    b.revenueLimit != null && b.monthlyRevenue > b.revenueLimit;
 
   return (
     <Page>
@@ -84,6 +106,71 @@ export default function AppHome() {
             </p>
           </Banner>
         ) : null}
+
+        {/* Subscription card */}
+        <Card>
+          <BlockStack gap="400">
+            <InlineStack align="space-between" blockAlign="center">
+              <BlockStack gap="100">
+                <Text as="h2" variant="headingMd">
+                  Votre abonnement
+                </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Revenus générés via SAR Bundle ce mois-ci
+                </Text>
+              </BlockStack>
+              <InlineStack gap="200" blockAlign="center">
+                <Badge
+                  tone={
+                    b.activePlan === "free_tier"
+                      ? "new"
+                      : b.activePlan === "starter_tier"
+                        ? "info"
+                        : "success"
+                  }
+                >
+                  {b.planName}
+                </Badge>
+                <Button variant="plain" onClick={() => navigate("/app/pricing")}>
+                  Gérer
+                </Button>
+              </InlineStack>
+            </InlineStack>
+
+            {planWarning && (
+              <Banner
+                tone="critical"
+                title="Limite dépassée"
+                action={{ content: "Passer au plan supérieur", url: "/app/pricing" }}
+              >
+                <p>
+                  Vous avez dépassé la limite de ${b.revenueLimit?.toLocaleString("fr-FR")} de
+                  revenus de votre plan {b.planName}.
+                </p>
+              </Banner>
+            )}
+
+            <InlineStack align="space-between">
+              <Text as="span" variant="bodyMd">
+                ${b.monthlyRevenue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} générés
+              </Text>
+              <Text as="span" variant="bodyMd" tone="subdued">
+                Limite :{" "}
+                {b.revenueLimit != null
+                  ? `$${b.revenueLimit.toLocaleString("fr-FR")}`
+                  : "Illimitée"}
+              </Text>
+            </InlineStack>
+
+            {revenuePercent !== null && (
+              <ProgressBar
+                progress={revenuePercent}
+                tone={planWarning ? "critical" : revenuePercent > 75 ? "highlight" : "primary"}
+                size="small"
+              />
+            )}
+          </BlockStack>
+        </Card>
 
         <Layout>
           <Layout.Section>

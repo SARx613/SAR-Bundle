@@ -691,6 +691,14 @@
           loading.hidden = true;
           inner.hidden = false;
 
+          var gc = bundle.storefrontDesign && bundle.storefrontDesign.global;
+          if (gc) {
+            if (gc.colorPrimary) el.style.setProperty('--sar-color-primary', gc.colorPrimary);
+            if (gc.colorBorder) el.style.setProperty('--sar-color-border', gc.colorBorder);
+            if (gc.colorBackground) el.style.setProperty('--sar-color-bg', gc.colorBackground);
+            if (gc.colorText) el.style.setProperty('--sar-color-text', gc.colorText);
+          }
+
           var state = {
             stepIndex: (explicitBundleData && explicitBundleData.stepIndex != null) ? explicitBundleData.stepIndex : 0,
             selections: {},

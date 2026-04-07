@@ -96,6 +96,10 @@ export type StorefrontDesignV1 = {
     fontBody?: string;
     fontHeading?: string;
     addToBoxText?: string;
+    colorPrimary?: string;
+    colorBorder?: string;
+    colorBackground?: string;
+    colorText?: string;
   };
   blocks: StorefrontBlock[];
 };

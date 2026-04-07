@@ -20,16 +20,7 @@
     data-bundle-ref="{{ bundle_id | escape }}"
     data-bundle-id="{{ bundle_id | escape }}"
     data-shop="{{ shop.permanent_domain | escape }}"
-    data-heading="{{ block.settings.heading | escape }}"
-    data-show-progress="{{ block.settings.show_step_progress }}"
-    data-product-title="{{ product.title | escape }}"
-    data-product-image="{{ product.featured_image | image_url: width: 400 | escape }}"
-    style="
-      --sar-color-primary: {{ block.settings.color_primary }};
-      --sar-color-border: {{ block.settings.color_border }};
-      --sar-color-bg: {{ block.settings.color_background }};
-      --sar-color-text: {{ block.settings.color_text }};
-    "
+    data-shop="{{ shop.permanent_domain | escape }}"
   >
     <div class="sar-bundle__loading" data-sar-loading>Loading bundle…</div>
     <div class="sar-bundle__inner" data-sar-inner hidden></div>
@@ -64,47 +55,6 @@
   "enabled_on": {
     "templates": ["product"]
   },
-  "settings": [
-    {
-      "type": "text",
-      "id": "heading",
-      "label": "Titre affiché",
-      "default": "Composez votre pack"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_step_progress",
-      "label": "Afficher la barre d'étapes",
-      "default": true
-    },
-    {
-      "type": "header",
-      "content": "Couleurs"
-    },
-    {
-      "type": "color",
-      "id": "color_primary",
-      "label": "Couleur principale",
-      "default": "#008060"
-    },
-    {
-      "type": "color",
-      "id": "color_border",
-      "label": "Couleur des bordures",
-      "default": "#e1e3e5"
-    },
-    {
-      "type": "color",
-      "id": "color_background",
-      "label": "Arrière-plan",
-      "default": "#ffffff"
-    },
-    {
-      "type": "color",
-      "id": "color_text",
-      "label": "Couleur du texte",
-      "default": "#121212"
-    }
-  ]
+  "settings": []
 }
 {% endschema %}

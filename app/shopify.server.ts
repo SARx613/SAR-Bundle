@@ -2,15 +2,40 @@ import "@shopify/shopify-app-remix/adapters/node";
 import {
   ApiVersion,
   AppDistribution,
+  BillingInterval,
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 
-/**
- * Doit rester aligné avec shopify.app.toml [access_scopes].scopes
- * Si SCOPES n'est pas défini sur l'hébergement, l'app OAuth cassait (scopes = undefined).
- */
+// ─── Plan definitions (source of truth) ────────────────────────────────────
+export const BILLING_PLANS = {
+  free_tier: {
+    handle: "free_tier",
+    name: "Free",
+    amount: 0,
+    currencyCode: "USD",
+    revenueLimit: 200, // USD/month
+  },
+  starter_tier: {
+    handle: "starter_tier",
+    name: "Starter",
+    amount: 14.99,
+    currencyCode: "USD",
+    revenueLimit: 1500, // USD/month
+  },
+  pro_tier: {
+    handle: "pro_tier",
+    name: "Pro",
+    amount: 39.99,
+    currencyCode: "USD",
+    revenueLimit: Infinity, // Unlimited
+  },
+} as const;
+
+export type BillingPlanHandle = keyof typeof BILLING_PLANS;
+
+// ─── Scopes ──────────────────────────────────────────────────────────────────
 const DEFAULT_SCOPES_FROM_TOML = [
   "read_products",
   "write_files",
@@ -24,7 +49,10 @@ function appScopes(): string[] {
   if (!raw) {
     return [...DEFAULT_SCOPES_FROM_TOML];
   }
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 const shopify = shopifyApp({
@@ -36,9 +64,59 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  billing: {
+    starter_tier: {
+      lineItems: [
+        {
+          amount: 14.99,
+          currencyCode: "USD",
+          interval: BillingInterval.Every30Days,
+        },
+      ],
+    },
+    pro_tier: {
+      lineItems: [
+        {
+          amount: 39.99,
+          currencyCode: "USD",
+          interval: BillingInterval.Every30Days,
+        },
+      ],
+    },
+  },
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     expiringOfflineAccessTokens: true,
+  },
+  hooks: {
+    afterAuth: async ({ session, admin }) => {
+      // Register the orders/paid webhook programmatically so it doesn't
+      // need to be in shopify.app.toml (avoids "protected customer data" CLI block).
+      const appUrl = process.env.SHOPIFY_APP_URL || "";
+      const callbackUrl = `${appUrl}/webhooks/orders/paid`;
+      try {
+        await admin.graphql(
+          `#graphql
+          mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+            webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+              userErrors { field message }
+              webhookSubscription { id }
+            }
+          }`,
+          {
+            variables: {
+              topic: "ORDERS_PAID",
+              webhookSubscription: {
+                callbackUrl,
+                format: "JSON",
+              },
+            },
+          },
+        );
+      } catch (err) {
+        console.error("[SAR] Failed to register orders/paid webhook:", err);
+      }
+    },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
