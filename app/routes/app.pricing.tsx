@@ -17,7 +17,8 @@ import {
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { CheckIcon } from "@shopify/polaris-icons";
-import { authenticate, BILLING_PLANS, type BillingPlanHandle } from "../shopify.server";
+import { authenticate } from "../shopify.server";
+import { BILLING_PLANS, type BillingPlanHandle } from "../utils/billing-plans";
 import prisma from "../db.server";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

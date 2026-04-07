@@ -7,7 +7,8 @@ import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { Banner, BlockStack } from "@shopify/polaris";
 
-import { authenticate, BILLING_PLANS, type BillingPlanHandle } from "../shopify.server";
+import { authenticate } from "../shopify.server";
+import { BILLING_PLANS, type BillingPlanHandle } from "../utils/billing-plans";
 import prisma from "../db.server";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];

@@ -8,32 +8,8 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 
-// ─── Plan definitions (source of truth) ────────────────────────────────────
-export const BILLING_PLANS = {
-  free_tier: {
-    handle: "free_tier",
-    name: "Free",
-    amount: 0,
-    currencyCode: "USD",
-    revenueLimit: 200, // USD/month
-  },
-  starter_tier: {
-    handle: "starter_tier",
-    name: "Starter",
-    amount: 14.99,
-    currencyCode: "USD",
-    revenueLimit: 1500, // USD/month
-  },
-  pro_tier: {
-    handle: "pro_tier",
-    name: "Pro",
-    amount: 39.99,
-    currencyCode: "USD",
-    revenueLimit: Infinity, // Unlimited
-  },
-} as const;
-
-export type BillingPlanHandle = keyof typeof BILLING_PLANS;
+// ─── Plan definitions (shared — importable client & server) ────────────────
+export { BILLING_PLANS, type BillingPlanHandle } from "./utils/billing-plans";
 
 // ─── Scopes ──────────────────────────────────────────────────────────────────
 const DEFAULT_SCOPES_FROM_TOML = [

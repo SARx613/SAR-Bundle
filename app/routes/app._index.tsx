@@ -20,7 +20,8 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { PackageIcon, PlusIcon } from "@shopify/polaris-icons";
 
 import prisma from "../db.server";
-import { authenticate, BILLING_PLANS, type BillingPlanHandle } from "../shopify.server";
+import { authenticate } from "../shopify.server";
+import { BILLING_PLANS, type BillingPlanHandle } from "../utils/billing-plans";
 import { fetchCommerceDashboardStats } from "../utils/shopify-dashboard-stats.server";
 import { formatMoney } from "../utils/money";
 
