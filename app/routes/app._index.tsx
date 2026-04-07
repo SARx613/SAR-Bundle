@@ -50,7 +50,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       take: 5,
     }),
     fetchCommerceDashboardStats(admin),
-    prisma.shopBilling.findUnique({ where: { shopDomain: session.shop } }).catch(() => null),
+    prisma.shopBilling.findUnique({ where: { shopDomain: session.shop } }).catch((err) => {
+      console.error("[SAR/index] prisma.shopBilling.findUnique failed (migration pending?):", err);
+      return null;
+    }),
   ]);
 
   const activePlan: BillingPlanHandle =

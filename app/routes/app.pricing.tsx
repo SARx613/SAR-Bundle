@@ -36,30 +36,59 @@ function formatRevLimit(limit: number) {
 // ─── Loader ──────────────────────────────────────────────────────────────────
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
-  const shop = session.shop;
+  let session;
+  let billing: Awaited<ReturnType<typeof authenticate.admin>>["billing"];
 
-  // Read current billing record (or use defaults)
-  const shopBilling = await prisma.shopBilling.findUnique({
-    where: { shopDomain: shop },
-  });
-  const activePlan: BillingPlanHandle =
-    (shopBilling?.activePlan as BillingPlanHandle) ?? "free_tier";
-  const monthlyRevenue = shopBilling?.monthlyBundleRevenue ?? 0;
-
-  // Check if the shop has an active Shopify subscription
-  let activeShopifySubscription: string | null = null;
   try {
-    const { hasActivePayment, appSubscriptions } = await billing.check({
+    const auth = await authenticate.admin(request);
+    session = auth.session;
+    billing = auth.billing;
+  } catch (err) {
+    console.error("[SAR/pricing] authenticate.admin failed:", err);
+    throw err; // Let Shopify handle auth errors (redirect to login)
+  }
+
+  const shop = session.shop;
+  console.log(`[SAR/pricing] Loading pricing page for shop: ${shop}`);
+
+  // ── Read ShopBilling record safely (table may not exist yet) ──────────────
+  let activePlan: BillingPlanHandle = "free_tier";
+  let monthlyRevenue = 0;
+
+  try {
+    const shopBilling = await prisma.shopBilling.findUnique({
+      where: { shopDomain: shop },
+    });
+    if (shopBilling) {
+      activePlan = (shopBilling.activePlan as BillingPlanHandle) ?? "free_tier";
+      monthlyRevenue = shopBilling.monthlyBundleRevenue ?? 0;
+      console.log(`[SAR/pricing] ShopBilling found: plan=${activePlan}, revenue=${monthlyRevenue}`);
+    } else {
+      console.log(`[SAR/pricing] No ShopBilling record yet — defaulting to free_tier`);
+    }
+  } catch (err) {
+    // Table may not exist yet if migration hasn't run
+    console.error("[SAR/pricing] prisma.shopBilling.findUnique failed (migration pending?):", err);
+  }
+
+  // ── Check Shopify subscription safely ─────────────────────────────────────
+  let activeShopifySubscription: string | null = null;
+
+  try {
+    const billingResult = await billing.check({
       plans: ["starter_tier", "pro_tier"],
       isTest: process.env.NODE_ENV !== "production",
     });
-    if (hasActivePayment && appSubscriptions.length > 0) {
-      activeShopifySubscription = appSubscriptions[0].name;
+    console.log(`[SAR/pricing] billing.check result:`, JSON.stringify(billingResult));
+    if (billingResult.hasActivePayment && billingResult.appSubscriptions?.length > 0) {
+      activeShopifySubscription = billingResult.appSubscriptions[0].name ?? null;
     }
-  } catch {
-    // No active subscription — merchant is on free tier
+  } catch (err) {
+    // No active subscription or billing not configured — not a critical error
+    console.error("[SAR/pricing] billing.check failed (likely no subscription):", err);
   }
+
+  console.log(`[SAR/pricing] Returning: activePlan=${activePlan}, activeShopifySub=${activeShopifySubscription}`);
 
   return json({
     activePlan,

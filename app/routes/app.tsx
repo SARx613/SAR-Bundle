@@ -39,14 +39,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Check if revenue needs a monthly reset
       const monthStart = startOfCurrentMonthUTC();
       if (billing.revenueResetAt < monthStart) {
-        // The webhook will do the reset on the next order, but we show 0 here
         monthlyRevenue = 0;
       } else {
         monthlyRevenue = billing.monthlyBundleRevenue;
       }
     }
-  } catch {
+  } catch (err) {
     // Table may not exist yet before first migration — fail silently
+    console.error("[SAR/app] prisma.shopBilling.findUnique failed (migration pending?):", err);
   }
 
   const planConfig = BILLING_PLANS[activePlan];
