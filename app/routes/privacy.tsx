@@ -44,7 +44,7 @@ export default function PrivacyPolicy() {
       <section style={{ marginBottom: "30px" }}>
         <h2>4. Data Sharing & Disclosure</h2>
         <p>
-          We do not sell your personal data. We only share information with third parties (like Shopify) 
+          We do not sell your personal data. We only share information with third parties (like Shopify)
           as necessary to provide the service or comply with legal obligations.
         </p>
       </section>
@@ -52,7 +52,7 @@ export default function PrivacyPolicy() {
       <section style={{ marginBottom: "30px" }}>
         <h2>5. Your Rights</h2>
         <p>
-          Merchants can request the deletion of their data or their customers' data through Shopify's mandatory privacy webhooks, 
+          Merchants can request the deletion of their data or their customers' data through Shopify's mandatory privacy webhooks,
           which our application fully supports.
         </p>
       </section>
@@ -60,7 +60,7 @@ export default function PrivacyPolicy() {
       <section style={{ marginBottom: "30px" }}>
         <h2>6. Contact Us</h2>
         <p>
-          If you have any questions about this Privacy Policy, please contact us at: <strong>support@sar-bundle.com</strong>
+          If you have any questions about this Privacy Policy, please contact us at: <strong>[EMAIL_ADDRESS]</strong>
         </p>
       </section>
 

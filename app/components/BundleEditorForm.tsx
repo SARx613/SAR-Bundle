@@ -384,6 +384,7 @@ export function BundleEditorForm({
 
   return (
     <Page
+      fullWidth
       backAction={{ content: "Bundles", url: "/app/bundles" }}
       title={isNew ? "Nouveau bundle" : "Modifier le bundle"}
       primaryAction={{
