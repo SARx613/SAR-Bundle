@@ -438,15 +438,6 @@ function StyleFields({
         </CollapsibleStyleSection>
       )}
 
-      {/* Taille */}
-      <CollapsibleStyleSection title="Taille" id="sec-size">
-        <BlockStack gap="300">
-          <Text as="p" variant="bodySm" tone="subdued">
-            La largeur maximale est limitée à la colonne du conteneur.
-          </Text>
-        </BlockStack>
-      </CollapsibleStyleSection>
-
       {/* Espacement */}
       <CollapsibleStyleSection title="Espacement" id="sec-spacing">
         <BlockStack gap="400">

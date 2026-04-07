@@ -398,7 +398,7 @@ export function BundleEditorForm({
           <BlockStack gap="400">
             {actionError ? (
               <Banner tone="critical" title="Erreur">
-                <p>{actionError}</p>
+                <p>{actionError} {saveFetcher.data && "details" in saveFetcher.data ? `- ${(saveFetcher.data as any).details}` : ''}</p>
               </Banner>
             ) : null}
 
