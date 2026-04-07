@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Page,
   Layout,
@@ -15,6 +15,9 @@ import {
   BlockStack,
   InlineGrid,
   Thumbnail,
+  Modal,
+  TextField,
+
   useIndexResourceState,
   INDEX_TABLE_SELECT_ALL_ITEMS,
 } from "@shopify/polaris";
@@ -119,6 +122,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
+
+  if (intent === "create") {
+    const name = formData.get("name");
+    if (typeof name !== "string" || !name.trim()) {
+      return json({ error: "Identifiant manquant" }, { status: 400 });
+    }
+    const created = await prisma.bundle.create({
+      data: {
+        shopDomain: session.shop,
+        name: name.trim(),
+        productHandle: slugifyProductHandle(name),
+        status: "DRAFT",
+        pricingScope: "FLAT",
+        discountValueType: "PERCENT",
+      },
+    });
+    return redirect(`/app/bundle/${created.id}`);
+  }
 
   if (intent === "delete") {
     const bundleId = formData.get("bundleId");
@@ -258,6 +279,9 @@ export default function AppBundles() {
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+
   const {
     selectedResources,
     allResourcesSelected,
@@ -270,6 +294,15 @@ export default function AppBundles() {
     const data = fetcher.data as { ok?: boolean } | undefined;
     if (data?.ok) clearSelection();
   }, [fetcher.state, fetcher.data, clearSelection]);
+
+  const submitCreate = useCallback(() => {
+    const fd = new FormData();
+    fd.append("intent", "create");
+    fd.append("name", createName);
+    fetcher.submit(fd, { method: "post", action: "/app/bundles" });
+    setCreateModalOpen(false);
+    setCreateName("");
+  }, [fetcher, createName]);
 
   const submitDelete = useCallback(
     (bundleId: string) => {
@@ -421,7 +454,7 @@ export default function AppBundles() {
       <TitleBar title="SAR Bundles">
         <button
           type="button"
-          onClick={() => navigate("/app/bundle/new")}
+          onClick={() => setCreateModalOpen(true)}
         >
           Créer un bundle
         </button>
@@ -456,7 +489,7 @@ export default function AppBundles() {
                   heading="Créez votre premier bundle"
                   action={{
                     content: "Créer un bundle",
-                    onAction: () => navigate("/app/bundle/new"),
+                    onAction: () => setCreateModalOpen(true),
                   }}
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >
@@ -497,6 +530,40 @@ export default function AppBundles() {
             </Card>
           </Layout.Section>
         </Layout>
+
+        <Modal
+          open={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          title="Créer un nouveau bundle"
+          primaryAction={{
+            content: "Créer",
+            onAction: submitCreate,
+            disabled: !createName.trim(),
+          }}
+          secondaryActions={[
+            {
+              content: "Annuler",
+              onAction: () => setCreateModalOpen(false),
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              <Text as="p">
+                Entrez un nom pour votre nouveau bundle. Vous serez redirigé pour
+                configurer les étapes, les produits et la tarification de ce
+                nouveau brouillon.
+              </Text>
+              <TextField
+                label="Nom du bundle"
+                value={createName}
+                onChange={setCreateName}
+                autoComplete="off"
+                autoFocus
+              />
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
       </BlockStack>
     </Page>
   );

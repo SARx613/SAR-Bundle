@@ -11,7 +11,7 @@ export const BILLING_PLANS = {
     amount: 0, // Recurring is 0, we charge via usage API
     currencyCode: "EUR",
     cappedAmount: 39.99, // Plafond mensuel
-    usageTerms: "Gratuit jusqu'à 200€ de CA généré. +14.99€ si >200€. +25.00€ si >1200€ (Max 39.99€/mois)",
+    usageTerms: "Free up to 200€ of generated revenue. +14.99€ if >200€. +25.00€ if >1200€ (Max 39.99€/month)",
   },
 } as const;
 

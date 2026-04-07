@@ -1,3 +1,4 @@
+import { json } from "@remix-run/node";
 import {
   defaultStorefrontDesign,
   normalizeLayoutPreset,
@@ -152,7 +153,7 @@ function toDecimal(
   try {
     return new Prisma.Decimal(s);
   } catch {
-    throw Response.json({ error: `Invalid decimal for ${field}` }, { status: 400 });
+    throw json({ error: `Invalid decimal for ${field}` }, { status: 400 });
   }
 }
 
@@ -197,7 +198,7 @@ function requireDecimal(
 ): Prisma.Decimal {
   const d = toDecimal(value, field);
   if (d === null) {
-    throw Response.json(
+    throw json(
       { error: `Missing or invalid decimal for ${field}` },
       { status: 400 },
     );
@@ -207,14 +208,14 @@ function requireDecimal(
 
 export function parseBundlePayload(body: unknown): BundleWritePayload {
   if (!body || typeof body !== "object") {
-    throw Response.json({ error: "Request body must be a JSON object" }, { status: 400 });
+    throw json({ error: "Request body must be a JSON object" }, { status: 400 });
   }
   const o = body as Record<string, unknown>;
   if (typeof o.name !== "string" || !o.name.trim()) {
-    throw Response.json({ error: "name is required" }, { status: 400 });
+    throw json({ error: "name is required" }, { status: 400 });
   }
   if (o.status !== undefined && !isEnum(o.status, BUNDLE_STATUSES)) {
-    throw Response.json({ error: "Invalid status" }, { status: 400 });
+    throw json({ error: "Invalid status" }, { status: 400 });
   }
 
   const bundlePricingMode: BundlePricingMode = isEnum(
@@ -229,7 +230,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
         : "STANDARD";
 
   if (bundlePricingMode === "PREDEFINED_SIZES") {
-    throw Response.json(
+    throw json(
       {
         error:
           "Le mode « tailles de boîte prédéfinies » n'est pas encore disponible (phase 2).",
@@ -244,7 +245,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
   if (bundlePricingMode === "TIERED") {
     pricingScope = "TIERED";
     if (!isEnum(o.discountValueType, DISCOUNT_VALUE_TYPES)) {
-      throw Response.json({ error: "Invalid discountValueType" }, { status: 400 });
+      throw json({ error: "Invalid discountValueType" }, { status: 400 });
     }
     discountValueType = o.discountValueType;
   } else if (bundlePricingMode === "FIXED_PRICE_BOX") {
@@ -272,7 +273,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
           ? parseInt(raw, 10)
           : NaN;
     if (!Number.isInteger(n) || n < 1) {
-      throw Response.json(
+      throw json(
         {
           error:
             "Nombre d'articles (prix fixe) : indiquez un entier ≥ 1 pour ce mode.",
@@ -288,7 +289,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
       priceVal === "" ||
       (typeof priceVal === "string" && !priceVal.trim())
     ) {
-      throw Response.json(
+      throw json(
         { error: "Prix fixe du pack : la valeur est requise pour ce mode." },
         { status: 400 },
       );
@@ -308,7 +309,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
   const steps = Array.isArray(o.steps) ? (o.steps as StepPayload[]) : [];
 
   if (pricingScope === "TIERED" && pricingTiers.length === 0) {
-    throw Response.json(
+    throw json(
       {
         error:
           "pricingTiers must contain at least one entry when pricingScope is TIERED",
@@ -320,7 +321,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
   for (let i = 0; i < pricingTiers.length; i++) {
     const t = pricingTiers[i]!;
     if (!isEnum(t.thresholdBasis, THRESHOLD_BASES)) {
-      throw Response.json(
+      throw json(
         { error: `Invalid thresholdBasis on pricingTiers[${i}]` },
         { status: 400 },
       );
@@ -347,7 +348,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     for (let pi = 0; pi < products.length; pi++) {
       const p = products[pi]!;
       if (typeof p.variantGid !== "string" || !p.variantGid.trim()) {
-        throw Response.json(
+        throw json(
           { error: `steps[${si}].products[${pi}].variantGid is required` },
           { status: 400 },
         );
@@ -356,7 +357,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
         p.styleOverrides != null &&
         typeof p.styleOverrides !== "object"
       ) {
-        throw Response.json(
+        throw json(
           {
             error: `steps[${si}].products[${pi}].styleOverrides must be an object`,
           },
@@ -368,13 +369,13 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     for (let ri = 0; ri < rules.length; ri++) {
       const r = rules[ri]!;
       if (!isEnum(r.metric, STEP_RULE_METRICS)) {
-        throw Response.json(
+        throw json(
           { error: `Invalid metric on steps[${si}].rules[${ri}]` },
           { status: 400 },
         );
       }
       if (!isEnum(r.operator, STEP_RULE_OPERATORS)) {
-        throw Response.json(
+        throw json(
           { error: `Invalid operator on steps[${si}].rules[${ri}]` },
           { status: 400 },
         );
@@ -382,7 +383,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
       requireDecimal(r.value, `steps[${si}].rules[${ri}].value`);
       if (r.metric === "VARIANT_QUANTITY") {
         if (typeof r.targetVariantGid !== "string" || !r.targetVariantGid.trim()) {
-          throw Response.json(
+          throw json(
             {
               error: `steps[${si}].rules[${ri}].targetVariantGid is required when metric is VARIANT_QUANTITY`,
             },
@@ -395,19 +396,19 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     for (let li = 0; li < props.length; li++) {
       const lp = props[li]!;
       if (!isEnum(lp.fieldType, LINE_ITEM_FIELD_TYPES)) {
-        throw Response.json(
+        throw json(
           { error: `Invalid fieldType on steps[${si}].lineItemProperties[${li}]` },
           { status: 400 },
         );
       }
       if (typeof lp.label !== "string" || !lp.label.trim()) {
-        throw Response.json(
+        throw json(
           { error: `steps[${si}].lineItemProperties[${li}].label is required` },
           { status: 400 },
         );
       }
       if (typeof lp.propertyKey !== "string" || !lp.propertyKey.trim()) {
-        throw Response.json(
+        throw json(
           {
             error: `steps[${si}].lineItemProperties[${li}].propertyKey is required`,
           },
