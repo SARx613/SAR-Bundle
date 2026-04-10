@@ -42,6 +42,93 @@ import {
 } from "../../utils/bundle-form.client";
 import type { StorefrontDesignV2 } from "../../utils/storefront-design";
 
+/* ── Inline colour picker (circle swatch + hex text field) ── */
+function GlobalColorField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  helpText,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  helpText?: string;
+}) {
+  return (
+    <div>
+      <div style={{ marginBottom: 4 }}>
+        <Text as="span" variant="bodyMd">{label}</Text>
+        {helpText && (
+          <div style={{ marginTop: 2 }}>
+            <Text as="span" variant="bodySm" tone="subdued">{helpText}</Text>
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            border: "1px solid var(--p-color-border)",
+            cursor: "pointer",
+            overflow: "hidden",
+            position: "relative",
+            background: value || placeholder || "#ffffff",
+            flexShrink: 0,
+          }}
+        >
+          <input
+            type="color"
+            value={value || placeholder || "#000000"}
+            onChange={(e) => onChange(e.target.value)}
+            style={{
+              position: "absolute",
+              width: "100%",
+              height: "100%",
+              opacity: 0,
+              cursor: "pointer",
+              border: "none",
+              padding: 0,
+            }}
+          />
+        </label>
+        <div style={{ flex: 1 }}>
+          <TextField
+            label={label}
+            labelHidden
+            value={value}
+            onChange={onChange}
+            autoComplete="off"
+            placeholder={placeholder}
+          />
+        </div>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--p-color-text-subdued)",
+              fontSize: 16,
+              padding: 4,
+              flexShrink: 0,
+            }}
+            title="Réinitialiser"
+          >✕</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type SidebarLevel =
   | { level: 1 }
   | { level: "global" }
@@ -312,35 +399,31 @@ export function BundleVisualEditor({
           </InlineStack>
 
           <Box paddingBlockStart="200">
-            <BlockStack gap="400">
-              <TextField
-                label="Couleur principale (Hex)"
+            <BlockStack gap="300">
+              <GlobalColorField
+                label="Couleur principale"
                 value={g.colorPrimary ?? ""}
                 onChange={(v) => updateGlobal({ colorPrimary: v || undefined })}
                 placeholder="#008060"
-                helpText="Utilisée pour le bouton d'ajout au panier, étape active, etc."
-                autoComplete="off"
+                helpText="Bouton panier, étape active, ronds de la barre d'étape."
               />
-              <TextField
-                label="Couleur des bordures (Hex)"
+              <GlobalColorField
+                label="Couleur des bordures"
                 value={g.colorBorder ?? ""}
                 onChange={(v) => updateGlobal({ colorBorder: v || undefined })}
                 placeholder="#e1e3e5"
-                autoComplete="off"
               />
-              <TextField
-                label="Arrière-plan (Hex)"
+              <GlobalColorField
+                label="Arrière-plan"
                 value={g.colorBackground ?? ""}
                 onChange={(v) => updateGlobal({ colorBackground: v || undefined })}
                 placeholder="#ffffff"
-                autoComplete="off"
               />
-              <TextField
-                label="Couleur du texte (Hex)"
+              <GlobalColorField
+                label="Couleur du texte"
                 value={g.colorText ?? ""}
                 onChange={(v) => updateGlobal({ colorText: v || undefined })}
                 placeholder="#121212"
-                autoComplete="off"
               />
             </BlockStack>
           </Box>

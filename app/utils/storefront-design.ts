@@ -292,6 +292,32 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
         collectionHandle: source === "collection" && handle ? handle : undefined,
       };
     }
+    case "upsell": {
+      const items = Array.isArray(raw.items) ? raw.items : [];
+      return {
+        id,
+        type: "upsell",
+        title: typeof raw.title === "string" ? raw.title : "Options Supplémentaires",
+        behavior: raw.behavior === "single" ? "single" : "multiple",
+        items: items.map((it: unknown) => {
+          if (!it || typeof it !== "object") return null;
+          const o = it as Record<string, unknown>;
+          return {
+            id: typeof o.id === "string" ? o.id : newBlockId(),
+            variantGid: typeof o.variantGid === "string" ? o.variantGid : "",
+            variantId: typeof o.variantId === "number" ? o.variantId : 0,
+            productTitle: typeof o.productTitle === "string" ? o.productTitle : "",
+            priceAmount: typeof o.priceAmount === "string" ? o.priceAmount : "0",
+            currencyCode: typeof o.currencyCode === "string" ? o.currencyCode : "",
+            defaultImageUrl: typeof o.defaultImageUrl === "string" ? o.defaultImageUrl : undefined,
+            overrideLabel: typeof o.overrideLabel === "string" ? o.overrideLabel : undefined,
+            overrideImage: typeof o.overrideImage === "string" ? o.overrideImage : undefined,
+            shortDescription: typeof o.shortDescription === "string" ? o.shortDescription : undefined,
+            defaultEnabled: Boolean(o.defaultEnabled),
+          } satisfies UpsellItem;
+        }).filter(Boolean) as UpsellItem[],
+      } satisfies UpsellBlock;
+    }
     case "heading":
     case "text":
     case "image":
@@ -381,6 +407,7 @@ export function defaultBlockName(type: StorefrontBlockV2["type"]): string {
     case "split": return "Section Split";
     case "step_bar": return "Barre d'étape";
     case "product_list": return "Liste de produits";
+    case "upsell": return "Options Supplémentaires";
     default: return "Bloc";
   }
 }

@@ -345,6 +345,7 @@ export default function AppBundles() {
       key={b.id}
       position={index}
       selected={selectedResources.includes(b.id)}
+      onClick={() => navigate(`/app/bundle/${b.id}`)}
     >
       <IndexTable.Cell>
         {b.imageUrl ? (
@@ -380,13 +381,13 @@ export default function AppBundles() {
         <Badge tone={statusTone[b.status] ?? "info"}>{b.status}</Badge>
       </IndexTable.Cell>
       <IndexTable.Cell>
-        <div className={styles.actions}>
+        <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
           <span className={styles.actionWrap}>
             <Button
               icon={EditIcon}
               variant="secondary"
               size="large"
-              onClick={() => navigate(`/app/bundle/${b.id}`)}
+              onClick={(e) => { e.stopPropagation(); navigate(`/app/bundle/${b.id}`); }}
               accessibilityLabel="Modifier"
             />
           </span>
@@ -395,7 +396,7 @@ export default function AppBundles() {
               icon={DuplicateIcon}
               variant="secondary"
               size="large"
-              onClick={() => submitDuplicate(b.id)}
+              onClick={(e) => { e.stopPropagation(); submitDuplicate(b.id); }}
               accessibilityLabel="Dupliquer"
             />
           </span>
@@ -407,7 +408,7 @@ export default function AppBundles() {
               variant="secondary"
               size="large"
               tone="critical"
-              onClick={() => submitDelete(b.id)}
+              onClick={(e) => { e.stopPropagation(); submitDelete(b.id); }}
               accessibilityLabel="Supprimer"
             />
           </span>

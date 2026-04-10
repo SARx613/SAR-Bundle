@@ -269,7 +269,7 @@ function UpsellPreview({
                 gap: "12px",
                 padding: "12px",
                 borderRadius: "8px",
-                border: `1px solid ${isSelected ? "var(--sar-color-primary, #1a1a1a)" : "#e1e3e5"}`,
+                border: `1px solid ${isSelected ? "var(--sar-color-primary, #008060)" : "#e1e3e5"}`,
                 background: isSelected ? "var(--sar-color-bg-subtle, #f0f7f5)" : "transparent",
                 cursor: "pointer",
                 transition: "all 0.2s"
@@ -279,11 +279,11 @@ function UpsellPreview({
                 width: "20px",
                 height: "20px",
                 borderRadius: behavior === "single" ? "50%" : "4px",
-                border: `2px solid ${isSelected ? "var(--sar-color-primary, #1a1a1a)" : "#d1d3d5"}`,
+                border: `2px solid ${isSelected ? "var(--sar-color-primary, #008060)" : "#d1d3d5"}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: isSelected ? "var(--sar-color-primary, #1a1a1a)" : "#fff"
+                background: isSelected ? "var(--sar-color-primary, #008060)" : "#fff"
               }}>
                 {isSelected && (
                   <div style={{ 
@@ -314,7 +314,7 @@ function UpsellPreview({
                 )}
               </div>
               
-              <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--sar-color-primary, #1a1a1a)" }}>
+              <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--sar-color-primary, #008060)" }}>
                 +{item.priceAmount} {item.currencyCode}
               </div>
             </div>
@@ -458,11 +458,12 @@ function RenderBlock({
       content = (
         <div
           style={{
-            height: block.height,
+            height: block.height || 16,
             background:
               "repeating-linear-gradient(45deg, transparent, transparent 5px, var(--p-color-bg-surface-secondary) 5px, var(--p-color-bg-surface-secondary) 10px)",
             borderRadius: 4,
-            opacity: 0.3,
+            opacity: 0.25,
+            minHeight: 4,
           }}
         />
       );
@@ -580,10 +581,12 @@ export function BundleStorefrontPreview({
       style={{
         fontFamily: g.fontBody || "inherit",
         background: g.pageBackground || "transparent",
-        "--sar-color-primary": g.colorPrimary || "#1a1a1a",
+        "--sar-color-primary": g.colorPrimary || "#008060",
         "--sar-color-border": g.colorBorder || "#e1e3e5",
         "--sar-color-bg": g.colorBackground || "#ffffff",
+        "--sar-color-bg-subtle": "#f0f7f5",
         "--sar-color-text": g.colorText || "#121212",
+        "--sar-color-muted": "#6d7175",
       } as React.CSSProperties}
       onClick={() => onSelectBlock(null)}
     >

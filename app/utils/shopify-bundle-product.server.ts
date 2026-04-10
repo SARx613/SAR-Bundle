@@ -190,6 +190,14 @@ export async function syncBundleShopifyProduct(
   }
   const newId = createBody?.data?.productCreate?.product?.id;
   if (!newId) throw new Error("productCreate returned no product id");
+
+  // Publish the newly created product to the Online Store channel
+  try {
+    await publishProductToOnlineStore(admin, newId);
+  } catch (e) {
+    console.warn("publishProductToOnlineStore (non-fatal):", e);
+  }
+
   const defaultVariantId = await fetchDefaultVariantGid(admin, newId);
   return { productId: newId, defaultVariantId };
 }
@@ -335,6 +343,74 @@ export async function syncFixedPriceBoxCatalogVariantPrice(
   const errs = body?.data?.productVariantsBulkUpdate?.userErrors;
   if (Array.isArray(errs) && errs.length) {
     throw new Error(errs.map((e: { message: string }) => e.message).join("; "));
+  }
+}
+
+/**
+ * Publishes a product to the Online Store sales channel so it's accessible
+ * at /products/{handle}. Uses the publicationId of the "Online Store" channel.
+ */
+async function publishProductToOnlineStore(
+  admin: AdminClient,
+  productGid: string,
+): Promise<void> {
+  // First, fetch the Online Store publication ID
+  const pubRes = await admin.graphql(
+    `#graphql
+      query FetchOnlineStorePublication {
+        publications(first: 20) {
+          nodes {
+            id
+            name
+          }
+        }
+      }`,
+  );
+  const pubBody = await pubRes.json();
+  const publications: Array<{ id: string; name: string }> =
+    pubBody?.data?.publications?.nodes ?? [];
+
+  const onlineStore = publications.find(
+    (p) =>
+      p.name === "Online Store" ||
+      p.name === "Boutique en ligne" ||
+      p.name.toLowerCase().includes("online store"),
+  );
+
+  if (!onlineStore) {
+    console.warn("publishProductToOnlineStore: Online Store publication not found");
+    return;
+  }
+
+  const publishRes = await admin.graphql(
+    `#graphql
+      mutation PublishBundleProduct($id: ID!, $input: [PublicationInput!]!) {
+        publishablePublish(id: $id, input: $input) {
+          publishable {
+            ... on Product {
+              id
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+    {
+      variables: {
+        id: productGid,
+        input: [{ publicationId: onlineStore.id }],
+      },
+    },
+  );
+  const publishBody = await publishRes.json();
+  const publishErrs = publishBody?.data?.publishablePublish?.userErrors;
+  if (publishErrs?.length) {
+    console.warn(
+      "publishablePublish userErrors:",
+      publishErrs.map((e: { message: string }) => e.message).join("; "),
+    );
   }
 }
 

@@ -1141,19 +1141,29 @@ function UpsellManager({
                 <InlineStack gap="200" blockAlign="center">
                   {item.defaultImageUrl && <Thumbnail source={item.defaultImageUrl} alt="" size="small" />}
                   <BlockStack gap="050">
-                    <Text as="span" variant="bodySm" fontWeight="bold">{item.productTitle}</Text>
-                    <Text as="span" variant="bodyXs" tone="subdued">{item.priceAmount} {item.currencyCode}</Text>
+                    <Text as="span" variant="bodySm" fontWeight="bold">{item.overrideLabel || item.productTitle}</Text>
+                    <Text as="span" variant="bodyXs" tone="subdued">+{item.priceAmount} {item.currencyCode}</Text>
                   </BlockStack>
                 </InlineStack>
                 <Button variant="plain" icon={DeleteIcon} tone="critical" onClick={() => removeItem(idx)} />
               </InlineStack>
 
               <TextField
-                label="Libellé de remplacement"
+                label="Nom affiché"
                 value={item.overrideLabel ?? ""}
                 onChange={(v) => updateItem(idx, { overrideLabel: v })}
                 placeholder={item.productTitle}
                 autoComplete="off"
+              />
+
+              <TextField
+                label="Prix (+€ ajouté au total)"
+                value={item.priceAmount ?? "0"}
+                onChange={(v) => updateItem(idx, { priceAmount: v })}
+                type="number"
+                suffix={item.currencyCode || "EUR"}
+                autoComplete="off"
+                helpText="Montant ajouté au total du bundle quand cet article est sélectionné."
               />
 
               <TextField
@@ -1330,6 +1340,9 @@ function BlockGeneralFields({
         La barre d'étape affiche la progression du bundle. Configurez les couleurs dans l'onglet Style.
       </Text>
     );
+  }
+  if (block.type === "upsell") {
+    return <UpsellManager block={block} onPatch={onPatch} />;
   }
   return null;
 }
