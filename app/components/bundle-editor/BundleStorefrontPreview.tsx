@@ -580,13 +580,18 @@ export function BundleStorefrontPreview({
       className="sar-bundle"
       style={{
         fontFamily: g.fontBody || "inherit",
-        background: g.pageBackground || "transparent",
+        background: g.colorBackground || g.pageBackground || "transparent",
+        borderWidth: g.borderWidth ? `${g.borderWidth}px` : "1px",
+        borderStyle: "solid",
+        borderColor: g.colorBorder || "#e1e3e5",
+        borderRadius: g.borderRadius ? `${g.borderRadius}px` : "8px",
         "--sar-color-primary": g.colorPrimary || "#72cff7",
         "--sar-color-border": g.colorBorder || "#e1e3e5",
-        "--sar-color-bg": g.colorBackground || "#ffffff",
+        "--sar-color-bg": g.colorBackground || "transparent",
         "--sar-color-bg-subtle": "#f0f7f5",
         "--sar-color-text": g.colorText || "#121212",
         "--sar-color-muted": "#6d7175",
+        "--sar-radius": g.borderRadius ? `${g.borderRadius}px` : "8px",
       } as React.CSSProperties}
       onClick={() => onSelectBlock(null)}
     >
@@ -627,8 +632,8 @@ export function BundleStorefrontPreview({
           <span className="sar-bundle__bundle-total-value"><strong>0,00 €</strong></span>
         </div>
         <div className="sar-bundle__nav" style={{ display: "flex", gap: "0.75rem" }}>
-          <button type="button" className="sar-bundle__btn sar-bundle__btn--secondary">Précédent</button>
-          <button type="button" className="sar-bundle__btn sar-bundle__btn--primary">
+          <button type="button" className="sar-bundle__btn sar-bundle__btn--secondary" style={{ flex: "1 1 0", textAlign: "center" }}>Précédent</button>
+          <button type="button" className="sar-bundle__btn sar-bundle__btn--primary" style={{ flex: "1 1 0", textAlign: "center" }}>
             {activeStepIndex === steps.length - 1 ? "Ajouter au panier" : "Suivant"}
           </button>
         </div>

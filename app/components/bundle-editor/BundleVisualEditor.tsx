@@ -12,6 +12,7 @@ import {
   Card,
   Icon,
   InlineStack,
+  RangeSlider,
   Text,
   TextField,
   Tooltip,
@@ -233,16 +234,20 @@ export function BundleVisualEditor({
     [setForm],
   );
 
-  // Returns the effective design for a given step (per-step override or global)
+  // Returns the effective design for a given step (per-step override or global).
+  // step_bar blocks are always global and excluded from per-step blocks.
   const getStepDesign = useCallback(
     (stepIdx: number): StorefrontDesignV2 => {
       const globalDesign = form.storefrontDesign;
       const key = String(stepIdx);
       const stepBlocks = globalDesign.stepDesigns?.[key];
       if (stepBlocks !== undefined) {
-        return { ...globalDesign, blocks: stepBlocks };
+        // step_bar always comes from global, never from per-step designs
+        const globalStepBars = globalDesign.blocks.filter((b) => b.type === "step_bar");
+        const perStepBlocks = stepBlocks.filter((b) => b.type !== "step_bar");
+        return { ...globalDesign, blocks: [...globalStepBars, ...perStepBlocks] };
       }
-      // First time: clone the global blocks for this step
+      // First access to this step: return global blocks without step_bar (added separately above)
       return { ...globalDesign };
     },
     [form.storefrontDesign],
@@ -255,19 +260,31 @@ export function BundleVisualEditor({
     [setForm],
   );
 
-  // Patches the per-step design (stepDesigns[stepIdx].blocks)
+  // Patches the per-step design (stepDesigns[stepIdx].blocks).
+  // step_bar blocks are excluded since they live in global blocks only.
   const patchStepDesign = useCallback(
     (stepIdx: number, next: StorefrontDesignV2) => {
       setForm((f) => {
         const key = String(stepIdx);
         const global = f.storefrontDesign;
+        // Extract any step_bar changes to the global blocks
+        const stepBarBlocks = next.blocks.filter((b) => b.type === "step_bar");
+        const nonStepBarBlocks = next.blocks.filter((b) => b.type !== "step_bar");
+        // If step_bar blocks changed, update global blocks
+        const updatedGlobalBlocks = stepBarBlocks.length > 0
+          ? [
+              ...global.blocks.filter((b) => b.type !== "step_bar"),
+              ...stepBarBlocks,
+            ]
+          : global.blocks;
         return {
           ...f,
           storefrontDesign: {
             ...global,
+            blocks: updatedGlobalBlocks,
             stepDesigns: {
               ...(global.stepDesigns ?? {}),
-              [key]: next.blocks,
+              [key]: nonStepBarBlocks,
             },
           },
         };
@@ -480,6 +497,34 @@ export function BundleVisualEditor({
                 onChange={(v) => updateGlobal({ colorText: v || undefined })}
                 placeholder="#121212"
               />
+              <div>
+                <Text as="span" variant="bodyMd">Épaisseur de la bordure</Text>
+                <RangeSlider
+                  label="Épaisseur de la bordure"
+                  labelHidden
+                  min={0}
+                  max={6}
+                  step={1}
+                  value={parseInt(g.borderWidth ?? "1", 10) || 1}
+                  onChange={(v) => updateGlobal({ borderWidth: String(typeof v === "number" ? v : v[0]) })}
+                  output
+                  suffix={<span style={{ minWidth: 24, textAlign: "right" }}>{g.borderWidth ?? "1"}px</span>}
+                />
+              </div>
+              <div>
+                <Text as="span" variant="bodyMd">Rayon des coins</Text>
+                <RangeSlider
+                  label="Rayon des coins"
+                  labelHidden
+                  min={0}
+                  max={32}
+                  step={2}
+                  value={parseInt(g.borderRadius ?? "8", 10) || 8}
+                  onChange={(v) => updateGlobal({ borderRadius: String(typeof v === "number" ? v : v[0]) })}
+                  output
+                  suffix={<span style={{ minWidth: 24, textAlign: "right" }}>{g.borderRadius ?? "8"}px</span>}
+                />
+              </div>
             </BlockStack>
           </Box>
         </BlockStack>

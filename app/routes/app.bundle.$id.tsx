@@ -131,9 +131,66 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       console.warn("bundle editor: product enrichment failed", e);
     }
 
+    // Sync gallery from Shopify product images (so images added on the product page appear here)
+    let serializedBundle = serializeBundleTree(bundle) as unknown as SerializedBundle;
+    if (bundle.shopifyProductId) {
+      try {
+        const mediaRes = await (admin as any).graphql(
+          `#graphql
+            query BundleProductMedia($id: ID!) {
+              product(id: $id) {
+                media(first: 20) {
+                  nodes {
+                    ... on MediaImage {
+                      id
+                      image { url }
+                    }
+                  }
+                }
+              }
+            }`,
+          { variables: { id: bundle.shopifyProductId } },
+        );
+        const mediaBody = await mediaRes.json();
+        const mediaNodes: Array<{ id?: string; image?: { url?: string } }> =
+          mediaBody?.data?.product?.media?.nodes ?? [];
+
+        const shopifyImages: Array<{ url: string; mediaGid: string }> = [];
+        for (const node of mediaNodes) {
+          if (node.image?.url && node.id) {
+            shopifyImages.push({ url: node.image.url, mediaGid: node.id });
+          }
+        }
+
+        if (shopifyImages.length > 0) {
+          // Merge: prefer existing gallery order, add new images from Shopify
+          const existingGids = new Set(
+            (serializedBundle.bundleGallery ?? []).map((g: { mediaGid?: string | null }) => g.mediaGid).filter(Boolean),
+          );
+          const existingUrls = new Set(
+            (serializedBundle.bundleGallery ?? []).map((g: { url: string }) => g.url),
+          );
+          const newFromShopify = shopifyImages.filter(
+            (img) => !existingGids.has(img.mediaGid) && !existingUrls.has(img.url),
+          );
+          if (newFromShopify.length > 0) {
+            serializedBundle = {
+              ...serializedBundle,
+              bundleGallery: [
+                ...(serializedBundle.bundleGallery ?? []),
+                ...newFromShopify,
+              ],
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("bundle editor: gallery sync from Shopify failed", e);
+      }
+    }
+
     return json({
       isNew: false as const,
-      bundle: serializeBundleTree(bundle) as unknown as SerializedBundle,
+      bundle: serializedBundle,
       shop: session.shop,
     });
   } catch (err: any) {
@@ -168,6 +225,11 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   } catch {
     return json({ error: "Invalid JSON body" }, { status: 400 });
   }
+
+  // Extract inventoryQuantity before passing to parseBundlePayload (it ignores unknown fields)
+  const inventoryQty = typeof (body as Record<string, unknown>)?.inventoryQuantity === "number"
+    ? (body as Record<string, unknown>).inventoryQuantity as number
+    : null;
 
   try {
     const payload = parseBundlePayload(body);
@@ -215,6 +277,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           seoDescription: created.seoDescription,
           storefrontDesign: created.storefrontDesign ?? {},
           status: created.status,
+          inventoryQuantity: inventoryQty,
         });
         out = await prisma.bundle.update({
           where: { id: created.id },
@@ -301,6 +364,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         seoDescription: updated.seoDescription,
         storefrontDesign: updated.storefrontDesign ?? {},
         status: updated.status,
+        inventoryQuantity: inventoryQty,
       });
       if (
         sync.productId !== updated.shopifyProductId ||

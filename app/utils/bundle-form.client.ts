@@ -43,6 +43,7 @@ export type BundleSubmitPayload = {
   seoDescription?: string | null;
   storefrontDesign?: StorefrontDesignV2;
   status?: "DRAFT" | "ACTIVE" | "ARCHIVED" | "UNLISTED";
+  inventoryQuantity?: number | null;
   bundlePricingMode: string;
   fixedBoxItemCount?: number | null;
   pricingModeMedia?: Record<string, unknown> | null;
@@ -162,6 +163,8 @@ export type BundleFormState = {
   seoDescription: string;
   storefrontDesign: StorefrontDesignV2;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED" | "UNLISTED";
+  /** Inventaire du produit Shopify associé (laisser vide = ne pas modifier) */
+  inventoryQuantity: string;
   bundlePricingMode: "STANDARD" | "FIXED_PRICE_BOX" | "TIERED";
   /** Remise % ou montant (mode STANDARD uniquement) */
   standardDiscountType: "PERCENT" | "FIXED_AMOUNT";
@@ -325,6 +328,7 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
     seoDescription: bundle.seoDescription ?? "",
     storefrontDesign: parseStorefrontDesign(bundle.storefrontDesign),
     status: (bundle.status as BundleFormState["status"]) || "DRAFT",
+    inventoryQuantity: "",
     bundlePricingMode: mode,
     standardDiscountType,
     fixedBoxItemCount:
@@ -468,6 +472,7 @@ export function toApiPayload(form: BundleFormState): BundleSubmitPayload {
     seoDescription: form.seoDescription.trim() || null,
     storefrontDesign: form.storefrontDesign,
     status: form.status,
+    inventoryQuantity: form.inventoryQuantity.trim() ? parseInt(form.inventoryQuantity, 10) : null,
     bundlePricingMode: form.bundlePricingMode,
     fixedBoxItemCount:
       form.bundlePricingMode === "FIXED_PRICE_BOX"

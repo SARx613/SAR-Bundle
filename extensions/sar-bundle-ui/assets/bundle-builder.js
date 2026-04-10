@@ -694,9 +694,29 @@
           var gc = bundle.storefrontDesign && bundle.storefrontDesign.global;
           if (gc) {
             if (gc.colorPrimary) el.style.setProperty('--sar-color-primary', gc.colorPrimary);
-            if (gc.colorBorder) el.style.setProperty('--sar-color-border', gc.colorBorder);
-            if (gc.colorBackground) el.style.setProperty('--sar-color-bg', gc.colorBackground);
-            if (gc.colorText) el.style.setProperty('--sar-color-text', gc.colorText);
+            if (gc.colorBorder) {
+              el.style.setProperty('--sar-color-border', gc.colorBorder);
+              el.style.borderColor = gc.colorBorder;
+            }
+            if (gc.colorBackground) {
+              el.style.setProperty('--sar-color-bg', gc.colorBackground);
+              el.style.background = gc.colorBackground;
+            }
+            if (gc.colorText) {
+              el.style.setProperty('--sar-color-text', gc.colorText);
+              el.style.color = gc.colorText;
+            }
+            if (gc.borderWidth != null) {
+              var bw = parseInt(String(gc.borderWidth), 10);
+              if (!isNaN(bw)) el.style.borderWidth = bw + 'px';
+            }
+            if (gc.borderRadius != null) {
+              var br = parseInt(String(gc.borderRadius), 10);
+              if (!isNaN(br)) {
+                el.style.borderRadius = br + 'px';
+                el.style.setProperty('--sar-radius', br + 'px');
+              }
+            }
           }
 
           var state = {

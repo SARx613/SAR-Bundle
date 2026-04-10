@@ -396,6 +396,12 @@
   flex-wrap: wrap;
 }
 
+.sar-bundle__nav .sar-bundle__btn {
+  flex: 1 1 0;
+  text-align: center;
+  min-width: 0;
+}
+
 .sar-bundle__btn {
   font-family: inherit;
   font-size: var(--sar-body-size, 1rem);

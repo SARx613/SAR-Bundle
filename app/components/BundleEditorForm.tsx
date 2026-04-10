@@ -442,6 +442,27 @@ export function BundleEditorForm({
                   }
                   helpText="Enregistrer le bundle met à jour le produit catalogue ; une modification dans Shopify met à jour ce statut."
                 />
+                <Divider />
+                <Text as="h3" variant="headingSm">
+                  Inventaire du produit
+                </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Définissez la quantité disponible sur le produit Shopify associé. Laissez vide pour ne pas modifier l'inventaire.
+                </Text>
+                <TextField
+                  label="Quantité en stock"
+                  type="number"
+                  value={form.inventoryQuantity}
+                  onChange={(v) => setForm((f) => ({ ...f, inventoryQuantity: v }))}
+                  autoComplete="off"
+                  placeholder="Ex: 100 — laisser vide = ne pas modifier"
+                  helpText={
+                    form.steps.some(s => s.products.length > 0)
+                      ? `Valeur minimale suggérée basée sur vos étapes : saisissez manuellement.`
+                      : "Saisissez le nombre d'unités disponibles."
+                  }
+                />
+                <Divider />
                 <Text as="h3" variant="headingSm">
                   Galerie du bundle
                 </Text>

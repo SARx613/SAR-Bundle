@@ -100,6 +100,10 @@ export type StorefrontDesignV1 = {
     colorBorder?: string;
     colorBackground?: string;
     colorText?: string;
+    /** Section border width in px (e.g. "1") */
+    borderWidth?: string;
+    /** Section border radius in px (e.g. "8") */
+    borderRadius?: string;
   };
   blocks: StorefrontBlock[];
 };

@@ -1,7 +1,7 @@
 {% comment %}
   SAR Bundle — Theme App Block (produit lié via metafields custom.sar_bundle_id, custom.sar_bundle_active)
   IMPORTANT : ce bloc ne doit pas modifier le template global (main-product).
-  Ajoutez-le simplement dans l’éditeur de thème, sous la description / bouton d’achat.
+  Ajoutez-le simplement dans l'éditeur de thème, sous la description / bouton d'achat.
 {% endcomment %}
 
 {% assign bundle_id = product.metafields.custom.sar_bundle_id.value %}
@@ -12,6 +12,22 @@
 {% assign bundle_active = product.metafields.custom.sar_bundle_active.value %}
 
 {% if bundle_id != blank and bundle_active != false %}
+  {% assign sar_color_primary = section.settings.color_primary %}
+  {% assign sar_color_border = section.settings.color_border %}
+  {% assign sar_color_bg = section.settings.color_background %}
+  {% assign sar_color_text = section.settings.color_text %}
+  {% assign sar_border_width = section.settings.border_width | default: 1 %}
+  {% assign sar_border_radius = section.settings.border_radius | default: 8 %}
+
+  {% capture sar_inline_style %}
+    {% if sar_color_primary != blank %}--sar-color-primary: {{ sar_color_primary }};{% endif %}
+    {% if sar_color_border != blank %}--sar-color-border: {{ sar_color_border }}; border-color: {{ sar_color_border }};{% endif %}
+    {% if sar_color_bg != blank %}--sar-color-bg: {{ sar_color_bg }}; background: {{ sar_color_bg }};{% endif %}
+    {% if sar_color_text != blank %}--sar-color-text: {{ sar_color_text }}; color: {{ sar_color_text }};{% endif %}
+    border-width: {{ sar_border_width }}px; border-style: solid;
+    --sar-radius: {{ sar_border_radius }}px; border-radius: {{ sar_border_radius }}px;
+  {% endcapture %}
+
   <div
     id="sar-bundle-root"
     class="sar-bundle"
@@ -20,7 +36,7 @@
     data-bundle-ref="{{ bundle_id | escape }}"
     data-bundle-id="{{ bundle_id | escape }}"
     data-shop="{{ shop.permanent_domain | escape }}"
-    data-shop="{{ shop.permanent_domain | escape }}"
+    style="{{ sar_inline_style | strip_newlines | strip }}"
   >
     <div class="sar-bundle__loading" data-sar-loading>Loading bundle…</div>
     <div class="sar-bundle__inner" data-sar-inner hidden></div>
@@ -55,6 +71,58 @@
   "enabled_on": {
     "templates": ["product"]
   },
-  "settings": []
+  "settings": [
+    {
+      "type": "header",
+      "content": "Couleurs"
+    },
+    {
+      "type": "color",
+      "id": "color_primary",
+      "label": "Couleur principale",
+      "info": "Bouton panier, étapes actives, ronds de la barre d'étape."
+    },
+    {
+      "type": "color",
+      "id": "color_border",
+      "label": "Couleur des bordures",
+      "default": "#e1e3e5"
+    },
+    {
+      "type": "color",
+      "id": "color_background",
+      "label": "Arrière-plan de la section",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "Couleur du texte"
+    },
+    {
+      "type": "header",
+      "content": "Bordure & Rayon"
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "min": 0,
+      "max": 6,
+      "step": 1,
+      "unit": "px",
+      "label": "Épaisseur de la bordure",
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "min": 0,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "label": "Rayon des coins",
+      "default": 8
+    }
+  ]
 }
 {% endschema %}

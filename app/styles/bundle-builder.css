@@ -391,6 +391,12 @@
   flex-wrap: wrap;
 }
 
+.sar-bundle__nav .sar-bundle__btn {
+  flex: 1 1 0;
+  text-align: center;
+  min-width: 0;
+}
+
 .sar-bundle__btn {
   font-family: inherit;
   font-size: var(--sar-body-size, 1rem);
@@ -579,4 +585,22 @@
   justify-content: space-between;
   gap: 1rem;
   margin-top: 1rem;
+}
+
+/* ─── Admin layout overrides ─── */
+
+/* Prevent Layout.Section from changing width across pages; always max-width */
+.Polaris-Layout__Section {
+  max-width: 100% !important;
+  flex: 1 1 100% !important;
+}
+
+/* Bottom padding on every Page so content doesn't end abruptly */
+.Polaris-Page {
+  padding-bottom: 3rem !important;
+}
+
+/* Keep full-width on the visual editor */
+.Polaris-Page--fullWidth .Polaris-Layout__Section {
+  max-width: 100% !important;
 }

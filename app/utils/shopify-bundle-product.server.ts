@@ -39,6 +39,8 @@ export type BundleProductSyncInput = {
   /** JSON éditeur visuel (metafield custom.sar_bundle_storefront) */
   storefrontDesign: unknown;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED" | "UNLISTED";
+  /** Quantité d'inventaire à définir sur le variant (null = ne pas modifier) */
+  inventoryQuantity?: number | null;
 };
 
 /** ProductStatus Admin GraphQL — aligné sur le statut du bundle. */
@@ -112,6 +114,8 @@ export async function syncBundleShopifyProduct(
       }
     : undefined;
 
+  const SAR_TAG = "SAR-Bundle";
+
   if (bundle.shopifyProductId) {
     const res = await admin.graphql(
       `#graphql
@@ -120,6 +124,7 @@ export async function syncBundleShopifyProduct(
             product {
               id
               handle
+              tags
             }
             userErrors {
               field
@@ -135,6 +140,7 @@ export async function syncBundleShopifyProduct(
             handle: bundle.handle,
             descriptionHtml,
             status: shopifyProductStatus(bundle.status),
+            tags: [SAR_TAG],
             ...(seo ? { seo } : {}),
             metafields,
           },
@@ -150,6 +156,14 @@ export async function syncBundleShopifyProduct(
     if (!pid) throw new Error("productUpdate returned no product id");
     await syncProductGalleryMedia(admin, pid, bundle.galleryUrls);
     const defaultVariantId = await fetchDefaultVariantGid(admin, pid);
+    // Apply inventory if specified
+    if (bundle.inventoryQuantity != null && defaultVariantId) {
+      try {
+        await setVariantInventory(admin, pid, defaultVariantId, bundle.inventoryQuantity);
+      } catch (e) {
+        console.warn("setVariantInventory (non-fatal):", e);
+      }
+    }
     return { productId: pid, defaultVariantId };
   }
 
@@ -174,6 +188,7 @@ export async function syncBundleShopifyProduct(
           handle: bundle.handle,
           descriptionHtml,
           status: shopifyProductStatus(bundle.status),
+          tags: [SAR_TAG],
           ...(seo ? { seo } : {}),
           metafields,
         },
@@ -191,14 +206,22 @@ export async function syncBundleShopifyProduct(
   const newId = createBody?.data?.productCreate?.product?.id;
   if (!newId) throw new Error("productCreate returned no product id");
 
-  // Publish the newly created product to the Online Store channel
+  // Publish the newly created product to ALL channels
   try {
-    await publishProductToOnlineStore(admin, newId);
+    await publishProductToAllChannels(admin, newId);
   } catch (e) {
-    console.warn("publishProductToOnlineStore (non-fatal):", e);
+    console.warn("publishProductToAllChannels (non-fatal):", e);
   }
 
   const defaultVariantId = await fetchDefaultVariantGid(admin, newId);
+  // Apply inventory if specified
+  if (bundle.inventoryQuantity != null && defaultVariantId) {
+    try {
+      await setVariantInventory(admin, newId, defaultVariantId, bundle.inventoryQuantity);
+    } catch (e) {
+      console.warn("setVariantInventory (non-fatal):", e);
+    }
+  }
   return { productId: newId, defaultVariantId };
 }
 
@@ -347,18 +370,16 @@ export async function syncFixedPriceBoxCatalogVariantPrice(
 }
 
 /**
- * Publishes a product to the Online Store sales channel so it's accessible
- * at /products/{handle}. Uses the publicationId of the "Online Store" channel.
+ * Publishes a product to ALL available sales channels.
  */
-async function publishProductToOnlineStore(
+async function publishProductToAllChannels(
   admin: AdminClient,
   productGid: string,
 ): Promise<void> {
-  // First, fetch the Online Store publication ID
   const pubRes = await admin.graphql(
     `#graphql
-      query FetchOnlineStorePublication {
-        publications(first: 20) {
+      query FetchAllPublications {
+        publications(first: 50) {
           nodes {
             id
             name
@@ -370,37 +391,25 @@ async function publishProductToOnlineStore(
   const publications: Array<{ id: string; name: string }> =
     pubBody?.data?.publications?.nodes ?? [];
 
-  const onlineStore = publications.find(
-    (p) =>
-      p.name === "Online Store" ||
-      p.name === "Boutique en ligne" ||
-      p.name.toLowerCase().includes("online store"),
-  );
-
-  if (!onlineStore) {
-    console.warn("publishProductToOnlineStore: Online Store publication not found");
+  if (publications.length === 0) {
+    console.warn("publishProductToAllChannels: no publications found");
     return;
   }
 
   const publishRes = await admin.graphql(
     `#graphql
-      mutation PublishBundleProduct($id: ID!, $input: [PublicationInput!]!) {
+      mutation PublishBundleProductAll($id: ID!, $input: [PublicationInput!]!) {
         publishablePublish(id: $id, input: $input) {
           publishable {
-            ... on Product {
-              id
-            }
+            ... on Product { id }
           }
-          userErrors {
-            field
-            message
-          }
+          userErrors { field message }
         }
       }`,
     {
       variables: {
         id: productGid,
-        input: [{ publicationId: onlineStore.id }],
+        input: publications.map((p) => ({ publicationId: p.id })),
       },
     },
   );
@@ -411,6 +420,94 @@ async function publishProductToOnlineStore(
       "publishablePublish userErrors:",
       publishErrs.map((e: { message: string }) => e.message).join("; "),
     );
+  }
+}
+
+/**
+ * Sets the inventory quantity on a variant using inventorySetOnHandQuantities.
+ */
+async function setVariantInventory(
+  admin: AdminClient,
+  productGid: string,
+  variantGid: string,
+  quantity: number,
+): Promise<void> {
+  // Get the inventory item ID for the variant
+  const varRes = await admin.graphql(
+    `#graphql
+      query GetInventoryItem($variantId: ID!) {
+        productVariant(id: $variantId) {
+          inventoryItem {
+            id
+            tracked
+          }
+        }
+      }`,
+    { variables: { variantId: variantGid } },
+  );
+  const varBody = await varRes.json();
+  const inventoryItemId = varBody?.data?.productVariant?.inventoryItem?.id;
+  if (!inventoryItemId) {
+    console.warn("setVariantInventory: no inventoryItem found for variant", variantGid);
+    return;
+  }
+
+  // Get the first location
+  const locRes = await admin.graphql(
+    `#graphql
+      query GetFirstLocation {
+        locations(first: 1) {
+          nodes { id name }
+        }
+      }`,
+  );
+  const locBody = await locRes.json();
+  const locationId = locBody?.data?.locations?.nodes?.[0]?.id;
+  if (!locationId) {
+    console.warn("setVariantInventory: no location found");
+    return;
+  }
+
+  // Enable tracking if not already tracked
+  if (!varBody?.data?.productVariant?.inventoryItem?.tracked) {
+    await admin.graphql(
+      `#graphql
+        mutation EnableTracking($id: ID!) {
+          inventoryItemUpdate(id: $id, input: { tracked: true }) {
+            inventoryItem { id }
+            userErrors { field message }
+          }
+        }`,
+      { variables: { id: inventoryItemId } },
+    );
+  }
+
+  const setRes = await admin.graphql(
+    `#graphql
+      mutation SetInventory($input: InventorySetOnHandQuantitiesInput!) {
+        inventorySetOnHandQuantities(input: $input) {
+          userErrors { field message }
+        }
+      }`,
+    {
+      variables: {
+        input: {
+          reason: "correction",
+          setQuantities: [
+            {
+              inventoryItemId,
+              locationId,
+              quantity,
+            },
+          ],
+        },
+      },
+    },
+  );
+  const setBody = await setRes.json();
+  const setErrs = setBody?.data?.inventorySetOnHandQuantities?.userErrors;
+  if (setErrs?.length) {
+    console.warn("inventorySetOnHandQuantities errors:", setErrs.map((e: { message: string }) => e.message).join("; "));
   }
 }
 
