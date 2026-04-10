@@ -238,14 +238,14 @@ function UpsellPreview({
     if (behavior === "single") {
       setSelectedIds([id]);
     } else {
-      setSelectedIds((prev: string[]) => 
+      setSelectedIds((prev: string[]) =>
         prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
       );
     }
   };
 
   return (
-    <div className="sar-bundle__upsell" style={{ 
+    <div className="sar-bundle__upsell" style={{
       margin: "24px 0",
       padding: "20px",
       background: "#fff",
@@ -260,7 +260,7 @@ function UpsellPreview({
         {items.map((item: any) => {
           const isSelected = selectedIds.includes(item.id);
           return (
-            <div 
+            <div
               key={item.id}
               onClick={() => toggle(item.id)}
               style={{
@@ -269,7 +269,7 @@ function UpsellPreview({
                 gap: "12px",
                 padding: "12px",
                 borderRadius: "8px",
-                border: `1px solid ${isSelected ? "var(--sar-color-primary, #008060)" : "#e1e3e5"}`,
+                border: `1px solid ${isSelected ? "var(--sar-color-primary, #72cff7)" : "#e1e3e5"}`,
                 background: isSelected ? "var(--sar-color-bg-subtle, #f0f7f5)" : "transparent",
                 cursor: "pointer",
                 transition: "all 0.2s"
@@ -279,30 +279,30 @@ function UpsellPreview({
                 width: "20px",
                 height: "20px",
                 borderRadius: behavior === "single" ? "50%" : "4px",
-                border: `2px solid ${isSelected ? "var(--sar-color-primary, #008060)" : "#d1d3d5"}`,
+                border: `2px solid ${isSelected ? "var(--sar-color-primary, #72cff7)" : "#d1d3d5"}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: isSelected ? "var(--sar-color-primary, #008060)" : "#fff"
+                background: isSelected ? "var(--sar-color-primary, #72cff7)" : "#fff"
               }}>
                 {isSelected && (
-                  <div style={{ 
-                    width: behavior === "single" ? "8px" : "10px", 
-                    height: behavior === "single" ? "8px" : "10px", 
+                  <div style={{
+                    width: behavior === "single" ? "8px" : "10px",
+                    height: behavior === "single" ? "8px" : "10px",
                     borderRadius: behavior === "single" ? "50%" : "2px",
-                    background: "#fff" 
+                    background: "#fff"
                   }} />
                 )}
               </div>
-              
+
               {item.defaultImageUrl && (
-                <img 
-                  src={item.defaultImageUrl} 
-                  alt="" 
-                  style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "4px" }} 
+                <img
+                  src={item.defaultImageUrl}
+                  alt=""
+                  style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "4px" }}
                 />
               )}
-              
+
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: "600", fontSize: "14px" }}>
                   {item.overrideLabel || item.productTitle}
@@ -313,8 +313,8 @@ function UpsellPreview({
                   </div>
                 )}
               </div>
-              
-              <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--sar-color-primary, #008060)" }}>
+
+              <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--sar-color-primary, #72cff7)" }}>
                 +{item.priceAmount} {item.currencyCode}
               </div>
             </div>
@@ -581,7 +581,7 @@ export function BundleStorefrontPreview({
       style={{
         fontFamily: g.fontBody || "inherit",
         background: g.pageBackground || "transparent",
-        "--sar-color-primary": g.colorPrimary || "#008060",
+        "--sar-color-primary": g.colorPrimary || "#72cff7",
         "--sar-color-border": g.colorBorder || "#e1e3e5",
         "--sar-color-bg": g.colorBackground || "#ffffff",
         "--sar-color-bg-subtle": "#f0f7f5",

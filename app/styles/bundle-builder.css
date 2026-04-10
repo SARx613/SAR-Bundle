@@ -76,9 +76,9 @@
 }
 
 .sar-bundle__step-pill--active {
-  background: var(--sar-color-primary, #008060);
+  background: var(--sar-color-primary, #72cff7);
   color: #fff;
-  border-color: var(--sar-color-primary, #008060);
+  border-color: var(--sar-color-primary, #72cff7);
 }
 
 /* ─── Step Bar (icon-circle design) ─── */
@@ -133,13 +133,13 @@
 }
 
 .sar-stepbar__item.active .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #008060));
+  background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #72cff7));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
 
 .sar-stepbar__item.completed .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #008060));
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #72cff7));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
@@ -147,8 +147,8 @@
 /* Hover effects */
 .sar-stepbar__item:not(.active):not(.completed):hover .sar-stepbar__icon-circle {
   background: var(--sar-stepbar-hover-bg, var(--sar-color-bg-subtle, #f0f7f5));
-  color: var(--sar-stepbar-hover-text, var(--sar-color-primary, #008060));
-  border-color: var(--sar-color-primary, #008060);
+  color: var(--sar-stepbar-hover-text, var(--sar-color-primary, #72cff7));
+  border-color: var(--sar-color-primary, #72cff7);
 }
 
 .sar-stepbar__label {
@@ -190,12 +190,12 @@
 }
 
 .sar-bundle__upsell-item.is-selected {
-  border-color: var(--sar-color-primary, #008060);
+  border-color: var(--sar-color-primary, #72cff7);
   background: var(--sar-color-bg-subtle, #f0f7f5);
 }
 
 .sar-bundle__upsell-item:hover {
-  border-color: var(--sar-color-primary, #008060);
+  border-color: var(--sar-color-primary, #72cff7);
 }
 
 /* ─── Product Grid ─── */
@@ -335,10 +335,10 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  background: var(--sar-color-primary, #008060);
+  background: var(--sar-color-primary, #72cff7);
   color: var(--sar-button-text, #fff);
   transition: all 0.15s ease;
-  border-color: var(--sar-color-primary, #008060);
+  border-color: var(--sar-color-primary, #72cff7);
 }
 
 .sar-bundle__product-atc-btn:hover {
@@ -402,7 +402,7 @@
 }
 
 .sar-bundle__btn--primary {
-  background: var(--sar-color-primary, #008060);
+  background: var(--sar-color-primary, #72cff7);
   color: #fff;
 }
 
@@ -413,8 +413,8 @@
 
 .sar-bundle__btn--secondary {
   background: transparent;
-  color: var(--sar-color-primary, #008060);
-  border: 2px solid var(--sar-color-primary, #008060);
+  color: var(--sar-color-primary, #72cff7);
+  border: 2px solid var(--sar-color-primary, #72cff7);
 }
 
 .sar-bundle__btn--secondary:hover {

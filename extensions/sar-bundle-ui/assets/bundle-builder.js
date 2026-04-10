@@ -626,7 +626,7 @@
       return Promise.resolve();
     }
 
-    var fetchPromise = explicitBundleData 
+    var fetchPromise = explicitBundleData
       ? Promise.resolve(explicitBundleData)
       : fetchBundleConfig(ref);
 
@@ -756,8 +756,8 @@
             // Set CSS vars for the whole bar
             bar.style.setProperty('--sar-stepbar-borderColor', st.borderColor || 'transparent');
             bar.style.setProperty('--sar-stepbar-lineColor', st.lineColor || st.borderColor || '#e1e3e5');
-            bar.style.setProperty('--sar-stepbar-active-bg', st.activeBg || 'var(--sar-color-primary, #008060)');
-            bar.style.setProperty('--sar-stepbar-completed-bg', st.completedBg || st.activeBg || 'var(--sar-color-primary, #008060)');
+            bar.style.setProperty('--sar-stepbar-active-bg', st.activeBg || 'var(--sar-color-primary, #72cff7)');
+            bar.style.setProperty('--sar-stepbar-completed-bg', st.completedBg || st.activeBg || 'var(--sar-color-primary, #72cff7)');
             bar.style.setProperty('--sar-stepbar-inactive-bg', st.inactiveBg || '#f1f1f1');
             bar.style.setProperty('--sar-stepbar-active-text', st.activeTextColor || '#ffffff');
             bar.style.setProperty('--sar-stepbar-inactive-text', st.inactiveTextColor || '#999999');
@@ -789,7 +789,7 @@
                 // Circle Icon/Number
                 var circle = document.createElement("div");
                 circle.className = "sar-stepbar__icon-circle";
-                
+
                 if (stepInfo.imageUrl) {
                   var img = document.createElement('img');
                   img.src = stepInfo.imageUrl;
@@ -869,7 +869,7 @@
                 row.style.gap = '12px';
                 row.style.padding = '12px';
                 row.style.borderRadius = '8px';
-                row.style.border = '1px solid ' + (isSelected ? 'var(--sar-color-primary, #008060)' : '#e1e3e5');
+                row.style.border = '1px solid ' + (isSelected ? 'var(--sar-color-primary, #72cff7)' : '#e1e3e5');
                 row.style.background = isSelected ? 'var(--sar-color-bg-subtle, #f0f7f5)' : 'transparent';
                 row.style.cursor = 'pointer';
                 row.style.transition = 'all 0.2s';
@@ -878,11 +878,11 @@
                 check.style.width = '20px';
                 check.style.height = '20px';
                 check.style.borderRadius = behavior === 'single' ? '50%' : '4px';
-                check.style.border = '2px solid ' + (isSelected ? 'var(--sar-color-primary, #008060)' : '#d1d3d5');
+                check.style.border = '2px solid ' + (isSelected ? 'var(--sar-color-primary, #72cff7)' : '#d1d3d5');
                 check.style.display = 'flex';
                 check.style.alignItems = 'center';
                 check.style.justifyContent = 'center';
-                check.style.background = isSelected ? 'var(--sar-color-primary, #008060)' : '#fff';
+                check.style.background = isSelected ? 'var(--sar-color-primary, #72cff7)' : '#fff';
                 if (isSelected) {
                   var inner = document.createElement('div');
                   inner.style.width = behavior === 'single' ? '8px' : '10px';
@@ -923,7 +923,7 @@
                 var price = document.createElement('div');
                 price.style.fontWeight = '700';
                 price.style.fontSize = '14px';
-                price.style.color = 'var(--sar-color-primary, #008060)';
+                price.style.color = 'var(--sar-color-primary, #72cff7)';
                 price.textContent = '+' + formatMoneyDisplay(item.priceAmount, item.currencyCode);
                 row.appendChild(price);
 
@@ -949,8 +949,12 @@
               return Promise.resolve(collectionProductsByHandle[handle]);
             }
             if (collectionFetchInFlight[handle]) return collectionFetchInFlight[handle];
+            // 'all' means all products — use /products.json
+            var url = handle === 'all'
+              ? joinRoot('products.json?limit=24')
+              : joinRoot('collections/' + encodeURIComponent(handle) + '/products.json?limit=24');
             collectionFetchInFlight[handle] = fetch(
-              joinRoot('collections/' + encodeURIComponent(handle) + '/products.json?limit=24'),
+              url,
               { headers: { Accept: 'application/json' } },
             )
               .then(function (r) {
@@ -980,14 +984,21 @@
             ctx.__productListSource = b.source || 'step_pick';
             ctx.__productListCollection = b.collectionHandle || '';
             ctx.__productListButtonText = b.buttonText || '';
+            ctx.__productListButtonBackground = b.buttonBackground || '';
+            ctx.__productListButtonColor = b.buttonColor || '';
+            ctx.__productListButtonHoverBg = b.buttonHoverBackground || '';
+            ctx.__productListButtonHoverColor = b.buttonHoverColor || '';
+            ctx.__productListButtonRadius = b.buttonBorderRadius || '';
+            ctx.__productListButtonBorderRadius = b.buttonBorderRadius || '';
 
             var container = document.createElement('div');
             container.className = 'sar-bundle__products';
-            
+
+            // Set CSS vars on container for buttons to inherit
             if (b.buttonBackground) container.style.setProperty('--sar-color-primary', b.buttonBackground);
             if (b.buttonColor) container.style.setProperty('--sar-button-text', b.buttonColor);
             if (b.buttonBorderRadius) container.style.setProperty('--sar-button-radius', b.buttonBorderRadius);
-            
+
             ctx.__productListMount = container;
             wrapEl.appendChild(container);
           }
@@ -1114,7 +1125,7 @@
               } else if (b.type === 'upsell') {
                 renderUpsellBlock(blockWrap, b, ctx);
               }
-              
+
               if (isInteractive) {
                 wrap.appendChild(blockWrap);
               }
@@ -1197,9 +1208,18 @@
             }
 
             // Design blocks (editor order), excluding step bar (already rendered above)
-            if (bundle.storefrontDesign) {
+            // Use per-step design if available, fall back to global design
+            var effectiveDesign = bundle.storefrontDesign;
+            if (bundle.storefrontDesign && bundle.storefrontDesign.stepDesigns) {
+              var stepKey = String(state.stepIndex);
+              var stepBlocks = bundle.storefrontDesign.stepDesigns[stepKey];
+              if (stepBlocks !== undefined) {
+                effectiveDesign = Object.assign({}, bundle.storefrontDesign, { blocks: stepBlocks });
+              }
+            }
+            if (effectiveDesign) {
               var designMount = document.createElement('div');
-              renderDesignBlocks(designMount, bundle.storefrontDesign, designCtx, variantCache);
+              renderDesignBlocks(designMount, effectiveDesign, designCtx, variantCache);
               // Drop only nested step bars from the design mount (they were already rendered above)
               var toRemove = designMount.querySelectorAll('.sar-stepbar');
               for (var ri = 0; ri < toRemove.length; ri++) {
@@ -1370,7 +1390,21 @@
                     if (designCtx.__productListButtonBackground) addBtn.style.background = designCtx.__productListButtonBackground;
                     if (designCtx.__productListButtonColor) addBtn.style.color = designCtx.__productListButtonColor;
                     if (designCtx.__productListButtonBorderRadius) addBtn.style.borderRadius = designCtx.__productListButtonBorderRadius;
-                    
+                    if (designCtx.__productListButtonHoverBg || designCtx.__productListButtonHoverColor) {
+                      var origBg = designCtx.__productListButtonBackground || '';
+                      var origColor = designCtx.__productListButtonColor || '';
+                      var hoverBg = designCtx.__productListButtonHoverBg;
+                      var hoverColor = designCtx.__productListButtonHoverColor;
+                      addBtn.addEventListener('mouseenter', function() {
+                        if (hoverBg) this.style.background = hoverBg;
+                        if (hoverColor) this.style.color = hoverColor;
+                      });
+                      addBtn.addEventListener('mouseleave', function() {
+                        if (origBg) this.style.background = origBg; else this.style.background = '';
+                        if (origColor) this.style.color = origColor; else this.style.color = '';
+                      });
+                    }
+
                     addBtn.addEventListener('click', function(e) { e.stopPropagation(); setQty(1); });
                     atcWrapper.appendChild(addBtn);
                   }
@@ -1403,19 +1437,19 @@
                   grid.appendChild(card);
                 })(stepProds[pj]);
                 }
-                
+
                 // If no product_list block claimed the grid, put it in the body
                 if (!designCtx.__renderedProductList) {
                   body.appendChild(grid);
                 }
-                
+
                 // Always ensure body (description + products) is in the DOM
                 inner.appendChild(body);
               }
 
               var isCollection = designCtx.__productListSource === 'collection' && designCtx.__productListCollection;
               var isAllProducts = designCtx.__productListSource === 'all_products';
-              
+
               if (isCollection || isAllProducts) {
                 var handle = isAllProducts ? 'all' : designCtx.__productListCollection;
                 var loadId = 'loading-' + handle;
@@ -1677,7 +1711,7 @@
                       items.push({
                         id: uItem.variantId || variantGidToNumericId(uItem.variantGid),
                         quantity: 1,
-                        properties: { 
+                        properties: {
                           _sar_upsell_for: configId,
                           _sar_bundle_name: String(bundle.name || '')
                         }

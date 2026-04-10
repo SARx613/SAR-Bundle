@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState, useCallback } from "react";
 import {
   Page,
@@ -104,7 +104,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
 
-  await prisma.$transaction(ops);
+  try {
+    if (ops.length > 0) {
+      await (prisma as any).$transaction(ops);
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("translations save error:", message);
+    return json({ error: `Erreur lors de la sauvegarde : ${message}` }, { status: 500 });
+  }
 
   return json({ ok: true });
 };
@@ -119,6 +127,7 @@ const LANG_LABELS: Record<string, string> = {
 
 export default function TranslationsPage() {
   const { overrideMap, detectedLang } = useLoaderData<typeof loader>();
+  const actionData = useActionData<{ ok?: boolean; error?: string }>();
   const submit = useSubmit();
   const nav = useNavigation();
   const isSaving = nav.state === "submitting";
@@ -262,7 +271,12 @@ export default function TranslationsPage() {
           </Layout.Section>
         </Layout>
 
-        {saved && !isSaving && (
+        {actionData?.error && (
+          <Banner tone="critical" title="Erreur">
+            <p>{actionData.error}</p>
+          </Banner>
+        )}
+        {saved && !isSaving && actionData?.ok && (
           <Banner tone="success" onDismiss={() => setSaved(false)}>
             <p>Traductions enregistrées avec succès !</p>
           </Banner>

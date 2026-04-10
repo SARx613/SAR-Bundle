@@ -233,6 +233,21 @@ export function BundleVisualEditor({
     [setForm],
   );
 
+  // Returns the effective design for a given step (per-step override or global)
+  const getStepDesign = useCallback(
+    (stepIdx: number): StorefrontDesignV2 => {
+      const globalDesign = form.storefrontDesign;
+      const key = String(stepIdx);
+      const stepBlocks = globalDesign.stepDesigns?.[key];
+      if (stepBlocks !== undefined) {
+        return { ...globalDesign, blocks: stepBlocks };
+      }
+      // First time: clone the global blocks for this step
+      return { ...globalDesign };
+    },
+    [form.storefrontDesign],
+  );
+
   const patchDesign = useCallback(
     (next: StorefrontDesignV2) => {
       setForm((f) => ({ ...f, storefrontDesign: next }));
@@ -240,16 +255,56 @@ export function BundleVisualEditor({
     [setForm],
   );
 
+  // Patches the per-step design (stepDesigns[stepIdx].blocks)
+  const patchStepDesign = useCallback(
+    (stepIdx: number, next: StorefrontDesignV2) => {
+      setForm((f) => {
+        const key = String(stepIdx);
+        const global = f.storefrontDesign;
+        return {
+          ...f,
+          storefrontDesign: {
+            ...global,
+            stepDesigns: {
+              ...(global.stepDesigns ?? {}),
+              [key]: next.blocks,
+            },
+          },
+        };
+      });
+    },
+    [setForm],
+  );
+
   const deleteBlock = useCallback(
     (blockId: string) => {
-      setForm((f) => ({
-        ...f,
-        storefrontDesign: {
-          ...f.storefrontDesign,
-          version: 2,
-          blocks: f.storefrontDesign.blocks.filter((b) => b.id !== blockId),
-        },
-      }));
+      if (nav.level === 2 || nav.level === 3) {
+        const stepIdx = nav.stepIndex;
+        const key = String(stepIdx);
+        setForm((f) => {
+          const global = f.storefrontDesign;
+          const currentBlocks = global.stepDesigns?.[key] ?? global.blocks;
+          return {
+            ...f,
+            storefrontDesign: {
+              ...global,
+              stepDesigns: {
+                ...(global.stepDesigns ?? {}),
+                [key]: currentBlocks.filter((b) => b.id !== blockId),
+              },
+            },
+          };
+        });
+      } else {
+        setForm((f) => ({
+          ...f,
+          storefrontDesign: {
+            ...f.storefrontDesign,
+            version: 2,
+            blocks: f.storefrontDesign.blocks.filter((b) => b.id !== blockId),
+          },
+        }));
+      }
       // Remove from hidden set if present
       setHiddenBlocks((prev) => {
         const next = new Set(prev);
@@ -404,7 +459,7 @@ export function BundleVisualEditor({
                 label="Couleur principale"
                 value={g.colorPrimary ?? ""}
                 onChange={(v) => updateGlobal({ colorPrimary: v || undefined })}
-                placeholder="#008060"
+                placeholder="#72cff7"
                 helpText="Bouton panier, étape active, ronds de la barre d'étape."
               />
               <GlobalColorField
@@ -437,13 +492,14 @@ export function BundleVisualEditor({
         setNav({ level: 1 });
         return null;
       }
+      const stepDesign = getStepDesign(nav.stepIndex);
       return (
         <SidebarLevel2
           stepIndex={nav.stepIndex}
           step={step}
           stepsCount={form.steps.length}
-          design={form.storefrontDesign}
-          onDesignChange={patchDesign}
+          design={stepDesign}
+          onDesignChange={(next) => patchStepDesign(nav.stepIndex, next)}
           onStepPatch={(patch) => patchStep(nav.stepIndex, patch)}
           onStepProductsChange={(products) =>
             patchStep(nav.stepIndex, { products })
@@ -468,14 +524,15 @@ export function BundleVisualEditor({
     if (nav.level === 3) {
       const step = form.steps[nav.stepIndex];
       const stepName = step?.name.trim() || `Étape ${nav.stepIndex + 1}`;
+      const stepDesign = getStepDesign(nav.stepIndex);
       return (
         <SidebarLevel3
           blockId={nav.blockId}
           stepName={stepName}
           stepIndex={nav.stepIndex}
           step={step}
-          design={form.storefrontDesign}
-          onDesignChange={patchDesign}
+          design={stepDesign}
+          onDesignChange={(next) => patchStepDesign(nav.stepIndex, next)}
           onStepPatch={(patch) => patchStep(nav.stepIndex, patch)}
           onStepProductsChange={(products) =>
             patchStep(nav.stepIndex, { products })
@@ -560,7 +617,7 @@ export function BundleVisualEditor({
               }}
             >
               <BundleStorefrontPreview
-                design={form.storefrontDesign}
+                design={getStepDesign(activeStepIndex)}
                 steps={form.steps}
                 activeStepIndex={activeStepIndex}
                 selectedBlockId={nav.level === 3 ? nav.blockId : null}

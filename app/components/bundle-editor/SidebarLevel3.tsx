@@ -521,93 +521,75 @@ function StepBarStyleFields({
 }) {
   if (block.type !== "step_bar") return null;
   const style = block.style || {};
-  const currentPreset = block.preset || "default";
 
   const patchStyle = (s: Partial<StepBarBlock["style"]>) =>
     onPatch({ style: { ...style, ...s } } as Partial<StorefrontBlockV2>);
 
   return (
-    <BlockStack gap="200">
-      <Select
-        label="Design prédéfini"
-        options={[
-          { label: "Classique (Numéros)", value: "default" },
-          { label: "Cercle doré (Luxe)", value: "circles" },
-          { label: "Lignes plates", value: "lines" },
-          { label: "Minimal (Petits points)", value: "minimal" },
-          { label: "Personnalisé", value: "custom" },
-        ]}
-        value={currentPreset}
-        onChange={(v) => onPatch({ preset: v as StepBarBlock["preset"] } as Partial<StorefrontBlockV2>)}
+    <BlockStack gap="300">
+      <Checkbox
+        label="Afficher la ligne entre les étapes"
+        checked={style.showLine !== false}
+        onChange={(v) => patchStyle({ showLine: v })}
       />
-
-      {(currentPreset === "custom" || currentPreset === "circles") && (
-        <CollapsibleStyleSection title="Couleurs" id="sec-stepbar-colors" defaultOpen>
-          <BlockStack gap="300">
-            <Checkbox
-              label="Afficher la ligne entre les étapes"
-              checked={style.showLine !== false}
-              onChange={(v) => patchStyle({ showLine: v })}
-            />
-            {style.showLine !== false && (
-              <ColorField
-                label="Couleur de la ligne"
-                value={style.lineColor ?? ""}
-                onChange={(v) => patchStyle({ lineColor: v || undefined })}
-              />
-            )}
-            <ColorField
-              label="Fond étape active"
-              value={style.activeBg ?? ""}
-              onChange={(v) => patchStyle({ activeBg: v || undefined })}
-            />
-            <ColorField
-              label="Fond étape terminée"
-              value={style.completedBg ?? ""}
-              onChange={(v) => patchStyle({ completedBg: v || undefined })}
-            />
-            <InlineGrid columns={2} gap="300">
-              <ColorField
-                label="Fond au survol"
-                value={style.hoverBg ?? ""}
-                onChange={(v) => patchStyle({ hoverBg: v || undefined })}
-              />
-              <ColorField
-                label="Texte au survol"
-                value={style.hoverTextColor ?? ""}
-                onChange={(v) => patchStyle({ hoverTextColor: v || undefined })}
-              />
-            </InlineGrid>
-            <ColorField
-              label="Fond étape inactive"
-              value={style.inactiveBg ?? ""}
-              onChange={(v) => patchStyle({ inactiveBg: v || undefined })}
-            />
-            <ColorField
-              label="Couleur texte (active)"
-              value={style.activeTextColor ?? ""}
-              onChange={(v) => patchStyle({ activeTextColor: v || undefined })}
-            />
-            <ColorField
-              label="Couleur texte (inactive)"
-              value={style.inactiveTextColor ?? ""}
-              onChange={(v) => patchStyle({ inactiveTextColor: v || undefined })}
-            />
-            <ColorField
-              label="Couleur étiquettes étapes"
-              value={style.labelColor ?? ""}
-              onChange={(v) => patchStyle({ labelColor: v || undefined })}
-            />
-            <TextField
-              label="Taille texte étiquettes"
-              value={style.fontSize ?? ""}
-              onChange={(v) => patchStyle({ fontSize: v || undefined })}
-              placeholder="ex: 14px ou 1rem"
-              autoComplete="off"
-            />
-          </BlockStack>
-        </CollapsibleStyleSection>
+      {style.showLine !== false && (
+        <ColorField
+          label="Couleur de la ligne"
+          value={style.lineColor ?? ""}
+          onChange={(v) => patchStyle({ lineColor: v || undefined })}
+        />
       )}
+      <ColorField
+        label="Rond — étape active"
+        value={style.activeBg ?? ""}
+        onChange={(v) => patchStyle({ activeBg: v || undefined })}
+      />
+      <ColorField
+        label="Rond — étape terminée"
+        value={style.completedBg ?? ""}
+        onChange={(v) => patchStyle({ completedBg: v || undefined })}
+      />
+      <ColorField
+        label="Rond — étape inactive"
+        value={style.inactiveBg ?? ""}
+        onChange={(v) => patchStyle({ inactiveBg: v || undefined })}
+      />
+      <InlineGrid columns={2} gap="200">
+        <ColorField
+          label="Texte actif"
+          value={style.activeTextColor ?? ""}
+          onChange={(v) => patchStyle({ activeTextColor: v || undefined })}
+        />
+        <ColorField
+          label="Texte inactif"
+          value={style.inactiveTextColor ?? ""}
+          onChange={(v) => patchStyle({ inactiveTextColor: v || undefined })}
+        />
+      </InlineGrid>
+      <InlineGrid columns={2} gap="200">
+        <ColorField
+          label="Fond au survol"
+          value={style.hoverBg ?? ""}
+          onChange={(v) => patchStyle({ hoverBg: v || undefined })}
+        />
+        <ColorField
+          label="Texte au survol"
+          value={style.hoverTextColor ?? ""}
+          onChange={(v) => patchStyle({ hoverTextColor: v || undefined })}
+        />
+      </InlineGrid>
+      <ColorField
+        label="Couleur étiquettes"
+        value={style.labelColor ?? ""}
+        onChange={(v) => patchStyle({ labelColor: v || undefined })}
+      />
+      <TextField
+        label="Taille texte étiquettes"
+        value={style.fontSize ?? ""}
+        onChange={(v) => patchStyle({ fontSize: v || undefined })}
+        placeholder="14px"
+        autoComplete="off"
+      />
     </BlockStack>
   );
 }
@@ -860,25 +842,6 @@ function ProductListManager({
             value={cardLayout}
             onChange={(v) => onPatch({ cardLayout: v as ProductListBlock["cardLayout"] } as Partial<StorefrontBlockV2>)}
           />
-          <TextField
-            label="Texte du bouton"
-            value={block.buttonText ?? "Ajouter"}
-            onChange={(v) => onPatch({ buttonText: v } as Partial<StorefrontBlockV2>)}
-            placeholder="ex: Ajouter"
-            autoComplete="off"
-          />
-          <InlineGrid columns={2} gap="300">
-            <ColorField
-              label="Fond du bouton"
-              value={block.buttonBackground ?? ""}
-              onChange={(v) => onPatch({ buttonBackground: v || undefined } as Partial<StorefrontBlockV2>)}
-            />
-            <ColorField
-              label="Couleur texte"
-              value={block.buttonColor ?? ""}
-              onChange={(v) => onPatch({ buttonColor: v || undefined } as Partial<StorefrontBlockV2>)}
-            />
-          </InlineGrid>
           <InlineGrid columns={["oneHalf", "oneHalf"]} gap="200">
             <SliderNumericField
               label="Colonnes (Bureau)"
@@ -897,6 +860,44 @@ function ProductListManager({
               suffix=""
             />
           </InlineGrid>
+        </BlockStack>
+      </CollapsibleStyleSection>
+
+      {/* Button styles */}
+      <CollapsibleStyleSection title="Style du bouton" id="sec-pl-btn">
+        <BlockStack gap="300">
+          <InlineGrid columns={2} gap="200">
+            <ColorField
+              label="Fond du bouton"
+              value={block.buttonBackground ?? ""}
+              onChange={(v) => onPatch({ buttonBackground: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+            <ColorField
+              label="Texte du bouton"
+              value={block.buttonColor ?? ""}
+              onChange={(v) => onPatch({ buttonColor: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+          </InlineGrid>
+          <InlineGrid columns={2} gap="200">
+            <ColorField
+              label="Fond au survol"
+              value={(block as { buttonHoverBackground?: string }).buttonHoverBackground ?? ""}
+              onChange={(v) => onPatch({ buttonHoverBackground: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+            <ColorField
+              label="Texte au survol"
+              value={(block as { buttonHoverColor?: string }).buttonHoverColor ?? ""}
+              onChange={(v) => onPatch({ buttonHoverColor: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+          </InlineGrid>
+          <TextField
+            label="Rayon (border-radius)"
+            value={block.buttonBorderRadius ?? ""}
+            onChange={(v) => onPatch({ buttonBorderRadius: v || undefined } as Partial<StorefrontBlockV2>)}
+            placeholder="4px"
+            autoComplete="off"
+            helpText="Ex: 4px, 8px, 999px pour arrondi complet"
+          />
         </BlockStack>
       </CollapsibleStyleSection>
 
@@ -929,39 +930,38 @@ function ProductListManager({
 
       {source === "collection" ? (
         <BlockStack gap="200">
-          <Box
-            padding="300"
-            borderWidth="025"
-            borderColor="border"
-            borderRadius="200"
-            background="bg-surface"
-          >
-            <BlockStack gap="200">
-              <InlineStack align="space-between" blockAlign="center">
-                <Text as="p" variant="bodyMd" tone="subdued">
-                  Collection sélectionnée
-                </Text>
-                {block.collectionHandle && (
+          {block.collectionHandle ? (
+            <Box padding="200" borderWidth="025" borderColor="border" borderRadius="200" background="bg-surface">
+              <InlineStack gap="200" blockAlign="center" wrap={false}>
+                {(block as { collectionImageUrl?: string }).collectionImageUrl ? (
+                  <Thumbnail source={(block as { collectionImageUrl: string }).collectionImageUrl} alt="" size="small" />
+                ) : null}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text as="p" variant="bodyMd" truncate>
+                    {(block as { collectionTitle?: string }).collectionTitle || block.collectionHandle}
+                  </Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    /collections/{block.collectionHandle}
+                  </Text>
+                </div>
+                <Tooltip content="Retirer">
                   <Button
+                    icon={DeleteIcon}
                     variant="plain"
                     tone="critical"
-                    onClick={() => onPatch({ collectionHandle: undefined } as Partial<StorefrontBlockV2>)}
-                  >
-                    Retirer
-                  </Button>
-                )}
+                    onClick={() => onPatch({ collectionHandle: undefined, collectionTitle: undefined, collectionGid: undefined, collectionImageUrl: undefined } as Partial<StorefrontBlockV2>)}
+                    accessibilityLabel="Retirer"
+                  />
+                </Tooltip>
               </InlineStack>
-              {block.collectionHandle ? (
-                <Text as="p" fontWeight="semibold" variant="bodyMd">
-                  /collections/{block.collectionHandle}
-                </Text>
-              ) : (
-                <Text as="p" variant="bodySm" tone="critical">
-                  Aucune collection choisie
-                </Text>
-              )}
-            </BlockStack>
-          </Box>
+            </Box>
+          ) : (
+            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+              <Text as="p" variant="bodySm" tone="subdued">
+                Aucune collection sélectionnée.
+              </Text>
+            </Box>
+          )}
           <Button
             onClick={async () => {
               const selected = await shopifyBridge.resourcePicker({
@@ -969,9 +969,22 @@ function ProductListManager({
                 multiple: false,
                 action: "select",
               });
-              const sel = (selected as { selection?: Array<{ handle?: string }> } | null)?.selection?.[0];
-              if (sel?.handle) {
-                onPatch({ collectionHandle: String(sel.handle) } as Partial<StorefrontBlockV2>);
+              const rawSel = (selected as unknown as { selection?: Array<Record<string, unknown>> } | null)?.selection?.[0];
+              if (rawSel) {
+                const handle = typeof rawSel.handle === "string" ? rawSel.handle : "";
+                const title = typeof rawSel.title === "string" ? rawSel.title : "";
+                const gid = typeof rawSel.id === "string" ? rawSel.id : "";
+                const img = (rawSel.image && typeof (rawSel.image as { originalSrc?: unknown }).originalSrc === "string")
+                  ? (rawSel.image as { originalSrc: string }).originalSrc
+                  : (rawSel.image && typeof (rawSel.image as { url?: unknown }).url === "string")
+                  ? (rawSel.image as { url: string }).url
+                  : "";
+                onPatch({
+                  collectionHandle: handle,
+                  collectionTitle: title || handle,
+                  collectionGid: gid,
+                  collectionImageUrl: img || undefined,
+                } as Partial<StorefrontBlockV2>);
               }
             }}
           >

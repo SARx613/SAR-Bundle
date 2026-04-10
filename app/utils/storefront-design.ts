@@ -152,6 +152,12 @@ export type ProductListBlock = {
   type: "product_list";
   source?: "step_pick" | "collection" | "all_products";
   collectionHandle?: string;
+  /** GID of selected collection (for display) */
+  collectionGid?: string;
+  /** Human-readable title of selected collection */
+  collectionTitle?: string;
+  /** Image URL of selected collection */
+  collectionImageUrl?: string;
   cardLayout?: "classic" | "overlay";
   columns?: number;
   columnsMobile?: number;
@@ -159,6 +165,8 @@ export type ProductListBlock = {
   buttonBackground?: string;
   buttonColor?: string;
   buttonBorderRadius?: string;
+  buttonHoverBackground?: string;
+  buttonHoverColor?: string;
 };
 
 export type UpsellItem = {
@@ -195,7 +203,13 @@ export type StorefrontBlockV2 =
 export type StorefrontDesignV2 = {
   version: 2;
   global: StorefrontDesignV1["global"];
+  /** Global blocks (shared across all steps when no per-step design is set) */
   blocks: StorefrontBlockV2[];
+  /**
+   * Per-step block overrides. Key = step sortOrder (as string).
+   * When a step has an entry here, these blocks are used instead of the global `blocks`.
+   */
+  stepDesigns?: Record<string, StorefrontBlockV2[]>;
 };
 
 export type ProductStyleOverrides = {
@@ -271,18 +285,26 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
       return {
         id,
         type: "step_bar",
+        preset: typeof raw.preset === "string" ? (raw.preset as StepBarBlock["preset"]) : undefined,
         style: {
           borderColor: typeof style.borderColor === "string" ? style.borderColor : undefined,
           activeBg: typeof style.activeBg === "string" ? style.activeBg : undefined,
           inactiveBg: typeof style.inactiveBg === "string" ? style.inactiveBg : undefined,
           activeTextColor: typeof style.activeTextColor === "string" ? style.activeTextColor : undefined,
           inactiveTextColor: typeof style.inactiveTextColor === "string" ? style.inactiveTextColor : undefined,
+          completedBg: typeof style.completedBg === "string" ? style.completedBg : undefined,
+          hoverBg: typeof style.hoverBg === "string" ? style.hoverBg : undefined,
+          hoverTextColor: typeof style.hoverTextColor === "string" ? style.hoverTextColor : undefined,
+          showLine: typeof style.showLine === "boolean" ? style.showLine : undefined,
+          lineColor: typeof style.lineColor === "string" ? style.lineColor : undefined,
+          fontSize: typeof style.fontSize === "string" ? style.fontSize : undefined,
+          labelColor: typeof style.labelColor === "string" ? style.labelColor : undefined,
         },
       };
     }
     case "product_list": {
       const src = raw.source;
-      const source = src === "collection" || src === "step_pick" ? src : "step_pick";
+      const source = src === "collection" || src === "all_products" || src === "step_pick" ? src as ProductListBlock["source"] : "step_pick";
       const handle =
         typeof raw.collectionHandle === "string" ? raw.collectionHandle.trim() : "";
       return {
@@ -290,6 +312,18 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
         type: "product_list",
         source,
         collectionHandle: source === "collection" && handle ? handle : undefined,
+        collectionGid: typeof raw.collectionGid === "string" ? raw.collectionGid : undefined,
+        collectionTitle: typeof raw.collectionTitle === "string" ? raw.collectionTitle : undefined,
+        collectionImageUrl: typeof raw.collectionImageUrl === "string" ? raw.collectionImageUrl : undefined,
+        cardLayout: typeof raw.cardLayout === "string" ? raw.cardLayout as ProductListBlock["cardLayout"] : undefined,
+        columns: typeof raw.columns === "number" ? raw.columns : undefined,
+        columnsMobile: typeof raw.columnsMobile === "number" ? raw.columnsMobile : undefined,
+        buttonText: typeof raw.buttonText === "string" ? raw.buttonText : undefined,
+        buttonBackground: typeof raw.buttonBackground === "string" ? raw.buttonBackground : undefined,
+        buttonColor: typeof raw.buttonColor === "string" ? raw.buttonColor : undefined,
+        buttonBorderRadius: typeof raw.buttonBorderRadius === "string" ? raw.buttonBorderRadius : undefined,
+        buttonHoverBackground: typeof raw.buttonHoverBackground === "string" ? raw.buttonHoverBackground : undefined,
+        buttonHoverColor: typeof raw.buttonHoverColor === "string" ? raw.buttonHoverColor : undefined,
       };
     }
     case "upsell": {
@@ -354,7 +388,26 @@ export function migrateStorefrontDesign(raw: unknown): StorefrontDesignV2 {
       const n = normalizeBlockV2(b);
       if (n) blocks.push(n);
     }
-    return { version: 2, global: mergedGlobal, blocks };
+    // Preserve per-step designs
+    const stepDesigns: Record<string, StorefrontBlockV2[]> = {};
+    if (isRecord(raw.stepDesigns)) {
+      for (const [key, val] of Object.entries(raw.stepDesigns)) {
+        if (Array.isArray(val)) {
+          const sb: StorefrontBlockV2[] = [];
+          for (const b of val) {
+            const n = normalizeBlockV2(b);
+            if (n) sb.push(n);
+          }
+          stepDesigns[key] = sb;
+        }
+      }
+    }
+    return {
+      version: 2,
+      global: mergedGlobal,
+      blocks,
+      ...(Object.keys(stepDesigns).length > 0 ? { stepDesigns } : {}),
+    };
   }
   if (Array.isArray(blocksRaw)) {
     const blocks: StorefrontBlockV2[] = [];

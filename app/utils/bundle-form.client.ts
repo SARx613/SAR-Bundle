@@ -8,6 +8,11 @@ import {
   type StorefrontDesignV2,
 } from "./storefront-design";
 
+function parseOptionalStorefrontDesign(raw: unknown): StorefrontDesignV2 | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  return migrateStorefrontDesign(raw);
+}
+
 export type BundleGalleryItemApi = {
   url: string;
   mediaGid?: string | null;
@@ -143,6 +148,8 @@ export type UiStep = {
   products: UiStepProduct[];
   rules: UiStepRule[];
   lineItemProperties: UiLineItemProperty[];
+  /** Per-step visual design (blocks). When present, overrides the global bundle storefrontDesign for this step. */
+  stepDesign?: import("./storefront-design").StorefrontDesignV2;
 };
 
 export type BundleFormState = {
@@ -410,6 +417,7 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
         defaultChecked: lp.defaultChecked ?? false,
         placeholder: lp.placeholder ?? "",
       })),
+      stepDesign: parseOptionalStorefrontDesign((s as Record<string, unknown>).stepDesign),
     })),
   };
 }
@@ -493,6 +501,7 @@ export function toApiPayload(form: BundleFormState): BundleSubmitPayload {
       imageUrl: s.imageUrl,
       imageGid: s.imageGid,
       isFinalStep: s.isFinalStep,
+      stepDesign: s.stepDesign ?? null,
       products: s.products.map((p, pi) => ({
         variantGid: p.variantGid,
         sortOrder: pi,
