@@ -263,6 +263,41 @@
     };
   }
 
+  /**
+   * Calcule le supplément total des options upsell sélectionnées.
+   * Parcourt tous les blocs upsell du design pour trouver les items.
+   */
+  function getUpsellExtraPrice(bundle, upsellSelections) {
+    if (!upsellSelections) return 0;
+    var extra = 0;
+    // Collect all upsell blocks from global design + per-step designs
+    var allBlocks = [];
+    var sd = bundle.storefrontDesign;
+    if (sd) {
+      if (Array.isArray(sd.blocks)) allBlocks = allBlocks.concat(sd.blocks);
+      if (sd.stepDesigns) {
+        for (var k in sd.stepDesigns) {
+          if (Object.prototype.hasOwnProperty.call(sd.stepDesigns, k) && Array.isArray(sd.stepDesigns[k])) {
+            allBlocks = allBlocks.concat(sd.stepDesigns[k]);
+          }
+        }
+      }
+    }
+    for (var bi = 0; bi < allBlocks.length; bi++) {
+      var b = allBlocks[bi];
+      if (!b || b.type !== 'upsell') continue;
+      var items = b.items || [];
+      for (var ii = 0; ii < items.length; ii++) {
+        var item = items[ii];
+        if (upsellSelections[item.id]) {
+          var p = parseMoney(item.priceAmount);
+          if (!isNaN(p)) extra += p;
+        }
+      }
+    }
+    return extra;
+  }
+
   function variantQty(selections, targetGid) {
     return selections[targetGid] || 0;
   }
@@ -1520,7 +1555,14 @@
               priceMap,
               state.variantChoice,
             );
-            var disp = getDisplayedBundlePrice(bundle, totalsPreview);
+            // Add upsell item prices to the bundle total
+            var upsellExtra = getUpsellExtraPrice(bundle, state.upsellSelections);
+            var totalsWithUpsell = {
+              bundlePrice: totalsPreview.bundlePrice + upsellExtra,
+              totalItemCount: totalsPreview.totalItemCount,
+              distinctVariantCount: totalsPreview.distinctVariantCount,
+            };
+            var disp = getDisplayedBundlePrice(bundle, totalsWithUpsell);
             var cur = pickPrimaryCurrency(bundle, variantCache);
             var totalBox = document.createElement('div');
             totalBox.className = 'sar-bundle__bundle-total';
@@ -1719,21 +1761,43 @@
                 properties: masterProps,
               });
 
-              // Add Upsells
-              var designBlocks = (bundle.storefrontDesign && bundle.storefrontDesign.blocks) || [];
-              for (var dbi = 0; dbi < designBlocks.length; dbi++) {
-                var db = designBlocks[dbi];
-                if (db.type === 'upsell') {
-                  var uItems = db.items || [];
-                  for (var uji = 0; uji < uItems.length; uji++) {
-                    var uItem = uItems[uji];
-                    if (state.upsellSelections[uItem.id]) {
+              // Add Upsells — collect all upsell blocks from global + per-step designs
+              var allUpsellBlocks = [];
+              var sd2 = bundle.storefrontDesign;
+              if (sd2) {
+                if (Array.isArray(sd2.blocks)) {
+                  for (var ab = 0; ab < sd2.blocks.length; ab++) {
+                    if (sd2.blocks[ab] && sd2.blocks[ab].type === 'upsell') allUpsellBlocks.push(sd2.blocks[ab]);
+                  }
+                }
+                if (sd2.stepDesigns) {
+                  for (var sk in sd2.stepDesigns) {
+                    if (!Object.prototype.hasOwnProperty.call(sd2.stepDesigns, sk)) continue;
+                    var stepBs = sd2.stepDesigns[sk];
+                    if (!Array.isArray(stepBs)) continue;
+                    for (var sbi2 = 0; sbi2 < stepBs.length; sbi2++) {
+                      if (stepBs[sbi2] && stepBs[sbi2].type === 'upsell') allUpsellBlocks.push(stepBs[sbi2]);
+                    }
+                  }
+                }
+              }
+              var addedUpsellIds = {};
+              for (var dbi = 0; dbi < allUpsellBlocks.length; dbi++) {
+                var db = allUpsellBlocks[dbi];
+                var uItems = db.items || [];
+                for (var uji = 0; uji < uItems.length; uji++) {
+                  var uItem = uItems[uji];
+                  if (state.upsellSelections[uItem.id] && !addedUpsellIds[uItem.id]) {
+                    addedUpsellIds[uItem.id] = true;
+                    var uNumId = uItem.variantId || variantGidToNumericId(uItem.variantGid);
+                    if (uNumId) {
                       items.push({
-                        id: uItem.variantId || variantGidToNumericId(uItem.variantGid),
+                        id: uNumId,
                         quantity: 1,
                         properties: {
                           _sar_upsell_for: configId,
-                          _sar_bundle_name: String(bundle.name || '')
+                          _sar_bundle_name: String(bundle.name || ''),
+                          _sar_upsell_label: String(uItem.overrideLabel || uItem.productTitle || '')
                         }
                       });
                     }
