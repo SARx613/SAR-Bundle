@@ -863,44 +863,6 @@ function ProductListManager({
         </BlockStack>
       </CollapsibleStyleSection>
 
-      {/* Button styles */}
-      <CollapsibleStyleSection title="Style du bouton" id="sec-pl-btn">
-        <BlockStack gap="300">
-          <InlineGrid columns={2} gap="200">
-            <ColorField
-              label="Fond du bouton"
-              value={block.buttonBackground ?? ""}
-              onChange={(v) => onPatch({ buttonBackground: v || undefined } as Partial<StorefrontBlockV2>)}
-            />
-            <ColorField
-              label="Texte du bouton"
-              value={block.buttonColor ?? ""}
-              onChange={(v) => onPatch({ buttonColor: v || undefined } as Partial<StorefrontBlockV2>)}
-            />
-          </InlineGrid>
-          <InlineGrid columns={2} gap="200">
-            <ColorField
-              label="Fond au survol"
-              value={(block as { buttonHoverBackground?: string }).buttonHoverBackground ?? ""}
-              onChange={(v) => onPatch({ buttonHoverBackground: v || undefined } as Partial<StorefrontBlockV2>)}
-            />
-            <ColorField
-              label="Texte au survol"
-              value={(block as { buttonHoverColor?: string }).buttonHoverColor ?? ""}
-              onChange={(v) => onPatch({ buttonHoverColor: v || undefined } as Partial<StorefrontBlockV2>)}
-            />
-          </InlineGrid>
-          <TextField
-            label="Rayon (border-radius)"
-            value={block.buttonBorderRadius ?? ""}
-            onChange={(v) => onPatch({ buttonBorderRadius: v || undefined } as Partial<StorefrontBlockV2>)}
-            placeholder="4px"
-            autoComplete="off"
-            helpText="Ex: 4px, 8px, 999px pour arrondi complet"
-          />
-        </BlockStack>
-      </CollapsibleStyleSection>
-
       {/* Source */}
       <BlockStack gap="200">
         <Text as="span" variant="bodyMd">Type de source</Text>
@@ -1486,6 +1448,45 @@ export function SidebarLevel3({
           block={block}
           onPatch={(patch) => patchBlock(patch as Partial<StorefrontBlockV2>)}
         />
+      ) : block.type === "product_list" ? (
+        <BlockStack gap="300">
+          <CollapsibleStyleSection title="Bouton « Ajouter »" id="sec-pl-btn-style" defaultOpen>
+            <BlockStack gap="300">
+              <InlineGrid columns={2} gap="200">
+                <ColorField
+                  label="Fond du bouton"
+                  value={(block as ProductListBlock).buttonBackground ?? ""}
+                  onChange={(v) => patchBlock({ buttonBackground: v || undefined } as Partial<StorefrontBlockV2>)}
+                />
+                <ColorField
+                  label="Texte du bouton"
+                  value={(block as ProductListBlock).buttonColor ?? ""}
+                  onChange={(v) => patchBlock({ buttonColor: v || undefined } as Partial<StorefrontBlockV2>)}
+                />
+              </InlineGrid>
+              <InlineGrid columns={2} gap="200">
+                <ColorField
+                  label="Fond au survol"
+                  value={(block as ProductListBlock & { buttonHoverBackground?: string }).buttonHoverBackground ?? ""}
+                  onChange={(v) => patchBlock({ buttonHoverBackground: v || undefined } as Partial<StorefrontBlockV2>)}
+                />
+                <ColorField
+                  label="Texte au survol"
+                  value={(block as ProductListBlock & { buttonHoverColor?: string }).buttonHoverColor ?? ""}
+                  onChange={(v) => patchBlock({ buttonHoverColor: v || undefined } as Partial<StorefrontBlockV2>)}
+                />
+              </InlineGrid>
+              <TextField
+                label="Rayon (border-radius)"
+                value={(block as ProductListBlock).buttonBorderRadius ?? ""}
+                onChange={(v) => patchBlock({ buttonBorderRadius: v || undefined } as Partial<StorefrontBlockV2>)}
+                placeholder="4px"
+                autoComplete="off"
+                helpText="Ex: 4px, 8px, 999px"
+              />
+            </BlockStack>
+          </CollapsibleStyleSection>
+        </BlockStack>
       ) : "style" in block ? (
         <StyleFields
           style={styleBlock}

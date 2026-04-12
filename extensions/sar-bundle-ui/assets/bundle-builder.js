@@ -1789,8 +1789,11 @@
                   var uItem = uItems[uji];
                   if (state.upsellSelections[uItem.id] && !addedUpsellIds[uItem.id]) {
                     addedUpsellIds[uItem.id] = true;
-                    var uNumId = uItem.variantId || variantGidToNumericId(uItem.variantGid);
-                    if (uNumId) {
+                    // variantId may be 0 if not properly set; always prefer GID extraction
+                    var uNumId = (uItem.variantId && uItem.variantId > 0)
+                      ? uItem.variantId
+                      : variantGidToNumericId(uItem.variantGid);
+                    if (uNumId && uNumId > 0) {
                       items.push({
                         id: uNumId,
                         quantity: 1,

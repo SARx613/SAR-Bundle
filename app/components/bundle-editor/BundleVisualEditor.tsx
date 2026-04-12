@@ -473,13 +473,6 @@ export function BundleVisualEditor({
           <Box paddingBlockStart="200">
             <BlockStack gap="300">
               <GlobalColorField
-                label="Couleur principale"
-                value={g.colorPrimary ?? ""}
-                onChange={(v) => updateGlobal({ colorPrimary: v || undefined })}
-                placeholder="#72cff7"
-                helpText="Bouton panier, étape active, ronds de la barre d'étape."
-              />
-              <GlobalColorField
                 label="Couleur des bordures"
                 value={g.colorBorder ?? ""}
                 onChange={(v) => updateGlobal({ colorBorder: v || undefined })}
