@@ -1460,15 +1460,13 @@ export function SidebarLevel3({
         onStepProductsChange={onStepProductsChange}
       />
 
-      {block.type !== "product_list" && (
-        <Button
-          tone="critical"
-          variant="plain"
-          onClick={() => onDeleteBlock(blockId)}
-        >
-          Supprimer ce bloc
-        </Button>
-      )}
+      <Button
+        tone="critical"
+        variant="plain"
+        onClick={() => onDeleteBlock(blockId)}
+      >
+        Supprimer ce bloc
+      </Button>
     </BlockStack>
   );
 

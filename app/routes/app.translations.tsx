@@ -212,7 +212,7 @@ export default function TranslationsPage() {
   });
 
   return (
-    <Page>
+    <Page fullWidth>
       <TitleBar title="Textes & Langues" />
       <BlockStack gap="500">
         <Banner tone="info">

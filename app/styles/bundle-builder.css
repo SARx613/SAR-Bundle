@@ -589,18 +589,55 @@
 
 /* ─── Admin layout overrides ─── */
 
-/* Prevent Layout.Section from changing width across pages; always max-width */
-.Polaris-Layout__Section {
-  max-width: 100% !important;
-  flex: 1 1 100% !important;
-}
-
-/* Bottom padding on every Page so content doesn't end abruptly */
+/*
+ * Uniform page width: fullWidth removes Polaris's 800px content cap.
+ * We add our own comfortable max-width + horizontal padding on all pages
+ * so the content never touches the viewport edges on large screens.
+ */
 .Polaris-Page {
   padding-bottom: 3rem !important;
 }
 
-/* Keep full-width on the visual editor */
-.Polaris-Page--fullWidth .Polaris-Layout__Section {
+/* Inner content wrapper: max 1280px, centered, with comfortable side padding */
+.Polaris-Page__Content {
+  max-width: 1280px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+  box-sizing: border-box !important;
+}
+
+/* On large screens add more breathing room */
+@media (min-width: 1024px) {
+  .Polaris-Page__Content {
+    padding-left: 2.5rem !important;
+    padding-right: 2.5rem !important;
+  }
+}
+
+/* Layout.Section always takes full available width */
+.Polaris-Layout__Section {
   max-width: 100% !important;
+  flex: 1 1 100% !important;
+  min-width: 0 !important;
+}
+
+/* Layout itself full width */
+.Polaris-Layout {
+  max-width: 100% !important;
+}
+
+/* The visual editor tabs should not introduce extra horizontal constraints */
+.Polaris-Tabs__Panel {
+  max-width: 100% !important;
+}
+
+/* Sidebar card in the visual editor keeps stable width regardless of level */
+.sar-visual-editor-sidebar {
+  flex: 0 0 320px !important;
+  width: 320px !important;
+  min-width: 240px !important;
+  max-width: 360px !important;
 }

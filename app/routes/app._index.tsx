@@ -79,7 +79,7 @@ export default function AppHome() {
   const progressPercent = nextThreshold ? Math.min(100, (b.monthlyRevenue / nextThreshold) * 100) : 100;
 
   return (
-    <Page>
+    <Page fullWidth>
       <TitleBar title="SAR Bundle" />
       <BlockStack gap="500">
         {c.error ? (

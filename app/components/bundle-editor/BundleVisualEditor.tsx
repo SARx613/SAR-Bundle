@@ -608,13 +608,14 @@ export function BundleVisualEditor({
         alignItems: "flex-start",
       }}
     >
-      {/* Sidebar 30% */}
+      {/* Sidebar — fixed width so it never shifts between levels */}
       <div
+        className="sar-visual-editor-sidebar"
         style={{
-          flex: "0 0 30%",
-          width: "30%",
+          flex: "0 0 320px",
+          width: 320,
           minWidth: 240,
-          maxWidth: 340,
+          maxWidth: 360,
         }}
       >
         <Card>

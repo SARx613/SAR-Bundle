@@ -110,16 +110,8 @@ function ruleLabel(r: UiStepRule): string {
 type LibCategory = "mep" | "text" | "media";
 
 function ensurePermanentProductBlock(design: StorefrontDesignV2): StorefrontDesignV2 {
-  const has = (design.blocks ?? []).some((b) => b.type === "product_list");
-  if (has) return design;
-  return {
-    ...design,
-    version: 2,
-    blocks: [
-      ...(design.blocks ?? []),
-      { id: newBlockId(), type: "product_list", source: "step_pick" },
-    ],
-  };
+  // product_list is now optional — do not auto-inject it
+  return design;
 }
 
 import {
@@ -617,8 +609,6 @@ export function SidebarLevel2({
   };
 
   const deleteBlock = (blockId: string) => {
-    const cur = safeDesign.blocks.find((b) => b.id === blockId);
-    if (cur?.type === "product_list") return; // permanent
     onDesignChange({
       ...safeDesign,
       version: 2,
@@ -830,7 +820,7 @@ export function SidebarLevel2({
                       onClick={() => onBlockClick(block.id)}
                       onDelete={() => deleteBlock(block.id)}
                       onDuplicate={() => duplicateBlock(block.id)}
-                      isLocked={block.type === "product_list"}
+                      isLocked={false}
                       isHidden={hiddenBlocks.has(block.id)}
                       onToggleVisibility={() => onToggleBlockVisibility(block.id)}
                     />

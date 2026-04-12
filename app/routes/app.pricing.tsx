@@ -84,7 +84,7 @@ export default function PricingPage() {
   const progressPercent = nextThreshold ? Math.min(100, (monthlyRevenue / nextThreshold) * 100) : 100;
 
   return (
-    <Page>
+    <Page fullWidth>
       <TitleBar title="Abonnement & Facturation" />
       <BlockStack gap="600">
 

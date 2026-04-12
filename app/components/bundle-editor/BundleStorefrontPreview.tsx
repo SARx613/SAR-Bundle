@@ -119,8 +119,8 @@ function StepBarPreview({
       style={{
         "--sar-stepbar-borderColor": st.borderColor || "transparent",
         "--sar-stepbar-lineColor": st.lineColor || st.borderColor || "#e1e3e5",
-        "--sar-stepbar-active-bg": st.activeBg || "var(--p-color-bg-fill-brand, #1a1a1a)",
-        "--sar-stepbar-completed-bg": st.completedBg || st.activeBg || "var(--p-color-bg-fill-brand, #1a1a1a)",
+        "--sar-stepbar-active-bg": st.activeBg || "var(--sar-color-primary, #72cff7)",
+        "--sar-stepbar-completed-bg": st.completedBg || st.activeBg || "var(--sar-color-primary, #72cff7)",
         "--sar-stepbar-inactive-bg": st.inactiveBg || "#f1f1f1",
         "--sar-stepbar-active-text": st.activeTextColor || "#ffffff",
         "--sar-stepbar-inactive-text": st.inactiveTextColor || "#999999",
