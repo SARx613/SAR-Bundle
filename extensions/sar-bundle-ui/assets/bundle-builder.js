@@ -1243,11 +1243,11 @@
 
               // 1. Met à jour TOUS les éléments de prix courants du thème (hors widget SAR)
               var priceSelectors = [
-                '.price-item--sale',       // Dawn, Sense, Studio, Craft : prix soldé
-                '.price-item--regular',    // Dawn etc. : prix normal (hors contexte soldé)
-                '[data-product-price]',    // Debut, Brooklyn, Narrative (thèmes legacy)
-                '.product__price',         // Impulse, Pipeline
-                '.product-single__price',  // Minimal, Simple (anciens thèmes)
+                '.price-item--sale',                    // Dawn, Sense, Studio, Craft : prix soldé
+                '.price__regular .price-item--regular', // Dawn : prix normal (section non-soldée)
+                '[data-product-price]',                 // Debut, Brooklyn, Narrative (thèmes legacy)
+                '.product__price',                      // Impulse, Pipeline
+                '.product-single__price',               // Minimal, Simple (anciens thèmes)
               ];
               for (var i = 0; i < priceSelectors.length; i++) {
                 var nodes;
@@ -1261,8 +1261,9 @@
               // 2. Si une remise est active → le prix barré (compare-at) va dans les bons slots
               if (fmtCmp) {
                 var cmpSelectors = [
-                  '[data-compare-price]',   // Debut, Brooklyn (slot dédié au compare-at)
-                  '.price-item--regular',   // Dawn en mode soldé : c'est LUI qui est barré
+                  '[data-compare-price]',             // Debut, Brooklyn (slot dédié au compare-at)
+                  's.price-item--regular',            // Dawn : <s class="price-item price-item--regular"> = barré
+                  '.price__sale .price-item--regular',// Fallback : .price-item--regular dans la section soldée
                 ];
                 for (var ci = 0; ci < cmpSelectors.length; ci++) {
                   var cmpNodes;
