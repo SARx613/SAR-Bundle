@@ -36,6 +36,7 @@
     data-bundle-ref="{{ bundle_id | escape }}"
     data-bundle-id="{{ bundle_id | escape }}"
     data-shop="{{ shop.permanent_domain | escape }}"
+    data-price-selector="{{ section.settings.custom_price_selector | escape }}"
     style="{{ sar_inline_style | strip_newlines | strip }}"
   >
     <div class="sar-bundle__loading" data-sar-loading>Loading bundle…</div>
@@ -98,6 +99,17 @@
       "type": "color",
       "id": "color_text",
       "label": "Couleur du texte"
+    },
+    {
+      "type": "header",
+      "content": "Compatibilité Thème"
+    },
+    {
+      "type": "text",
+      "id": "custom_price_selector",
+      "label": "Sélecteur CSS du prix (optionnel)",
+      "placeholder": ".product__price, .price-item--regular",
+      "info": "Si le prix du thème ne se met pas à jour automatiquement, collez ici le sélecteur CSS de l'élément prix de votre thème (ex : .product__price). Séparez plusieurs sélecteurs par une virgule."
     },
     {
       "type": "header",

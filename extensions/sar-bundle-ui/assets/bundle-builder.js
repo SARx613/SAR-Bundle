@@ -1242,13 +1242,20 @@
               var fmtCmp = cmpAmt != null ? formatMoneyDisplay(String(cmpAmt), cur) : null;
 
               // 1. Met à jour TOUS les éléments de prix courants du thème (hors widget SAR)
-              var priceSelectors = [
+              // Sélecteurs personnalisés définis par le marchand dans les paramètres du bloc Liquid
+              var customSelectorAttr = el.getAttribute('data-price-selector') || '';
+              var customSelectors = customSelectorAttr
+                .split(',')
+                .map(function(s) { return s.trim(); })
+                .filter(function(s) { return s.length > 0; });
+
+              var priceSelectors = customSelectors.concat([
                 '.price-item--sale',                    // Dawn, Sense, Studio, Craft : prix soldé
                 '.price__regular .price-item--regular', // Dawn : prix normal (section non-soldée)
                 '[data-product-price]',                 // Debut, Brooklyn, Narrative (thèmes legacy)
                 '.product__price',                      // Impulse, Pipeline
                 '.product-single__price',               // Minimal, Simple (anciens thèmes)
-              ];
+              ]);
               for (var i = 0; i < priceSelectors.length; i++) {
                 var nodes;
                 try { nodes = document.querySelectorAll(priceSelectors[i]); } catch (e2) { continue; }
