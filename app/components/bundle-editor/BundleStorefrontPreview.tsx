@@ -119,8 +119,8 @@ function StepBarPreview({
       style={{
         "--sar-stepbar-borderColor": st.borderColor || "transparent",
         "--sar-stepbar-lineColor": st.lineColor || st.borderColor || "#e1e3e5",
-        "--sar-stepbar-active-bg": st.activeBg || "var(--sar-color-primary, #72cff7)",
-        "--sar-stepbar-completed-bg": st.completedBg || st.activeBg || "var(--sar-color-primary, #72cff7)",
+        "--sar-stepbar-active-bg": st.activeBg || "#555555",
+        "--sar-stepbar-completed-bg": st.completedBg || st.activeBg || "#555555",
         "--sar-stepbar-inactive-bg": st.inactiveBg || "#f1f1f1",
         "--sar-stepbar-active-text": st.activeTextColor || "#ffffff",
         "--sar-stepbar-inactive-text": st.inactiveTextColor || "#999999",
@@ -168,17 +168,34 @@ function ProductGridPreview({
   block,
   products,
   isMobile,
+  pricingMode,
 }: {
   block: ProductListBlock | null;
   products: UiStepProduct[];
   isMobile?: boolean;
+  pricingMode?: string;
 }) {
   const cols = block?.columns ?? 3;
   const colsMobile = block?.columnsMobile ?? 2;
-  const gapX = block?.gapX ?? 16;
-  const gapY = block?.gapY ?? 16;
   const cardLayout = block?.cardLayout ?? "classic";
   const buttonText = block?.buttonText || "Add to box";
+  const showPrice = pricingMode !== "FIXED_PRICE_BOX";
+  const gapPx = 16;
+
+  const effectiveCols = isMobile ? colsMobile : cols;
+
+  const containerStyle: Record<string, string | number> = {
+    "--grid-cols-desktop": cols,
+    "--grid-cols-mobile": colsMobile,
+    "--grid-gap-x": `${gapPx}px`,
+    "--grid-gap-y": `${gapPx}px`,
+    display: "grid",
+    gridTemplateColumns: `repeat(${effectiveCols}, 1fr)`,
+  };
+  if (block?.buttonBackground) containerStyle["--sar-color-primary"] = block.buttonBackground;
+  if (block?.buttonColor) containerStyle["--sar-button-text"] = block.buttonColor;
+  if (block?.titleColor) containerStyle["--sar-product-title-color"] = block.titleColor;
+  if (block?.priceColor) containerStyle["--sar-product-price-color"] = block.priceColor;
 
   if (products.length === 0) {
     return (
@@ -196,25 +213,15 @@ function ProductGridPreview({
     );
   }
 
-  const effectiveCols = isMobile ? colsMobile : cols;
-
   return (
-    <div
-      className="sar-bundle__products"
-      style={{
-        "--grid-cols-desktop": cols,
-        "--grid-cols-mobile": colsMobile,
-        "--grid-gap-x": `${gapX}px`,
-        "--grid-gap-y": `${gapY}px`,
-        gridTemplateColumns: `repeat(${effectiveCols}, 1fr)`,
-      } as any}
-    >
+    <div className="sar-bundle__products" style={containerStyle as React.CSSProperties}>
       {products.map((p) => (
         <ProductCard
           key={p.variantGid}
           product={p}
           layout={cardLayout}
           buttonText={buttonText}
+          showPrice={showPrice}
         />
       ))}
     </div>
@@ -325,14 +332,28 @@ function UpsellPreview({
   );
 }
 
+function formatPreviewMoney(amount: string | undefined, currency: string | undefined) {
+  if (amount == null || amount === "") return "—";
+  const n = parseFloat(String(amount).replace(",", "."));
+  if (Number.isNaN(n)) return amount;
+  const cur = (currency && currency.trim()) || "EUR";
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: cur }).format(n);
+  } catch {
+    return `${amount} ${cur}`;
+  }
+}
+
 function ProductCard({
   product,
   layout,
   buttonText,
+  showPrice,
 }: {
   product: UiStepProduct;
   layout: "classic" | "overlay";
   buttonText: string;
+  showPrice?: boolean;
 }) {
   const [qty, setQty] = useState(0);
 
@@ -374,6 +395,11 @@ function ProductCard({
         )}
       </div>
       <p className="sar-bundle__product-title">{product.displayName || "Produit"}</p>
+      {showPrice ? (
+        <p className="sar-bundle__product-price">
+          {formatPreviewMoney(product.catalogPriceAmount, product.catalogCurrencyCode)}
+        </p>
+      ) : null}
       {layout === "classic" && (
         <div className="sar-bundle__product-atc-wrapper">
           {qty > 0 ? (
@@ -403,14 +429,16 @@ function RenderBlock({
   activeStepIndex,
   onSelectStep,
   isMobile,
+  bundlePricingMode,
 }: {
   block: StorefrontBlockV2;
   selectedBlockId: string | null;
-  onSelectBlock: (id: string) => void;
+  onSelectBlock: (id: string | null) => void;
   steps: UiStep[];
   activeStepIndex: number;
   onSelectStep: (i: number) => void;
   isMobile?: boolean;
+  bundlePricingMode?: "STANDARD" | "FIXED_PRICE_BOX" | "TIERED";
 }) {
   const name = blockDisplayLabel(block);
   let content: React.ReactNode = null;
@@ -521,6 +549,7 @@ function RenderBlock({
           block={block}
           products={steps[activeStepIndex]?.products ?? []}
           isMobile={isMobile}
+          pricingMode={bundlePricingMode}
         />
       );
       break;
@@ -554,6 +583,7 @@ export function BundleStorefrontPreview({
   selectedBlockId,
   hiddenBlocks,
   isMobile,
+  bundlePricingMode,
 }: {
   design: StorefrontDesignV2;
   steps: UiStep[];
@@ -563,6 +593,8 @@ export function BundleStorefrontPreview({
   selectedBlockId: string | null;
   hiddenBlocks?: Record<string, boolean>;
   isMobile?: boolean;
+  /** Aligne l’affichage des prix catalogue avec le mode tarification du bundle. */
+  bundlePricingMode?: "STANDARD" | "FIXED_PRICE_BOX" | "TIERED";
 }) {
   const visibleBlocks = useMemo(
     () => (design.blocks ?? []).filter((b) => !(hiddenBlocks ?? {})[b.id]),
@@ -585,13 +617,26 @@ export function BundleStorefrontPreview({
         borderStyle: "solid",
         borderColor: g.colorBorder || "#e1e3e5",
         borderRadius: g.borderRadius ? `${g.borderRadius}px` : "8px",
-        "--sar-color-primary": g.colorPrimary || "#72cff7",
+        "--sar-color-primary": g.colorPrimary || "#555",
         "--sar-color-border": g.colorBorder || "#e1e3e5",
         "--sar-color-bg": g.colorBackground || "transparent",
-        "--sar-color-bg-subtle": "#f0f7f5",
-        "--sar-color-text": g.colorText || "#121212",
+        "--sar-color-bg-subtle": "#f0f0f0",
+        "--sar-color-text": "#121212",
         "--sar-color-muted": "#6d7175",
         "--sar-radius": g.borderRadius ? `${g.borderRadius}px` : "8px",
+        // Total box
+        ...(g.totalBg ? { "--sar-total-bg": g.totalBg } : {}),
+        ...(g.totalBorderColor ? { "--sar-total-border-color": g.totalBorderColor } : {}),
+        ...((g.totalTextColor || g.colorText)
+          ? { "--sar-total-text-color": g.totalTextColor || g.colorText }
+          : {}),
+        // Nav buttons
+        ...(g.btnPrimaryBg ? { "--sar-btn-primary-bg": g.btnPrimaryBg } : {}),
+        ...(g.btnPrimaryColor ? { "--sar-btn-primary-color": g.btnPrimaryColor } : {}),
+        ...(g.btnPrimaryHoverBg ? { "--sar-btn-primary-hover-bg": g.btnPrimaryHoverBg } : {}),
+        ...(g.btnSecondaryBg ? { "--sar-btn-secondary-bg": g.btnSecondaryBg } : {}),
+        ...(g.btnSecondaryColor ? { "--sar-btn-secondary-color": g.btnSecondaryColor } : {}),
+        ...(g.btnSecondaryBorderColor ? { "--sar-btn-secondary-border-color": g.btnSecondaryBorderColor } : {}),
       } as React.CSSProperties}
       onClick={() => onSelectBlock(null)}
     >
@@ -612,6 +657,7 @@ export function BundleStorefrontPreview({
             activeStepIndex={activeStepIndex}
             onSelectStep={onSelectStep}
             isMobile={isMobile}
+            bundlePricingMode={bundlePricingMode}
           />
         ))}
       </div>
@@ -622,6 +668,7 @@ export function BundleStorefrontPreview({
           block={null}
           products={step.products}
           isMobile={isMobile}
+          pricingMode={bundlePricingMode}
         />
       )}
 

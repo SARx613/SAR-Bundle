@@ -111,6 +111,9 @@ export type UiStepProduct = {
   productHandle: string | null;
   layoutPreset: string;
   styleOverrides: ProductStyleOverrides | null;
+  /** Prix catalogue (aperçu admin uniquement, depuis l’API / JSON enrichi). */
+  catalogPriceAmount?: string;
+  catalogCurrencyCode?: string;
 };
 
 export type UiPricingTier = {
@@ -373,6 +376,8 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
               imageUrl?: string | null;
               productTitle?: string;
               productHandle?: string | null;
+              priceAmount?: string;
+              currencyCode?: string;
             }
           | undefined;
         const enrichedName =
@@ -403,6 +408,14 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
             p.styleOverrides && typeof p.styleOverrides === "object"
               ? (p.styleOverrides as ProductStyleOverrides)
               : null,
+          catalogPriceAmount:
+            sf?.priceAmount != null && String(sf.priceAmount).trim() !== ""
+              ? String(sf.priceAmount)
+              : undefined,
+          catalogCurrencyCode:
+            sf?.currencyCode != null && String(sf.currencyCode).trim() !== ""
+              ? String(sf.currencyCode)
+              : undefined,
         };
       }),
       rules: (s.rules ?? []).map((r, ri) => ({

@@ -472,6 +472,7 @@ export function BundleVisualEditor({
 
           <Box paddingBlockStart="200">
             <BlockStack gap="300">
+              <Text as="h3" variant="headingSm">Section</Text>
               <GlobalColorField
                 label="Couleur des bordures"
                 value={g.colorBorder ?? ""}
@@ -484,11 +485,55 @@ export function BundleVisualEditor({
                 onChange={(v) => updateGlobal({ colorBackground: v || undefined })}
                 placeholder="#ffffff"
               />
+              <Text as="h3" variant="headingSm">Bande « Total du pack »</Text>
               <GlobalColorField
-                label="Couleur du texte"
-                value={g.colorText ?? ""}
-                onChange={(v) => updateGlobal({ colorText: v || undefined })}
+                label="Arrière-plan du total"
+                value={g.totalBg ?? ""}
+                onChange={(v) => updateGlobal({ totalBg: v || undefined })}
+                placeholder="#f6f6f7"
+              />
+              <GlobalColorField
+                label="Bordure du total"
+                value={g.totalBorderColor ?? ""}
+                onChange={(v) => updateGlobal({ totalBorderColor: v || undefined })}
+                placeholder="#e1e3e5"
+              />
+              <GlobalColorField
+                label="Texte du total"
+                value={g.totalTextColor ?? ""}
+                onChange={(v) => updateGlobal({ totalTextColor: v || undefined })}
                 placeholder="#121212"
+              />
+              <Text as="h3" variant="headingSm">Boutons navigation</Text>
+              <GlobalColorField
+                label="Fond — Suivant / Ajouter au panier"
+                value={g.btnPrimaryBg ?? ""}
+                onChange={(v) => updateGlobal({ btnPrimaryBg: v || undefined })}
+                placeholder="#555555"
+              />
+              <GlobalColorField
+                label="Texte — Suivant / Ajouter au panier"
+                value={g.btnPrimaryColor ?? ""}
+                onChange={(v) => updateGlobal({ btnPrimaryColor: v || undefined })}
+                placeholder="#ffffff"
+              />
+              <GlobalColorField
+                label="Fond survol — Suivant / Ajouter"
+                value={g.btnPrimaryHoverBg ?? ""}
+                onChange={(v) => updateGlobal({ btnPrimaryHoverBg: v || undefined })}
+                placeholder="#333333"
+              />
+              <GlobalColorField
+                label="Fond — Précédent"
+                value={g.btnSecondaryBg ?? ""}
+                onChange={(v) => updateGlobal({ btnSecondaryBg: v || undefined })}
+                placeholder="transparent"
+              />
+              <GlobalColorField
+                label="Texte & bordure — Précédent"
+                value={g.btnSecondaryColor ?? ""}
+                onChange={(v) => updateGlobal({ btnSecondaryColor: v || undefined, btnSecondaryBorderColor: v || undefined })}
+                placeholder="#555555"
               />
               <div>
                 <Text as="span" variant="bodyMd">Épaisseur de la bordure</Text>
@@ -568,6 +613,7 @@ export function BundleVisualEditor({
           blockId={nav.blockId}
           stepName={stepName}
           stepIndex={nav.stepIndex}
+          bundlePricingMode={form.bundlePricingMode}
           step={step}
           design={stepDesign}
           onDesignChange={(next) => patchStepDesign(nav.stepIndex, next)}
@@ -659,6 +705,7 @@ export function BundleVisualEditor({
                 design={getStepDesign(activeStepIndex)}
                 steps={form.steps}
                 activeStepIndex={activeStepIndex}
+                bundlePricingMode={form.bundlePricingMode}
                 selectedBlockId={nav.level === 3 ? nav.blockId : null}
                 hiddenBlocks={Object.fromEntries(Array.from(hiddenBlocks).map(id => [id, true]))}
                 isMobile={isMobilePreview}

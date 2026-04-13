@@ -104,6 +104,24 @@ export type StorefrontDesignV1 = {
     borderWidth?: string;
     /** Section border radius in px (e.g. "8") */
     borderRadius?: string;
+    /** Total box background color */
+    totalBg?: string;
+    /** Total box border color */
+    totalBorderColor?: string;
+    /** Total box text color */
+    totalTextColor?: string;
+    /** Primary nav button background (Suivant / Ajouter au panier) */
+    btnPrimaryBg?: string;
+    /** Primary nav button text color */
+    btnPrimaryColor?: string;
+    /** Primary nav button background on hover */
+    btnPrimaryHoverBg?: string;
+    /** Secondary nav button background (Précédent) */
+    btnSecondaryBg?: string;
+    /** Secondary nav button text color */
+    btnSecondaryColor?: string;
+    /** Secondary nav button border color */
+    btnSecondaryBorderColor?: string;
   };
   blocks: StorefrontBlock[];
 };
@@ -171,6 +189,10 @@ export type ProductListBlock = {
   buttonBorderRadius?: string;
   buttonHoverBackground?: string;
   buttonHoverColor?: string;
+  /** Product title color */
+  titleColor?: string;
+  /** Product price color (only shown in STANDARD/TIERED modes) */
+  priceColor?: string;
 };
 
 export type UpsellItem = {
@@ -328,6 +350,8 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
         buttonBorderRadius: typeof raw.buttonBorderRadius === "string" ? raw.buttonBorderRadius : undefined,
         buttonHoverBackground: typeof raw.buttonHoverBackground === "string" ? raw.buttonHoverBackground : undefined,
         buttonHoverColor: typeof raw.buttonHoverColor === "string" ? raw.buttonHoverColor : undefined,
+        titleColor: typeof raw.titleColor === "string" ? raw.titleColor : undefined,
+        priceColor: typeof raw.priceColor === "string" ? raw.priceColor : undefined,
       };
     }
     case "upsell": {
@@ -340,10 +364,24 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
         items: items.map((it: unknown) => {
           if (!it || typeof it !== "object") return null;
           const o = it as Record<string, unknown>;
+          const gidRaw = typeof o.variantGid === "string" ? o.variantGid.trim() : "";
+          const fromGid = gidRaw.match(/ProductVariant\/(\d+)/i);
+          const parsedId =
+            typeof o.variantId === "number"
+              ? o.variantId
+              : parseInt(String(o.variantId ?? ""), 10);
+          const variantIdNum =
+            fromGid && !Number.isNaN(parseInt(fromGid[1], 10))
+              ? parseInt(fromGid[1], 10)
+              : !Number.isNaN(parsedId) && parsedId > 0
+                ? parsedId
+                : /^\d+$/.test(gidRaw)
+                  ? parseInt(gidRaw, 10)
+                  : 0;
           return {
             id: typeof o.id === "string" ? o.id : newBlockId(),
-            variantGid: typeof o.variantGid === "string" ? o.variantGid : "",
-            variantId: typeof o.variantId === "number" ? o.variantId : 0,
+            variantGid: gidRaw,
+            variantId: variantIdNum,
             productTitle: typeof o.productTitle === "string" ? o.productTitle : "",
             priceAmount: typeof o.priceAmount === "string" ? o.priceAmount : "0",
             currencyCode: typeof o.currencyCode === "string" ? o.currencyCode : "",
@@ -377,6 +415,13 @@ export function migrateStorefrontDesign(raw: unknown): StorefrontDesignV2 {
     ...defaultGlobal(),
     ...globalIn,
   };
+  // Ancien « Couleur du texte » global : ne doit plus peindre toute la section — migrer vers le bandeau total.
+  if (
+    mergedGlobal.colorText &&
+    !mergedGlobal.totalTextColor
+  ) {
+    mergedGlobal.totalTextColor = mergedGlobal.colorText;
+  }
   const blocksRaw = raw.blocks;
   if (ver === 1 && Array.isArray(blocksRaw)) {
     const blocks: StorefrontBlockV2[] = [];

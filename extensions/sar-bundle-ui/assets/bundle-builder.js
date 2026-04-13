@@ -25,8 +25,21 @@
   }
 
   function variantGidToNumericId(gid) {
-    var m = String(gid).match(/ProductVariant\/(\d+)/);
-    return m ? parseInt(m[1], 10) : null;
+    if (gid == null || gid === '') return null;
+    var s = String(gid).trim();
+    var m = s.match(/ProductVariant\/(\d+)/i);
+    if (m) return parseInt(m[1], 10);
+    if (/^\d+$/.test(s)) return parseInt(s, 10);
+    return null;
+  }
+
+  /** ID numérique panier pour un item upsell (GID, chaîne numérique, ou variantId). */
+  function upsellItemNumericVariantId(item) {
+    var fromGid = item && item.variantGid ? variantGidToNumericId(item.variantGid) : null;
+    if (fromGid != null && fromGid > 0) return fromGid;
+    var raw = item && item.variantId;
+    var n = typeof raw === 'number' ? raw : parseInt(String(raw || ''), 10);
+    return !Number.isNaN(n) && n > 0 ? n : null;
   }
 
   function parseMoney(priceStr) {
@@ -622,14 +635,38 @@
   function collectVariantIds(bundle) {
     var ids = [];
     var seen = {};
+    function addGid(gid) {
+      var nid = variantGidToNumericId(gid);
+      if (nid && !seen[gid]) {
+        seen[gid] = true;
+        ids.push({ gid: gid, nid: nid });
+      }
+    }
     for (var i = 0; i < bundle.steps.length; i++) {
       var prods = bundle.steps[i].products || [];
       for (var j = 0; j < prods.length; j++) {
-        var gid = prods[j].variantGid;
-        var nid = variantGidToNumericId(gid);
-        if (nid && !seen[gid]) {
-          seen[gid] = true;
-          ids.push({ gid: gid, nid: nid });
+        addGid(prods[j].variantGid);
+      }
+    }
+    var sdUps = bundle.storefrontDesign;
+    if (sdUps) {
+      function scanBlocks(blockList) {
+        if (!Array.isArray(blockList)) return;
+        for (var bi = 0; bi < blockList.length; bi++) {
+          var blk = blockList[bi];
+          if (!blk || blk.type !== 'upsell') continue;
+          var uis = blk.items || [];
+          for (var ui = 0; ui < uis.length; ui++) {
+            if (uis[ui].variantGid) addGid(uis[ui].variantGid);
+          }
+        }
+      }
+      scanBlocks(sdUps.blocks);
+      if (sdUps.stepDesigns) {
+        for (var sk in sdUps.stepDesigns) {
+          if (Object.prototype.hasOwnProperty.call(sdUps.stepDesigns, sk)) {
+            scanBlocks(sdUps.stepDesigns[sk]);
+          }
         }
       }
     }
@@ -737,10 +774,23 @@
               el.style.setProperty('--sar-color-bg', gc.colorBackground);
               el.style.background = gc.colorBackground;
             }
+            // Texte général section : défaut thème / navigateur (ne pas peindre tout le bloc depuis l’ancien colorText).
             if (gc.colorText) {
               el.style.setProperty('--sar-color-text', gc.colorText);
-              el.style.color = gc.colorText;
             }
+            // Total du pack uniquement (totalTextColor prioritaire ; colorText = rétrocompat)
+            var totalTxt = gc.totalTextColor || gc.colorText;
+            if (totalTxt) el.style.setProperty('--sar-total-text-color', totalTxt);
+            // Total box styling
+            if (gc.totalBg) el.style.setProperty('--sar-total-bg', gc.totalBg);
+            if (gc.totalBorderColor) el.style.setProperty('--sar-total-border-color', gc.totalBorderColor);
+            // Nav button (Suivant/Précédent/Ajouter) styling
+            if (gc.btnPrimaryBg) el.style.setProperty('--sar-btn-primary-bg', gc.btnPrimaryBg);
+            if (gc.btnPrimaryColor) el.style.setProperty('--sar-btn-primary-color', gc.btnPrimaryColor);
+            if (gc.btnPrimaryHoverBg) el.style.setProperty('--sar-btn-primary-hover-bg', gc.btnPrimaryHoverBg);
+            if (gc.btnSecondaryBg) el.style.setProperty('--sar-btn-secondary-bg', gc.btnSecondaryBg);
+            if (gc.btnSecondaryColor) el.style.setProperty('--sar-btn-secondary-color', gc.btnSecondaryColor);
+            if (gc.btnSecondaryBorderColor) el.style.setProperty('--sar-btn-secondary-border-color', gc.btnSecondaryBorderColor);
             if (gc.borderWidth != null) {
               var bw = parseInt(String(gc.borderWidth), 10);
               if (!isNaN(bw)) el.style.borderWidth = bw + 'px';
@@ -811,8 +861,8 @@
             // Set CSS vars for the whole bar
             bar.style.setProperty('--sar-stepbar-borderColor', st.borderColor || 'transparent');
             bar.style.setProperty('--sar-stepbar-lineColor', st.lineColor || st.borderColor || '#e1e3e5');
-            bar.style.setProperty('--sar-stepbar-active-bg', st.activeBg || 'var(--sar-color-primary, #72cff7)');
-            bar.style.setProperty('--sar-stepbar-completed-bg', st.completedBg || st.activeBg || 'var(--sar-color-primary, #72cff7)');
+            bar.style.setProperty('--sar-stepbar-active-bg', st.activeBg || '#555555');
+            bar.style.setProperty('--sar-stepbar-completed-bg', st.completedBg || st.activeBg || '#555555');
             bar.style.setProperty('--sar-stepbar-inactive-bg', st.inactiveBg || '#f1f1f1');
             bar.style.setProperty('--sar-stepbar-active-text', st.activeTextColor || '#ffffff');
             bar.style.setProperty('--sar-stepbar-inactive-text', st.inactiveTextColor || '#999999');
@@ -1045,14 +1095,18 @@
             ctx.__productListButtonHoverColor = b.buttonHoverColor || '';
             ctx.__productListButtonRadius = b.buttonBorderRadius || '';
             ctx.__productListButtonBorderRadius = b.buttonBorderRadius || '';
+            ctx.__productListTitleColor = b.titleColor || '';
+            ctx.__productListPriceColor = b.priceColor || '';
 
             var container = document.createElement('div');
             container.className = 'sar-bundle__products';
 
-            // Set CSS vars on container for buttons to inherit
+            // Set CSS vars on container for buttons + text to inherit
             if (b.buttonBackground) container.style.setProperty('--sar-color-primary', b.buttonBackground);
             if (b.buttonColor) container.style.setProperty('--sar-button-text', b.buttonColor);
             if (b.buttonBorderRadius) container.style.setProperty('--sar-button-radius', b.buttonBorderRadius);
+            if (b.titleColor) container.style.setProperty('--sar-product-title-color', b.titleColor);
+            if (b.priceColor) container.style.setProperty('--sar-product-price-color', b.priceColor);
 
             ctx.__productListMount = container;
             wrapEl.appendChild(container);
@@ -1469,15 +1523,22 @@
                   infoBox.style.flexDirection = 'column';
                   infoBox.style.gap = '4px';
 
+                  // Show product price only in modes where individual prices matter
+                  var showProductPrice = resolveBundlePricingMode(bundle) !== 'FIXED_PRICE_BOX';
+                  // Apply title / price color from product_list block settings
+                  if (designCtx.__productListTitleColor) tt.style.color = designCtx.__productListTitleColor;
+                  if (designCtx.__productListPriceColor) pr.style.color = designCtx.__productListPriceColor;
+
                   if (layoutConfig === 'overlay') {
                     imgWrapper.appendChild(atcWrapper);
                     infoBox.appendChild(tt);
-                    infoBox.appendChild(pr);
+                    if (showProductPrice) infoBox.appendChild(pr);
                     card.appendChild(imgWrapper);
                     card.appendChild(infoBox);
                   } else {
                     infoBox.appendChild(imgWrapper);
                     infoBox.appendChild(tt);
+                    if (showProductPrice) infoBox.appendChild(pr);
                     var textControlsWrap = document.createElement('div');
                     textControlsWrap.style.display = 'flex';
                     textControlsWrap.style.flexDirection = 'column';
@@ -1555,14 +1616,12 @@
               priceMap,
               state.variantChoice,
             );
-            // Add upsell item prices to the bundle total
+            // Compute upsell surcharge separately so it's always added to the displayed total,
+            // even in FIXED_PRICE_BOX mode where the base bundle price is a fixed amount.
             var upsellExtra = getUpsellExtraPrice(bundle, state.upsellSelections);
-            var totalsWithUpsell = {
-              bundlePrice: totalsPreview.bundlePrice + upsellExtra,
-              totalItemCount: totalsPreview.totalItemCount,
-              distinctVariantCount: totalsPreview.distinctVariantCount,
-            };
-            var disp = getDisplayedBundlePrice(bundle, totalsWithUpsell);
+            var disp = getDisplayedBundlePrice(bundle, totalsPreview);
+            // Always add upsell on top of the displayed amount (works for all pricing modes)
+            disp = { amount: disp.amount + upsellExtra, compareAt: disp.compareAt };
             var cur = pickPrimaryCurrency(bundle, variantCache);
             var totalBox = document.createElement('div');
             totalBox.className = 'sar-bundle__bundle-total';
@@ -1782,6 +1841,7 @@
                 }
               }
               var addedUpsellIds = {};
+              var upsellInvalidLabels = [];
               for (var dbi = 0; dbi < allUpsellBlocks.length; dbi++) {
                 var db = allUpsellBlocks[dbi];
                 var uItems = db.items || [];
@@ -1789,11 +1849,12 @@
                   var uItem = uItems[uji];
                   if (state.upsellSelections[uItem.id] && !addedUpsellIds[uItem.id]) {
                     addedUpsellIds[uItem.id] = true;
-                    // variantId may be 0 if not properly set; always prefer GID extraction
-                    var uNumId = (uItem.variantId && uItem.variantId > 0)
-                      ? uItem.variantId
-                      : variantGidToNumericId(uItem.variantGid);
-                    if (uNumId && uNumId > 0) {
+                    var uNumId = upsellItemNumericVariantId(uItem);
+                    if (!uNumId || uNumId <= 0) {
+                      upsellInvalidLabels.push(
+                        String(uItem.overrideLabel || uItem.productTitle || 'Option').slice(0, 80),
+                      );
+                    } else {
                       items.push({
                         id: uNumId,
                         quantity: 1,
@@ -1806,6 +1867,14 @@
                     }
                   }
                 }
+              }
+              if (upsellInvalidLabels.length) {
+                errBox.textContent =
+                  'Variante Shopify introuvable pour : ' +
+                  upsellInvalidLabels.join(', ') +
+                  '. Rouvrez le bloc « Options supplémentaires » et sélectionnez à nouveau les produits.';
+                errBox.hidden = false;
+                return;
               }
 
               fetch(joinRoot('cart/add.js'), {
