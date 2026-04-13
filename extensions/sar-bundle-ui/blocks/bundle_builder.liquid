@@ -15,15 +15,7 @@
   {% assign sar_color_primary = section.settings.color_primary %}
   {% assign sar_color_border = section.settings.color_border %}
   {% assign sar_color_bg = section.settings.color_background %}
-  {% assign sar_total_text = section.settings.color_text %}
-  {% assign sar_total_bg = section.settings.color_total_background %}
-  {% assign sar_total_border = section.settings.color_total_border %}
-  {% assign sar_btn_primary_bg = section.settings.color_btn_primary_bg %}
-  {% assign sar_btn_primary_text = section.settings.color_btn_primary_text %}
-  {% assign sar_btn_primary_hover = section.settings.color_btn_primary_hover %}
-  {% assign sar_btn_secondary_bg = section.settings.color_btn_secondary_bg %}
-  {% assign sar_btn_secondary_text = section.settings.color_btn_secondary_text %}
-  {% assign sar_btn_secondary_border = section.settings.color_btn_secondary_border %}
+  {% assign sar_color_text = section.settings.color_text %}
   {% assign sar_border_width = section.settings.border_width | default: 1 %}
   {% assign sar_border_radius = section.settings.border_radius | default: 8 %}
 
@@ -31,15 +23,7 @@
     {% if sar_color_primary != blank %}--sar-color-primary: {{ sar_color_primary }};{% endif %}
     {% if sar_color_border != blank %}--sar-color-border: {{ sar_color_border }}; border-color: {{ sar_color_border }};{% endif %}
     {% if sar_color_bg != blank %}--sar-color-bg: {{ sar_color_bg }}; background: {{ sar_color_bg }};{% endif %}
-    {% if sar_total_text != blank %}--sar-total-text-color: {{ sar_total_text }};{% endif %}
-    {% if sar_total_bg != blank %}--sar-total-bg: {{ sar_total_bg }};{% endif %}
-    {% if sar_total_border != blank %}--sar-total-border-color: {{ sar_total_border }};{% endif %}
-    {% if sar_btn_primary_bg != blank %}--sar-btn-primary-bg: {{ sar_btn_primary_bg }};{% endif %}
-    {% if sar_btn_primary_text != blank %}--sar-btn-primary-color: {{ sar_btn_primary_text }};{% endif %}
-    {% if sar_btn_primary_hover != blank %}--sar-btn-primary-hover-bg: {{ sar_btn_primary_hover }};{% endif %}
-    {% if sar_btn_secondary_bg != blank %}--sar-btn-secondary-bg: {{ sar_btn_secondary_bg }};{% endif %}
-    {% if sar_btn_secondary_text != blank %}--sar-btn-secondary-color: {{ sar_btn_secondary_text }};{% endif %}
-    {% if sar_btn_secondary_border != blank %}--sar-btn-secondary-border-color: {{ sar_btn_secondary_border }};{% endif %}
+    {% if sar_color_text != blank %}--sar-color-text: {{ sar_color_text }}; color: {{ sar_color_text }};{% endif %}
     border-width: {{ sar_border_width }}px; border-style: solid;
     --sar-radius: {{ sar_border_radius }}px; border-radius: {{ sar_border_radius }}px;
   {% endcapture %}
@@ -90,18 +74,18 @@
   "settings": [
     {
       "type": "header",
-      "content": "Couleurs générales"
+      "content": "Couleurs"
     },
     {
       "type": "color",
       "id": "color_primary",
-      "label": "Couleur d’accent (boutons produit, pastilles d’étapes)",
-      "info": "Ne remplace pas les couleurs définies dans l’onglet Style de la barre d’étapes de l’app."
+      "label": "Couleur principale",
+      "info": "Bouton panier, étapes actives, ronds de la barre d'étape."
     },
     {
       "type": "color",
       "id": "color_border",
-      "label": "Bordure de la section",
+      "label": "Couleur des bordures",
       "default": "#e1e3e5"
     },
     {
@@ -111,58 +95,9 @@
       "default": "#ffffff"
     },
     {
-      "type": "header",
-      "content": "Bandeau « Total du pack »"
-    },
-    {
       "type": "color",
       "id": "color_text",
-      "label": "Texte du bandeau « Total du pack »",
-      "info": "N’affecte plus tout le texte de la section : uniquement la ligne de total (cohérent avec l’éditeur visuel)."
-    },
-    {
-      "type": "color",
-      "id": "color_total_background",
-      "label": "Fond du total"
-    },
-    {
-      "type": "color",
-      "id": "color_total_border",
-      "label": "Bordure du total"
-    },
-    {
-      "type": "header",
-      "content": "Boutons Précédent / Suivant / Panier"
-    },
-    {
-      "type": "color",
-      "id": "color_btn_primary_bg",
-      "label": "Fond — Suivant & Ajouter au panier"
-    },
-    {
-      "type": "color",
-      "id": "color_btn_primary_text",
-      "label": "Texte — Suivant & Ajouter au panier"
-    },
-    {
-      "type": "color",
-      "id": "color_btn_primary_hover",
-      "label": "Fond au survol — Suivant & Ajouter au panier"
-    },
-    {
-      "type": "color",
-      "id": "color_btn_secondary_bg",
-      "label": "Fond — Précédent"
-    },
-    {
-      "type": "color",
-      "id": "color_btn_secondary_text",
-      "label": "Texte — Précédent"
-    },
-    {
-      "type": "color",
-      "id": "color_btn_secondary_border",
-      "label": "Bordure — Précédent"
+      "label": "Couleur du texte"
     },
     {
       "type": "header",

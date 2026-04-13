@@ -613,7 +613,6 @@ export function BundleVisualEditor({
           blockId={nav.blockId}
           stepName={stepName}
           stepIndex={nav.stepIndex}
-          bundlePricingMode={form.bundlePricingMode}
           step={step}
           design={stepDesign}
           onDesignChange={(next) => patchStepDesign(nav.stepIndex, next)}
@@ -705,10 +704,10 @@ export function BundleVisualEditor({
                 design={getStepDesign(activeStepIndex)}
                 steps={form.steps}
                 activeStepIndex={activeStepIndex}
-                bundlePricingMode={form.bundlePricingMode}
                 selectedBlockId={nav.level === 3 ? nav.blockId : null}
                 hiddenBlocks={Object.fromEntries(Array.from(hiddenBlocks).map(id => [id, true]))}
                 isMobile={isMobilePreview}
+                pricingMode={form.bundlePricingMode ?? "STANDARD"}
                 onSelectStep={(idx) =>
                   setNav({ level: 2, stepIndex: idx, activeTab: 0 })
                 }

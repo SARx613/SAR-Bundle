@@ -25,21 +25,8 @@
   }
 
   function variantGidToNumericId(gid) {
-    if (gid == null || gid === '') return null;
-    var s = String(gid).trim();
-    var m = s.match(/ProductVariant\/(\d+)/i);
-    if (m) return parseInt(m[1], 10);
-    if (/^\d+$/.test(s)) return parseInt(s, 10);
-    return null;
-  }
-
-  /** ID numérique panier pour un item upsell (GID, chaîne numérique, ou variantId). */
-  function upsellItemNumericVariantId(item) {
-    var fromGid = item && item.variantGid ? variantGidToNumericId(item.variantGid) : null;
-    if (fromGid != null && fromGid > 0) return fromGid;
-    var raw = item && item.variantId;
-    var n = typeof raw === 'number' ? raw : parseInt(String(raw || ''), 10);
-    return !Number.isNaN(n) && n > 0 ? n : null;
+    var m = String(gid).match(/ProductVariant\/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
   }
 
   function parseMoney(priceStr) {
@@ -582,7 +569,7 @@
     return fetch(joinRoot('variants/' + numericId + '.js'), {
       headers: { Accept: 'application/json' },
     }).then(function (res) {
-      if (!res.ok) throw new Error('variant:' + String(numericId) + ':' + String(res.status));
+      if (!res.ok) throw new Error('variant');
       return res.json();
     });
   }
@@ -635,38 +622,14 @@
   function collectVariantIds(bundle) {
     var ids = [];
     var seen = {};
-    function addGid(gid) {
-      var nid = variantGidToNumericId(gid);
-      if (nid && !seen[gid]) {
-        seen[gid] = true;
-        ids.push({ gid: gid, nid: nid });
-      }
-    }
     for (var i = 0; i < bundle.steps.length; i++) {
       var prods = bundle.steps[i].products || [];
       for (var j = 0; j < prods.length; j++) {
-        addGid(prods[j].variantGid);
-      }
-    }
-    var sdUps = bundle.storefrontDesign;
-    if (sdUps) {
-      function scanBlocks(blockList) {
-        if (!Array.isArray(blockList)) return;
-        for (var bi = 0; bi < blockList.length; bi++) {
-          var blk = blockList[bi];
-          if (!blk || blk.type !== 'upsell') continue;
-          var uis = blk.items || [];
-          for (var ui = 0; ui < uis.length; ui++) {
-            if (uis[ui].variantGid) addGid(uis[ui].variantGid);
-          }
-        }
-      }
-      scanBlocks(sdUps.blocks);
-      if (sdUps.stepDesigns) {
-        for (var sk in sdUps.stepDesigns) {
-          if (Object.prototype.hasOwnProperty.call(sdUps.stepDesigns, sk)) {
-            scanBlocks(sdUps.stepDesigns[sk]);
-          }
+        var gid = prods[j].variantGid;
+        var nid = variantGidToNumericId(gid);
+        if (nid && !seen[gid]) {
+          seen[gid] = true;
+          ids.push({ gid: gid, nid: nid });
         }
       }
     }
@@ -712,9 +675,6 @@
 
         var priceMap = {};
         var variantCache = {};
-        // Track variants that can't be fetched from /variants/:id.js (404, etc.)
-        // Used to disable upsell options that would cause cart/add.js to fail.
-        var invalidVariantNumericIds = {};
         var productJsonByHandle = {};
         var collectionProductsByHandle = {};
         var collectionFetchInFlight = {};
@@ -730,7 +690,6 @@
               .catch(function () {
                 variantCache[entry.gid] = { title: entry.gid, price: '0' };
                 priceMap[entry.gid] = 0;
-                invalidVariantNumericIds[entry.nid] = true;
               });
           }),
         )
@@ -778,16 +737,14 @@
               el.style.setProperty('--sar-color-bg', gc.colorBackground);
               el.style.background = gc.colorBackground;
             }
-            // Texte général section : défaut thème / navigateur (ne pas peindre tout le bloc depuis l’ancien colorText).
             if (gc.colorText) {
               el.style.setProperty('--sar-color-text', gc.colorText);
+              el.style.color = gc.colorText;
             }
-            // Total du pack uniquement (totalTextColor prioritaire ; colorText = rétrocompat)
-            var totalTxt = gc.totalTextColor || gc.colorText;
-            if (totalTxt) el.style.setProperty('--sar-total-text-color', totalTxt);
             // Total box styling
             if (gc.totalBg) el.style.setProperty('--sar-total-bg', gc.totalBg);
             if (gc.totalBorderColor) el.style.setProperty('--sar-total-border-color', gc.totalBorderColor);
+            if (gc.totalTextColor) el.style.setProperty('--sar-total-text-color', gc.totalTextColor);
             // Nav button (Suivant/Précédent/Ajouter) styling
             if (gc.btnPrimaryBg) el.style.setProperty('--sar-btn-primary-bg', gc.btnPrimaryBg);
             if (gc.btnPrimaryColor) el.style.setProperty('--sar-btn-primary-color', gc.btnPrimaryColor);
@@ -965,17 +922,10 @@
 
             for (var i = 0; i < items.length; i++) {
               (function(item) {
-                var numericId = upsellItemNumericVariantId(item);
-                var isValidVariant = !!numericId && !invalidVariantNumericIds[numericId];
                 var isSelected = state.upsellSelections[item.id];
                 if (state.upsellSelections[item.id] === undefined && item.defaultEnabled) {
                   state.upsellSelections[item.id] = true;
                   isSelected = true;
-                }
-                // If variant is invalid, force unselected (prevents accidental Cart Error)
-                if (!isValidVariant && isSelected) {
-                  state.upsellSelections[item.id] = false;
-                  isSelected = false;
                 }
 
                 var row = document.createElement('div');
@@ -987,11 +937,8 @@
                 row.style.borderRadius = '8px';
                 row.style.border = '1px solid ' + (isSelected ? 'var(--sar-color-primary, #72cff7)' : '#e1e3e5');
                 row.style.background = isSelected ? 'var(--sar-color-bg-subtle, #f0f7f5)' : 'transparent';
-                row.style.cursor = isValidVariant ? 'pointer' : 'not-allowed';
+                row.style.cursor = 'pointer';
                 row.style.transition = 'all 0.2s';
-                if (!isValidVariant) {
-                  row.style.opacity = '0.55';
-                }
 
                 var check = document.createElement('div');
                 check.style.width = '20px';
@@ -1037,14 +984,6 @@
                   sd.textContent = item.shortDescription;
                   info.appendChild(sd);
                 }
-                if (!isValidVariant) {
-                  var un = document.createElement('div');
-                  un.style.fontSize = '12px';
-                  un.style.color = '#8a2c0d';
-                  un.style.marginTop = '4px';
-                  un.textContent = "Variante introuvable sur la boutique (ré-choisissez ce produit dans l'app).";
-                  info.appendChild(un);
-                }
                 row.appendChild(info);
 
                 var price = document.createElement('div');
@@ -1055,7 +994,6 @@
                 row.appendChild(price);
 
                 row.addEventListener('click', function() {
-                  if (!isValidVariant) return;
                   if (behavior === 'single') {
                     for (var j = 0; j < items.length; j++) state.upsellSelections[items[j].id] = false;
                     state.upsellSelections[item.id] = true;
@@ -1864,7 +1802,6 @@
                 }
               }
               var addedUpsellIds = {};
-              var upsellInvalidLabels = [];
               for (var dbi = 0; dbi < allUpsellBlocks.length; dbi++) {
                 var db = allUpsellBlocks[dbi];
                 var uItems = db.items || [];
@@ -1872,12 +1809,11 @@
                   var uItem = uItems[uji];
                   if (state.upsellSelections[uItem.id] && !addedUpsellIds[uItem.id]) {
                     addedUpsellIds[uItem.id] = true;
-                    var uNumId = upsellItemNumericVariantId(uItem);
-                    if (!uNumId || uNumId <= 0) {
-                      upsellInvalidLabels.push(
-                        String(uItem.overrideLabel || uItem.productTitle || 'Option').slice(0, 80),
-                      );
-                    } else {
+                    // variantId may be 0 if not properly set; always prefer GID extraction
+                    var uNumId = (uItem.variantId && uItem.variantId > 0)
+                      ? uItem.variantId
+                      : variantGidToNumericId(uItem.variantGid);
+                    if (uNumId && uNumId > 0) {
                       items.push({
                         id: uNumId,
                         quantity: 1,
@@ -1890,14 +1826,6 @@
                     }
                   }
                 }
-              }
-              if (upsellInvalidLabels.length) {
-                errBox.textContent =
-                  'Variante Shopify introuvable pour : ' +
-                  upsellInvalidLabels.join(', ') +
-                  '. Rouvrez le bloc « Options supplémentaires » et sélectionnez à nouveau les produits.';
-                errBox.hidden = false;
-                return;
               }
 
               fetch(joinRoot('cart/add.js'), {
@@ -1914,14 +1842,8 @@
                 })
                 .then(function (_ref) {
                   if (!_ref.res.ok) {
-                    var msg = (_ref.j && (_ref.j.message || _ref.j.description)) || 'Erreur lors de l’ajout au panier.';
-                    // Shopify 422 often includes helpful fields (description / errors)
-                    if (_ref.j && _ref.j.errors) {
-                      try {
-                        msg += ' ' + JSON.stringify(_ref.j.errors);
-                      } catch (e) {}
-                    }
-                    errBox.textContent = msg;
+                    errBox.textContent =
+                      (_ref.j && _ref.j.message) || 'Erreur lors de l’ajout au panier.';
                     errBox.hidden = false;
                     return;
                   }

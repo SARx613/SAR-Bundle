@@ -9,7 +9,6 @@
 /* ─── Root wrapper ─── */
 
 .sar-bundle {
-  /* Neutralise les styles globaux du thème (marges, box-sizing, boutons) */
   font-family: var(--sar-font-body, inherit);
   color: var(--sar-color-text, #121212);
   background: var(--sar-color-bg, transparent);
@@ -17,26 +16,6 @@
   border-radius: var(--sar-radius, 8px);
   padding: var(--sar-padding, 1.25rem);
   max-width: 100%;
-}
-
-.sar-bundle,
-.sar-bundle *,
-.sar-bundle *::before,
-.sar-bundle *::after {
-  box-sizing: border-box;
-}
-
-.sar-bundle img {
-  max-width: 100%;
-  height: auto;
-}
-
-.sar-bundle button {
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: none;
-  -webkit-appearance: none;
-  appearance: none;
 }
 
 .sar-bundle__title {
@@ -61,9 +40,8 @@
   margin: 1rem 0 0;
   padding: 0.75rem 1rem;
   border-radius: var(--sar-radius, 8px);
-  border: 1px solid var(--sar-total-border-color, var(--sar-color-border, #e1e3e5));
-  background: var(--sar-total-bg, var(--sar-color-bg-subtle, #f6f6f7));
-  color: var(--sar-total-text-color, var(--sar-color-text, #121212));
+  border: 1px solid var(--sar-color-border, #e1e3e5);
+  background: var(--sar-color-bg-subtle, #f6f6f7);
   font-size: 1.05rem;
 }
 
@@ -130,10 +108,10 @@
   background: var(--sar-stepbar-lineColor, #e1e3e5);
 }
 
-.sar-stepbar__item.completed .sar-stepbar__line {
-  background: var(--sar-stepbar-completed-bg, #555555);
-}
 
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
+}
 .sar-stepbar__icon-circle {
   width: 48px;
   height: 48px;
@@ -158,26 +136,35 @@
   object-fit: contain;
 }
 
-.sar-stepbar__item.active .sar-stepbar__line {
-  background: var(--sar-stepbar-active-bg, #555555);
+.sar-stepbar__item.active 
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
 }
-
-.sar-stepbar__item.active .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-active-bg, #555555);
+.sar-stepbar__icon-circle {
+  background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #1a1a1a));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
 
-.sar-stepbar__item.completed .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-completed-bg, #555555);
+.sar-stepbar__item.completed 
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
+}
+.sar-stepbar__icon-circle {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
 
-.sar-stepbar__item:not(.active):not(.completed):hover .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-hover-bg, #f0f0f0);
-  color: var(--sar-stepbar-hover-text, #333333);
-  border-color: var(--sar-stepbar-borderColor, #e1e3e5);
+/* Hover effects */
+.sar-stepbar__item:not(.active):not(.completed):hover 
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
+}
+.sar-stepbar__icon-circle {
+  background: var(--sar-stepbar-hover-bg, var(--sar-color-bg-subtle, #f0f7f5));
+  color: var(--sar-stepbar-hover-text, var(--sar-color-primary, #1a1a1a));
+  border-color: var(--sar-color-primary, #1a1a1a);
 }
 
 .sar-stepbar__label {

@@ -527,11 +527,6 @@ function StepBarStyleFields({
 
   return (
     <BlockStack gap="300">
-      <ColorField
-        label="Bordure des pastilles"
-        value={style.borderColor ?? ""}
-        onChange={(v) => patchStyle({ borderColor: v || undefined })}
-      />
       <Checkbox
         label="Afficher la ligne entre les étapes"
         checked={style.showLine !== false}
@@ -1333,7 +1328,6 @@ export function SidebarLevel3({
   blockId,
   stepName,
   stepIndex,
-  bundlePricingMode,
   step,
   design,
   onDesignChange,
@@ -1348,7 +1342,6 @@ export function SidebarLevel3({
   blockId: string;
   stepName: string;
   stepIndex: number;
-  bundlePricingMode: "STANDARD" | "FIXED_PRICE_BOX" | "TIERED";
   step: UiStep | undefined;
   design: StorefrontDesignV2;
   onDesignChange: (d: StorefrontDesignV2) => void;
@@ -1500,22 +1493,11 @@ export function SidebarLevel3({
                 value={(block as ProductListBlock).titleColor ?? ""}
                 onChange={(v) => patchBlock({ titleColor: v || undefined } as Partial<StorefrontBlockV2>)}
               />
-              {bundlePricingMode === "STANDARD" || bundlePricingMode === "TIERED" ? (
-                <BlockStack gap="100">
-                  <ColorField
-                    label="Couleur des prix"
-                    value={(block as ProductListBlock).priceColor ?? ""}
-                    onChange={(v) => patchBlock({ priceColor: v || undefined } as Partial<StorefrontBlockV2>)}
-                  />
-                  <Text as="p" variant="bodyXs" tone="subdued">
-                    S’applique aux montants catalogue affichés sous chaque produit.
-                  </Text>
-                </BlockStack>
-              ) : (
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Les prix par produit ne s’affichent pas en mode « Prix fixe de la boîte » ; la couleur des prix ne s’applique pas.
-                </Text>
-              )}
+              <ColorField
+                label="Couleur des prix (Standard / Paliers)"
+                value={(block as ProductListBlock).priceColor ?? ""}
+                onChange={(v) => patchBlock({ priceColor: v || undefined } as Partial<StorefrontBlockV2>)}
+              />
             </BlockStack>
           </CollapsibleStyleSection>
         </BlockStack>

@@ -9,7 +9,6 @@
 /* ─── Root wrapper ─── */
 
 .sar-bundle {
-  /* Neutralise les styles globaux du thème (marges, box-sizing, boutons) */
   font-family: var(--sar-font-body, inherit);
   color: var(--sar-color-text, #121212);
   background: var(--sar-color-bg, transparent);
@@ -17,26 +16,6 @@
   border-radius: var(--sar-radius, 8px);
   padding: var(--sar-padding, 1.25rem);
   max-width: 100%;
-}
-
-.sar-bundle,
-.sar-bundle *,
-.sar-bundle *::before,
-.sar-bundle *::after {
-  box-sizing: border-box;
-}
-
-.sar-bundle img {
-  max-width: 100%;
-  height: auto;
-}
-
-.sar-bundle button {
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: none;
-  -webkit-appearance: none;
-  appearance: none;
 }
 
 .sar-bundle__title {
@@ -128,14 +107,6 @@
   height: 1px;
   z-index: 0;
   background: var(--sar-stepbar-lineColor, #e1e3e5);
-}
-
-.sar-stepbar__item.completed .sar-stepbar__line {
-  background: var(--sar-stepbar-completed-bg, #555555);
-}
-
-.sar-stepbar__item.active .sar-stepbar__line {
-  background: var(--sar-stepbar-active-bg, #555555);
 }
 
 .sar-stepbar__icon-circle {

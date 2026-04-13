@@ -180,18 +180,14 @@ function ProductGridPreview({
   const cardLayout = block?.cardLayout ?? "classic";
   const buttonText = block?.buttonText || "Add to box";
   const showPrice = pricingMode !== "FIXED_PRICE_BOX";
-  const gapPx = 16;
 
-  const effectiveCols = isMobile ? colsMobile : cols;
-
-  const containerStyle: Record<string, string | number> = {
+  const containerStyle: React.CSSProperties = {
     "--grid-cols-desktop": cols,
     "--grid-cols-mobile": colsMobile,
-    "--grid-gap-x": `${gapPx}px`,
-    "--grid-gap-y": `${gapPx}px`,
-    display: "grid",
-    gridTemplateColumns: `repeat(${effectiveCols}, 1fr)`,
-  };
+    "--grid-gap-x": "16px",
+    "--grid-gap-y": "16px",
+    gridTemplateColumns: `repeat(${isMobile ? colsMobile : cols}, 1fr)`,
+  } as any;
   if (block?.buttonBackground) containerStyle["--sar-color-primary"] = block.buttonBackground;
   if (block?.buttonColor) containerStyle["--sar-button-text"] = block.buttonColor;
   if (block?.titleColor) containerStyle["--sar-product-title-color"] = block.titleColor;
@@ -213,8 +209,16 @@ function ProductGridPreview({
     );
   }
 
+  const effectiveCols = isMobile ? colsMobile : cols;
+
   return (
-    <div className="sar-bundle__products" style={containerStyle as React.CSSProperties}>
+    <div
+      className="sar-bundle__products"
+      style={{
+        ...containerStyle,
+        gridTemplateColumns: `repeat(${effectiveCols}, 1fr)`,
+      } as any}
+    >
       {products.map((p) => (
         <ProductCard
           key={p.variantGid}
@@ -332,18 +336,6 @@ function UpsellPreview({
   );
 }
 
-function formatPreviewMoney(amount: string | undefined, currency: string | undefined) {
-  if (amount == null || amount === "") return "—";
-  const n = parseFloat(String(amount).replace(",", "."));
-  if (Number.isNaN(n)) return amount;
-  const cur = (currency && currency.trim()) || "EUR";
-  try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: cur }).format(n);
-  } catch {
-    return `${amount} ${cur}`;
-  }
-}
-
 function ProductCard({
   product,
   layout,
@@ -356,6 +348,12 @@ function ProductCard({
   showPrice?: boolean;
 }) {
   const [qty, setQty] = useState(0);
+
+  const priceEl = showPrice ? (
+    <p className="sar-bundle__product-price" style={{ opacity: 0.45, fontStyle: "italic" }}>
+      Prix produit
+    </p>
+  ) : null;
 
   return (
     <div className={`sar-bundle__product sar-bundle__product--${layout}`}>
@@ -395,11 +393,7 @@ function ProductCard({
         )}
       </div>
       <p className="sar-bundle__product-title">{product.displayName || "Produit"}</p>
-      {showPrice ? (
-        <p className="sar-bundle__product-price">
-          {formatPreviewMoney(product.catalogPriceAmount, product.catalogCurrencyCode)}
-        </p>
-      ) : null}
+      {priceEl}
       {layout === "classic" && (
         <div className="sar-bundle__product-atc-wrapper">
           {qty > 0 ? (
@@ -429,16 +423,16 @@ function RenderBlock({
   activeStepIndex,
   onSelectStep,
   isMobile,
-  bundlePricingMode,
+  pricingMode,
 }: {
   block: StorefrontBlockV2;
   selectedBlockId: string | null;
-  onSelectBlock: (id: string | null) => void;
+  onSelectBlock: (id: string) => void;
   steps: UiStep[];
   activeStepIndex: number;
   onSelectStep: (i: number) => void;
   isMobile?: boolean;
-  bundlePricingMode?: "STANDARD" | "FIXED_PRICE_BOX" | "TIERED";
+  pricingMode?: string;
 }) {
   const name = blockDisplayLabel(block);
   let content: React.ReactNode = null;
@@ -549,7 +543,7 @@ function RenderBlock({
           block={block}
           products={steps[activeStepIndex]?.products ?? []}
           isMobile={isMobile}
-          pricingMode={bundlePricingMode}
+          pricingMode={pricingMode}
         />
       );
       break;
@@ -583,7 +577,7 @@ export function BundleStorefrontPreview({
   selectedBlockId,
   hiddenBlocks,
   isMobile,
-  bundlePricingMode,
+  pricingMode,
 }: {
   design: StorefrontDesignV2;
   steps: UiStep[];
@@ -593,8 +587,7 @@ export function BundleStorefrontPreview({
   selectedBlockId: string | null;
   hiddenBlocks?: Record<string, boolean>;
   isMobile?: boolean;
-  /** Aligne l’affichage des prix catalogue avec le mode tarification du bundle. */
-  bundlePricingMode?: "STANDARD" | "FIXED_PRICE_BOX" | "TIERED";
+  pricingMode?: string;
 }) {
   const visibleBlocks = useMemo(
     () => (design.blocks ?? []).filter((b) => !(hiddenBlocks ?? {})[b.id]),
@@ -621,15 +614,13 @@ export function BundleStorefrontPreview({
         "--sar-color-border": g.colorBorder || "#e1e3e5",
         "--sar-color-bg": g.colorBackground || "transparent",
         "--sar-color-bg-subtle": "#f0f0f0",
-        "--sar-color-text": "#121212",
+        "--sar-color-text": g.colorText || "#121212",
         "--sar-color-muted": "#6d7175",
         "--sar-radius": g.borderRadius ? `${g.borderRadius}px` : "8px",
         // Total box
         ...(g.totalBg ? { "--sar-total-bg": g.totalBg } : {}),
         ...(g.totalBorderColor ? { "--sar-total-border-color": g.totalBorderColor } : {}),
-        ...((g.totalTextColor || g.colorText)
-          ? { "--sar-total-text-color": g.totalTextColor || g.colorText }
-          : {}),
+        ...(g.totalTextColor ? { "--sar-total-text-color": g.totalTextColor } : {}),
         // Nav buttons
         ...(g.btnPrimaryBg ? { "--sar-btn-primary-bg": g.btnPrimaryBg } : {}),
         ...(g.btnPrimaryColor ? { "--sar-btn-primary-color": g.btnPrimaryColor } : {}),
@@ -657,7 +648,7 @@ export function BundleStorefrontPreview({
             activeStepIndex={activeStepIndex}
             onSelectStep={onSelectStep}
             isMobile={isMobile}
-            bundlePricingMode={bundlePricingMode}
+            pricingMode={pricingMode}
           />
         ))}
       </div>
@@ -668,7 +659,7 @@ export function BundleStorefrontPreview({
           block={null}
           products={step.products}
           isMobile={isMobile}
-          pricingMode={bundlePricingMode}
+          pricingMode={pricingMode}
         />
       )}
 

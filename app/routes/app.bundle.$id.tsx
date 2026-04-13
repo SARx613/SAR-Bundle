@@ -232,29 +232,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     : null;
 
   try {
-    let payload: ReturnType<typeof parseBundlePayload>;
-    try {
-      payload = parseBundlePayload(body);
-    } catch (e: unknown) {
-      // parseBundlePayload throws Remix `json()` Responses on validation errors.
-      // Return a friendly message instead of crashing the route.
-      if (e instanceof Response) {
-        let msg = "Erreur de validation. Veuillez vérifier les champs.";
-        try {
-          const data = (await e.json()) as any;
-          if (data?.error && typeof data.error === "string") {
-            msg = data.error;
-          }
-        } catch {
-          // ignore
-        }
-        if (msg.includes("Nombre d'articles (prix fixe)")) {
-          msg = "Veuillez entrer le nombre d’articles.";
-        }
-        return json({ error: msg }, { status: 400 });
-      }
-      throw e;
-    }
+    const payload = parseBundlePayload(body);
     let warning: string | undefined;
     try {
       await enrichPayloadProductHandles(admin as any, payload as any);
@@ -437,10 +415,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       return json({ error: "Validation error", details: e.message }, { status: 400 });
     }
     console.error("bundle save error", e);
-    return json({ 
-      error: "Failed to save bundle", 
-      details: e?.message || String(e), 
-      stack: e?.stack 
+    return json({
+      error: "Failed to save bundle",
+      details: e?.message || String(e),
+      stack: e?.stack
     }, { status: 400 });
   }
 };
