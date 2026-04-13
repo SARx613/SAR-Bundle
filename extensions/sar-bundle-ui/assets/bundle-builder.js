@@ -582,7 +582,7 @@
     return fetch(joinRoot('variants/' + numericId + '.js'), {
       headers: { Accept: 'application/json' },
     }).then(function (res) {
-      if (!res.ok) throw new Error('variant');
+      if (!res.ok) throw new Error('variant:' + String(numericId) + ':' + String(res.status));
       return res.json();
     });
   }
@@ -712,6 +712,9 @@
 
         var priceMap = {};
         var variantCache = {};
+        // Track variants that can't be fetched from /variants/:id.js (404, etc.)
+        // Used to disable upsell options that would cause cart/add.js to fail.
+        var invalidVariantNumericIds = {};
         var productJsonByHandle = {};
         var collectionProductsByHandle = {};
         var collectionFetchInFlight = {};
@@ -727,6 +730,7 @@
               .catch(function () {
                 variantCache[entry.gid] = { title: entry.gid, price: '0' };
                 priceMap[entry.gid] = 0;
+                invalidVariantNumericIds[entry.nid] = true;
               });
           }),
         )
@@ -961,10 +965,17 @@
 
             for (var i = 0; i < items.length; i++) {
               (function(item) {
+                var numericId = upsellItemNumericVariantId(item);
+                var isValidVariant = !!numericId && !invalidVariantNumericIds[numericId];
                 var isSelected = state.upsellSelections[item.id];
                 if (state.upsellSelections[item.id] === undefined && item.defaultEnabled) {
                   state.upsellSelections[item.id] = true;
                   isSelected = true;
+                }
+                // If variant is invalid, force unselected (prevents accidental Cart Error)
+                if (!isValidVariant && isSelected) {
+                  state.upsellSelections[item.id] = false;
+                  isSelected = false;
                 }
 
                 var row = document.createElement('div');
@@ -976,8 +987,11 @@
                 row.style.borderRadius = '8px';
                 row.style.border = '1px solid ' + (isSelected ? 'var(--sar-color-primary, #72cff7)' : '#e1e3e5');
                 row.style.background = isSelected ? 'var(--sar-color-bg-subtle, #f0f7f5)' : 'transparent';
-                row.style.cursor = 'pointer';
+                row.style.cursor = isValidVariant ? 'pointer' : 'not-allowed';
                 row.style.transition = 'all 0.2s';
+                if (!isValidVariant) {
+                  row.style.opacity = '0.55';
+                }
 
                 var check = document.createElement('div');
                 check.style.width = '20px';
@@ -1023,6 +1037,14 @@
                   sd.textContent = item.shortDescription;
                   info.appendChild(sd);
                 }
+                if (!isValidVariant) {
+                  var un = document.createElement('div');
+                  un.style.fontSize = '12px';
+                  un.style.color = '#8a2c0d';
+                  un.style.marginTop = '4px';
+                  un.textContent = "Variante introuvable sur la boutique (ré-choisissez ce produit dans l'app).";
+                  info.appendChild(un);
+                }
                 row.appendChild(info);
 
                 var price = document.createElement('div');
@@ -1033,6 +1055,7 @@
                 row.appendChild(price);
 
                 row.addEventListener('click', function() {
+                  if (!isValidVariant) return;
                   if (behavior === 'single') {
                     for (var j = 0; j < items.length; j++) state.upsellSelections[items[j].id] = false;
                     state.upsellSelections[item.id] = true;
@@ -1891,8 +1914,14 @@
                 })
                 .then(function (_ref) {
                   if (!_ref.res.ok) {
-                    errBox.textContent =
-                      (_ref.j && _ref.j.message) || 'Erreur lors de l’ajout au panier.';
+                    var msg = (_ref.j && (_ref.j.message || _ref.j.description)) || 'Erreur lors de l’ajout au panier.';
+                    // Shopify 422 often includes helpful fields (description / errors)
+                    if (_ref.j && _ref.j.errors) {
+                      try {
+                        msg += ' ' + JSON.stringify(_ref.j.errors);
+                      } catch (e) {}
+                    }
+                    errBox.textContent = msg;
                     errBox.hidden = false;
                     return;
                   }
