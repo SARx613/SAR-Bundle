@@ -1225,6 +1225,58 @@
             if (so.cardBorderRadius) card.style.borderRadius = so.cardBorderRadius;
           }
 
+          /**
+           * Synchronise le prix affiché nativement par le thème Shopify
+           * avec le total courant du bundle (sélections + upsells).
+           * Couvre les thèmes Dawn, Sense, Craft, Debut, Brooklyn, Impulse…
+           */
+          function syncThemeProductPrice() {
+            try {
+              var totNow = getTotals(state.selections, priceMap, state.variantChoice);
+              var upsExtra = getUpsellExtraPrice(bundle, state.upsellSelections);
+              var dispNow = getDisplayedBundlePrice(bundle, totNow);
+              var finalAmt = dispNow.amount + upsExtra;
+              var cmpAmt = dispNow.compareAt; // null si pas de remise
+              var cur = pickPrimaryCurrency(bundle, variantCache);
+              var fmtFinal = formatMoneyDisplay(String(finalAmt), cur);
+              var fmtCmp = cmpAmt != null ? formatMoneyDisplay(String(cmpAmt), cur) : null;
+
+              // 1. Met à jour TOUS les éléments de prix courants du thème (hors widget SAR)
+              var priceSelectors = [
+                '.price-item--sale',       // Dawn, Sense, Studio, Craft : prix soldé
+                '.price-item--regular',    // Dawn etc. : prix normal (hors contexte soldé)
+                '[data-product-price]',    // Debut, Brooklyn, Narrative (thèmes legacy)
+                '.product__price',         // Impulse, Pipeline
+                '.product-single__price',  // Minimal, Simple (anciens thèmes)
+              ];
+              for (var i = 0; i < priceSelectors.length; i++) {
+                var nodes;
+                try { nodes = document.querySelectorAll(priceSelectors[i]); } catch (e2) { continue; }
+                for (var j = 0; j < nodes.length; j++) {
+                  // Ne jamais toucher aux éléments qui sont à l'intérieur du widget SAR
+                  if (!el.contains(nodes[j])) nodes[j].textContent = fmtFinal;
+                }
+              }
+
+              // 2. Si une remise est active → le prix barré (compare-at) va dans les bons slots
+              if (fmtCmp) {
+                var cmpSelectors = [
+                  '[data-compare-price]',   // Debut, Brooklyn (slot dédié au compare-at)
+                  '.price-item--regular',   // Dawn en mode soldé : c'est LUI qui est barré
+                ];
+                for (var ci = 0; ci < cmpSelectors.length; ci++) {
+                  var cmpNodes;
+                  try { cmpNodes = document.querySelectorAll(cmpSelectors[ci]); } catch (e3) { continue; }
+                  for (var cj = 0; cj < cmpNodes.length; cj++) {
+                    if (!el.contains(cmpNodes[cj])) cmpNodes[cj].textContent = fmtCmp;
+                  }
+                }
+              }
+            } catch (e) {
+              // Silently ignore — ne jamais bloquer le rendu pour une mise à jour de prix
+            }
+          }
+
           function render() {
             inner.innerHTML = '';
             var errBox = document.createElement('div');
@@ -1866,6 +1918,9 @@
             footer.appendChild(totalBox);
             footer.appendChild(nav);
             inner.appendChild(footer);
+
+            // Mise à jour du prix natif du thème Shopify (page produit)
+            syncThemeProductPrice();
           }
 
           render();
