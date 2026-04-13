@@ -232,7 +232,29 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     : null;
 
   try {
-    const payload = parseBundlePayload(body);
+    let payload: ReturnType<typeof parseBundlePayload>;
+    try {
+      payload = parseBundlePayload(body);
+    } catch (e: unknown) {
+      // parseBundlePayload throws Remix `json()` Responses on validation errors.
+      // Return a friendly message instead of crashing the route.
+      if (e instanceof Response) {
+        let msg = "Erreur de validation. Veuillez vérifier les champs.";
+        try {
+          const data = (await e.json()) as any;
+          if (data?.error && typeof data.error === "string") {
+            msg = data.error;
+          }
+        } catch {
+          // ignore
+        }
+        if (msg.includes("Nombre d'articles (prix fixe)")) {
+          msg = "Veuillez entrer le nombre d’articles.";
+        }
+        return json({ error: msg }, { status: 400 });
+      }
+      throw e;
+    }
     let warning: string | undefined;
     try {
       await enrichPayloadProductHandles(admin as any, payload as any);
