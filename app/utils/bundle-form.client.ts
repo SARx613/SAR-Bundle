@@ -4,6 +4,7 @@
 import {
   defaultStorefrontDesign,
   migrateStorefrontDesign,
+  newBlockId,
   type ProductStyleOverrides,
   type StorefrontDesignV2,
 } from "./storefront-design";
@@ -264,6 +265,50 @@ function parseStorefrontDesign(raw: unknown): StorefrontDesignV2 {
 }
 
 export function emptyStep(sortOrder: number): UiStep {
+  // L'étape 1 démarre avec une disposition prête à l'emploi
+  const defaultStepDesign: import("./storefront-design").StorefrontDesignV2 | undefined =
+    sortOrder === 0
+      ? {
+          version: 2,
+          global: {},
+          blocks: [
+            {
+              id: newBlockId(),
+              type: "step_bar" as const,
+              style: {},
+            } as import("./storefront-design").StorefrontBlockV2,
+            {
+              id: newBlockId(),
+              type: "heading" as const,
+              text: "Composez votre sélection",
+              tag: "h2" as const,
+              style: {
+                fontSize: "1.4rem",
+                fontWeight: "700",
+                marginBottom: "0.25rem",
+              },
+            } as import("./storefront-design").StorefrontBlockV2,
+            {
+              id: newBlockId(),
+              type: "text" as const,
+              text: "Choisissez vos produits ci-dessous pour composer votre bundle.",
+              style: {
+                color: "var(--p-color-text-secondary)",
+                marginBottom: "1rem",
+              },
+            } as import("./storefront-design").StorefrontBlockV2,
+            {
+              id: newBlockId(),
+              type: "product_list" as const,
+              cardLayout: "classic",
+              columns: 3,
+              columnsMobile: 2,
+              source: "step_pick",
+            } as import("./storefront-design").StorefrontBlockV2,
+          ],
+        }
+      : undefined;
+
   return {
     sortOrder,
     name: "",
@@ -274,6 +319,7 @@ export function emptyStep(sortOrder: number): UiStep {
     products: [],
     rules: [],
     lineItemProperties: [],
+    stepDesign: defaultStepDesign,
   };
 }
 

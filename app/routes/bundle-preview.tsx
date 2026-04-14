@@ -66,6 +66,11 @@ export function loader() {
     ${css}
     /* En mode preview, on retire la bordure externe du widget */
     .sar-bundle { border: none !important; border-radius: 0 !important; }
+    /* Hover sidebar → bloc surligné en bleu dans l'aperçu */
+    [data-block-id].sar-hovered {
+      outline: 2px solid #2C6ECB !important;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -91,23 +96,31 @@ ${js}
 
     // 1. Écoute les mises à jour de données envoyées par l'éditeur admin
     window.addEventListener('message', function(e) {
-      if (!e.data || e.data.type !== 'sar-preview-update') return;
-      var payload = e.data.bundle;
-      if (!payload) return;
+      if (!e.data) return;
 
-      // Flags d'édition : highlight de blocs, navigation d'étape
-      payload.__editorMode = true;
-      payload.__selectedBlockId = e.data.selectedBlockId || null;
-      payload.stepIndex = typeof e.data.stepIndex === 'number' ? e.data.stepIndex : 0;
+      if (e.data.type === 'sar-preview-update') {
+        var payload = e.data.bundle;
+        if (!payload) return;
+        payload.__editorMode = true;
+        payload.__selectedBlockId = e.data.selectedBlockId || null;
+        payload.stepIndex = typeof e.data.stepIndex === 'number' ? e.data.stepIndex : 0;
+        sarPreviewEl.innerHTML =
+          '<div data-sar-loading class="sar-bundle__loading" hidden></div>' +
+          '<div data-sar-inner hidden></div>';
+        window.SARBundleJS.mount(sarPreviewEl, payload).catch(function(err) {
+          console.error('[SAR Preview] Erreur de montage :', err);
+        });
+      }
 
-      // Remise à zéro du DOM de l'élément root avant re-mount
-      sarPreviewEl.innerHTML =
-        '<div data-sar-loading class="sar-bundle__loading" hidden></div>' +
-        '<div data-sar-inner hidden></div>';
-
-      window.SARBundleJS.mount(sarPreviewEl, payload).catch(function(err) {
-        console.error('[SAR Preview] Erreur de montage :', err);
-      });
+      // Hover sidebar admin → bordure bleue sur le bloc correspondant
+      if (e.data.type === 'sar-preview-hover-block') {
+        var prevHover = document.querySelector('[data-block-id].sar-hovered');
+        if (prevHover) prevHover.classList.remove('sar-hovered');
+        if (e.data.blockId) {
+          var target = document.querySelector('[data-block-id="' + e.data.blockId + '"]');
+          if (target) target.classList.add('sar-hovered');
+        }
+      }
     });
 
     // 2. Relaie la sélection de bloc vers l'éditeur parent

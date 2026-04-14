@@ -1,20 +1,15 @@
 /**
- * BundleIframePreview — Remplace BundleStorefrontPreview (React)
+ * BundleIframePreview — Aperçu storefront 100% fidèle via bundle-builder.js dans un iframe.
  *
- * Charge bundle-builder.js dans une iframe via la route /bundle-preview.
- * Synchronise l'état du formulaire admin (form) vers l'iframe via postMessage.
- * Reçoit les événements de sélection de blocs depuis l'iframe via postMessage.
- * Hauteur de l'iframe dynamique via ResizeObserver côté iframe.
+ * Communication :
+ *   Admin → iframe  : sar-preview-update  (données bundle)
+ *   Admin → iframe  : sar-preview-hover-block  (survol sidebar → bordure bleue)
+ *   iframe → Admin  : sar-editor-select-block  (clic bloc → sélection sidebar)
+ *   iframe → Admin  : sar-preview-height  (hauteur dynamique)
+ *   iframe → Admin  : sar-preview-ready  (prêt à recevoir données)
  */
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { BundleFormState } from "~/utils/bundle-form.client";
-
-// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface BundleIframePreviewProps {
   form: BundleFormState;
@@ -25,31 +20,28 @@ interface BundleIframePreviewProps {
   isMobile?: boolean;
 }
 
-// ─── Helper : construit la payload bundle pour bundle-builder.js ─────────────
+// ─── Helper : payload bundle → bundle-builder.js ────────────────────────────
 
 function buildPreviewBundle(
   form: BundleFormState,
   activeStepIndex: number,
   selectedBlockId: string | null,
 ) {
-  return {
-    // Identité
-    id: null, // pas d'ajout au panier en preview — id Shopify non requis
-    name: form.name,
-    shopifyParentVariantId: null, // pas d'ajout au panier en preview
+  const pricingScope = form.bundlePricingMode === "TIERED" ? "TIERED" : "FLAT";
+  const discountValueType =
+    form.bundlePricingMode === "FIXED_PRICE_BOX"
+      ? "FIXED_PRICE"
+      : form.bundlePricingMode === "STANDARD"
+        ? form.standardDiscountType
+        : form.discountValueType;
 
-    // Pricing
+  return {
+    id: null, // pas d'ajout au panier en preview
+    name: form.name,
+    shopifyParentVariantId: null,
     bundlePricingMode: form.bundlePricingMode ?? "STANDARD",
-    pricingScope:
-      form.bundlePricingMode === "TIERED"
-        ? "TIERED"
-        : "FLAT",
-    discountValueType:
-      form.bundlePricingMode === "FIXED_PRICE_BOX"
-        ? "FIXED_PRICE"
-        : form.bundlePricingMode === "STANDARD"
-          ? form.standardDiscountType
-          : form.discountValueType,
+    pricingScope,
+    discountValueType,
     flatDiscountValue: form.flatDiscountValue || null,
     showCompareAtPrice: form.showCompareAtPrice ?? false,
     showFixedPriceOnLoad: form.showFixedPriceOnLoad ?? false,
@@ -67,16 +59,13 @@ function buildPreviewBundle(
             tierValue: t.tierValue,
           }))
         : [],
-
-    // Design
     storefrontDesign: form.storefrontDesign,
-
-    // Étapes — on réinjecte les données storefront enrichies (prix, images)
     steps: form.steps.map((step, si) => ({
       sortOrder: si,
       name: step.name || null,
       description: step.description || null,
       isFinalStep: step.isFinalStep,
+      imageUrl: step.imageUrl,
       stepDesign: step.stepDesign ?? null,
       products: step.products.map((p, pi) => ({
         variantGid: p.variantGid,
@@ -86,8 +75,7 @@ function buildPreviewBundle(
         productHandle: p.productHandle ?? null,
         layoutPreset: p.layoutPreset,
         styleOverrides: p.styleOverrides,
-        // Enrichissement storefront → bundle-builder.js les utilise directement
-        // (via applyStorefrontEnrichment) sans fetch /variants/:id.js
+        // Enrichissement storefront déjà disponible dans UiStepProduct
         storefront: {
           displayTitle: p.displayName,
           productTitle: p.displayName,
@@ -117,8 +105,6 @@ function buildPreviewBundle(
         placeholder: lp.placeholder || null,
       })),
     })),
-
-    // Flags éditeur (lus par bundle-builder.js)
     __editorMode: true,
     __selectedBlockId: selectedBlockId,
     stepIndex: activeStepIndex,
@@ -135,14 +121,13 @@ export function BundleIframePreview({
   isMobile = false,
 }: BundleIframePreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const iframeReadyRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-  const [iframeHeight, setIframeHeight] = useState(600);
+  const [iframeHeight, setIframeHeight] = useState(400);
 
   // Envoie la bundle data à l'iframe
   const sendUpdate = useCallback(() => {
     const iframe = iframeRef.current;
-    if (!iframe?.contentWindow || !iframeReadyRef.current) return;
+    if (!iframe?.contentWindow) return;
     const bundle = buildPreviewBundle(form, activeStepIndex, selectedBlockId);
     iframe.contentWindow.postMessage(
       { type: "sar-preview-update", bundle, stepIndex: activeStepIndex, selectedBlockId },
@@ -150,47 +135,54 @@ export function BundleIframePreview({
     );
   }, [form, activeStepIndex, selectedBlockId]);
 
-  // Écoute les messages en provenance de l'iframe
+  // Dès que l'iframe est chargée, on envoie les données (après 200ms pour laisser les scripts démarrer)
+  const handleLoad = useCallback(() => {
+    // Court délai pour laisser bundle-builder.js s'initialiser
+    setTimeout(() => sendUpdate(), 200);
+  }, [sendUpdate]);
+
+  // Écoute les messages de l'iframe et les événements hover de la sidebar
   useEffect(() => {
     function handleMessage(e: MessageEvent) {
       if (!e.data) return;
-
       switch (e.data.type) {
         case "sar-preview-ready":
-          iframeReadyRef.current = true;
-          sendUpdate(); // Premier envoi dès que l'iframe est prête
+          // L'iframe signale qu'elle est prête → envoyer immédiatement
+          sendUpdate();
           break;
-
         case "sar-editor-select-block":
           onSelectBlock(e.data.blockId ?? null);
           break;
-
         case "sar-preview-height":
           if (typeof e.data.height === "number" && e.data.height > 0) {
-            // +16 pour le padding body de l'iframe
-            setIframeHeight(Math.max(400, e.data.height + 16));
+            setIframeHeight(Math.max(300, e.data.height + 32));
           }
           break;
       }
     }
+
+    // Hover sidebar → iframe : relayé via window custom event (pas de prop drilling)
+    function handleAdminHover(e: Event) {
+      const blockId = (e as CustomEvent<string | null>).detail;
+      const iframe = iframeRef.current;
+      if (!iframe?.contentWindow) return;
+      iframe.contentWindow.postMessage({ type: "sar-preview-hover-block", blockId }, "*");
+    }
+
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    window.addEventListener("sar-admin-hover-block", handleAdminHover);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      window.removeEventListener("sar-admin-hover-block", handleAdminHover);
+    };
   }, [sendUpdate, onSelectBlock]);
 
-  // Debounce des mises à jour lors de chaque changement du formulaire
+  // Debounce 50ms : met à jour l'aperçu dès que form/step/block changent
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      if (iframeReadyRef.current) sendUpdate();
-    }, 200);
+    debounceRef.current = setTimeout(sendUpdate, 50);
     return () => clearTimeout(debounceRef.current);
   }, [form, activeStepIndex, selectedBlockId, sendUpdate]);
-
-  // Reset iframeReady quand le src change (rechargement)
-  const handleLoad = useCallback(() => {
-    // L'iframe émettra sar-preview-ready elle-même
-    iframeReadyRef.current = false;
-  }, []);
 
   return (
     <div
@@ -212,9 +204,8 @@ export function BundleIframePreview({
           height: `${iframeHeight}px`,
           border: "none",
           display: "block",
-          transition: "height 0.2s ease",
+          transition: "height 0.15s ease",
         }}
-        // Permissions nécessaires pour le rendu correct
         sandbox="allow-scripts allow-same-origin"
       />
     </div>

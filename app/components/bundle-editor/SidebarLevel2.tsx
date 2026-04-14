@@ -213,7 +213,16 @@ function SortableBlockRow({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      onMouseEnter={() =>
+        window.dispatchEvent(new CustomEvent('sar-admin-hover-block', { detail: block.id }))
+      }
+      onMouseLeave={() =>
+        window.dispatchEvent(new CustomEvent('sar-admin-hover-block', { detail: null }))
+      }
+    >
       <Box
         padding="200"
         borderWidth="025"
@@ -682,9 +691,22 @@ export function SidebarLevel2({
           >
               <LibraryItem
                 icon={ListNumberedIcon}
-                label={stepsCount < 2 ? "Barre d'étape (≥2 étapes)" : "Barre d'étape"}
-                disabled={stepsCount < 2}
+                label="Barre d'étape"
                 onClick={() => addBlock({ id: newBlockId(), type: "step_bar", style: {} })}
+              />
+              <LibraryItem
+                icon={ProductListIcon}
+                label="Liste de Produits"
+                onClick={() =>
+                  addBlock({
+                    id: newBlockId(),
+                    type: "product_list",
+                    cardLayout: "classic",
+                    columns: 3,
+                    columnsMobile: 2,
+                    source: "step_pick",
+                  })
+                }
               />
               <LibraryItem
                 icon={PlusIcon}

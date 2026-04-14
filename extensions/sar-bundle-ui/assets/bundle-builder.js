@@ -820,8 +820,15 @@
           }
 
           function renderStepBarBlock(wrapEl, b, ctx) {
-            if (!ctx || !ctx.steps || ctx.steps.length < 2) return;
             var st = b.style || {};
+            // Moins de 2 étapes : afficher un placeholder discret en mode éditeur
+            if (!ctx || !ctx.steps || ctx.steps.length < 2) {
+              var ph = document.createElement('div');
+              ph.style.cssText = 'padding:12px 16px;background:#f6f6f7;border:1.5px dashed #c5c5c5;border-radius:6px;color:#999;font-size:13px;text-align:center;';
+              ph.textContent = 'Barre d\u2019étapes — visible à partir de 2 étapes';
+              wrapEl.appendChild(ph);
+              return;
+            }
             var bar = document.createElement('div');
             bar.className = 'sar-stepbar';
 
@@ -1105,7 +1112,9 @@
                 blockWrap.style.transition = 'all 0.2s';
                 blockWrap.style.borderRadius = '4px';
                 blockWrap.style.cursor = 'pointer';
-                // Enforce an explicit border when selected
+                // data-block-id pour le bridge hover (admin sidebar → iframe)
+                blockWrap.setAttribute('data-block-id', b.id);
+                // Bordure au bloc sélectionné
                 if (ctx.__explicitBundleData.__selectedBlockId === b.id) {
                   blockWrap.style.boxShadow = '0 0 0 2px var(--p-color-border-interactive-focus)';
                   blockWrap.style.background = 'var(--p-color-bg-surface-secondary-hover)';
@@ -1137,15 +1146,23 @@
                 p.textContent = b.text || '';
                 applyTextStyle(p, st);
                 blockWrap.appendChild(p);
-              } else if (b.type === 'image' && b.url) {
-                var im = document.createElement('img');
-                im.src = b.url;
-                im.alt = b.alt || '';
-                im.loading = 'lazy';
-                im.style.display = 'block';
-                im.style.maxWidth = st.maxWidth || '100%';
-                applyTextStyle(im, st);
-                blockWrap.appendChild(im);
+              } else if (b.type === 'image') {
+                if (b.url) {
+                  var im = document.createElement('img');
+                  im.src = b.url;
+                  im.alt = b.alt || '';
+                  im.loading = 'lazy';
+                  im.style.display = 'block';
+                  im.style.maxWidth = st.maxWidth || '100%';
+                  applyTextStyle(im, st);
+                  blockWrap.appendChild(im);
+                } else if (isInteractive) {
+                  // En mode éditeur : afficher un placeholder si pas d'URL
+                  var imgPh = document.createElement('div');
+                  imgPh.style.cssText = 'width:100%;min-height:80px;background:#f6f6f7;border:1.5px dashed #c5c5c5;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#999;font-size:13px;';
+                  imgPh.textContent = '🖼️ Définissez l\'URL de l\'image dans les paramètres';
+                  blockWrap.appendChild(imgPh);
+                }
               } else if (b.type === 'spacer') {
                 var sp = document.createElement('div');
                 sp.style.height = (b.height || 8) + 'px';
