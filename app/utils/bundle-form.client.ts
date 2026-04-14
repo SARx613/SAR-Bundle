@@ -107,6 +107,10 @@ export type UiStepProduct = {
   maxQuantity: number | null;
   displayName: string;
   imageUrl: string | null;
+  /** Prix de la variante enrichi depuis l'Admin API (ex : "19.99") */
+  priceAmount: string | null;
+  /** Code devise (ex : "EUR") — peut être null si non fourni par l'Admin API */
+  currencyCode: string | null;
   /** Handle produit Shopify (variant picker / URL produit.js) */
   productHandle: string | null;
   layoutPreset: string;
@@ -373,6 +377,8 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
               imageUrl?: string | null;
               productTitle?: string;
               productHandle?: string | null;
+              priceAmount?: string | null;
+              currencyCode?: string | null;
             }
           | undefined;
         const enrichedName =
@@ -397,6 +403,8 @@ export function toFormState(bundle: SerializedBundle): BundleFormState {
           maxQuantity: p.maxQuantity ?? null,
           displayName,
           imageUrl: enrichedImage,
+          priceAmount: sf?.priceAmount ?? null,
+          currencyCode: sf?.currencyCode ?? null,
           productHandle: p.productHandle ?? enrichedHandle ?? null,
           layoutPreset: p.layoutPreset ?? "STACK_ADD_TO_QTY",
           styleOverrides:

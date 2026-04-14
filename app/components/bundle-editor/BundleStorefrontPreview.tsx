@@ -13,6 +13,20 @@ import type { UiStep, UiStepProduct } from "../../utils/bundle-form.client";
 
 /* ─────────────────── helpers ─────────────────── */
 
+function formatPreviewPrice(amount: string | null, currency: string | null): string | null {
+  if (!amount) return null;
+  const n = parseFloat(String(amount).replace(",", "."));
+  if (isNaN(n)) return null;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency || "EUR",
+    }).format(n);
+  } catch {
+    return `${amount} ${currency || "EUR"}`;
+  }
+}
+
 function textStyleToCss(st: TextStyleBlock | undefined): CSSProperties {
   if (!st) return {};
   return {
@@ -349,10 +363,15 @@ function ProductCard({
 }) {
   const [qty, setQty] = useState(0);
 
+  const formattedPrice = formatPreviewPrice(product.priceAmount, product.currencyCode);
   const priceEl = showPrice ? (
-    <p className="sar-bundle__product-price" style={{ opacity: 0.45, fontStyle: "italic" }}>
-      Prix produit
-    </p>
+    formattedPrice ? (
+      <p className="sar-bundle__product-price">{formattedPrice}</p>
+    ) : (
+      <p className="sar-bundle__product-price" style={{ opacity: 0.35, fontStyle: "italic", fontSize: "0.8em" }}>
+        —
+      </p>
+    )
   ) : null;
 
   return (
