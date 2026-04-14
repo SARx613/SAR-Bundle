@@ -33,7 +33,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DragHandleIcon, DeleteIcon, PlusIcon } from "@shopify/polaris-icons";
-import { BundleStorefrontPreview } from "./BundleStorefrontPreview";
+import { BundleIframePreview } from "./BundleIframePreview";
+// BundleStorefrontPreview conservé mais remplacé par l'iframe (parité 100% storefront)
+// import { BundleStorefrontPreview } from "./BundleStorefrontPreview";
 import { SidebarLevel2 } from "./SidebarLevel2";
 import { SidebarLevel3 } from "./SidebarLevel3";
 import {
@@ -689,42 +691,27 @@ export function BundleVisualEditor({
                 </Button>
               </InlineStack>
             </InlineStack>
-            <div
-              style={{
-                width: isMobilePreview ? "375px" : "100%",
-                margin: "0 auto",
-                transition: "width 0.2s ease",
-                border: isMobilePreview ? "1px solid var(--p-color-border)" : "none",
-                borderRadius: isMobilePreview ? 16 : 0,
-                padding: isMobilePreview ? 10 : 0,
-                boxShadow: isMobilePreview ? "0 4px 12px rgba(0,0,0,0.1)" : "none",
-              }}
-            >
-              <BundleStorefrontPreview
-                design={getStepDesign(activeStepIndex)}
-                steps={form.steps}
-                activeStepIndex={activeStepIndex}
-                selectedBlockId={nav.level === 3 ? nav.blockId : null}
-                hiddenBlocks={Object.fromEntries(Array.from(hiddenBlocks).map(id => [id, true]))}
-                isMobile={isMobilePreview}
-                pricingMode={form.bundlePricingMode ?? "STANDARD"}
-                onSelectStep={(idx) =>
-                  setNav({ level: 2, stepIndex: idx, activeTab: 0 })
+            <BundleIframePreview
+              form={form}
+              activeStepIndex={activeStepIndex}
+              selectedBlockId={nav.level === 3 ? nav.blockId : null}
+              isMobile={isMobilePreview}
+              onSelectStep={(idx) =>
+                setNav({ level: 2, stepIndex: idx, activeTab: 0 })
+              }
+              onSelectBlock={(blockId) => {
+                if (blockId) {
+                  setNav({
+                    level: 3,
+                    stepIndex: activeStepIndex,
+                    blockId,
+                    activeTab: 0,
+                  });
+                } else {
+                  setNav({ level: 1 });
                 }
-                onSelectBlock={(blockId) => {
-                  if (blockId) {
-                    setNav({
-                      level: 3,
-                      stepIndex: activeStepIndex,
-                      blockId,
-                      activeTab: 0,
-                    });
-                  } else {
-                    setNav({ level: 1 });
-                  }
-                }}
-              />
-            </div>
+              }}
+            />
             {currentStep ? (
               <Text as="p" variant="bodySm" tone="subdued">
                 Étape affichée :{" "}

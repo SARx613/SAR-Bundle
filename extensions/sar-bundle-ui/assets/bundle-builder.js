@@ -680,20 +680,25 @@
         var collectionFetchInFlight = {};
         var ids = collectVariantIds(bundle);
 
-        return Promise.all(
-          ids.map(function (entry) {
-            return fetchVariantJson(entry.nid)
-              .then(function (j) {
-                variantCache[entry.gid] = j;
-                priceMap[entry.gid] = parseMoney(j.price);
+        // Prévisualisation admin : toutes les données viennent de l'enrichissement storefront
+        // → on évite les appels /variants/:id.js (wrong domain en iframe)
+        var variantFetchPromise = explicitBundleData
+          ? Promise.resolve()
+          : Promise.all(
+              ids.map(function (entry) {
+                return fetchVariantJson(entry.nid)
+                  .then(function (j) {
+                    variantCache[entry.gid] = j;
+                    priceMap[entry.gid] = parseMoney(j.price);
+                  })
+                  .catch(function () {
+                    variantCache[entry.gid] = { title: entry.gid, price: '0' };
+                    priceMap[entry.gid] = 0;
+                  });
               })
-              .catch(function () {
-                variantCache[entry.gid] = { title: entry.gid, price: '0' };
-                priceMap[entry.gid] = 0;
-              });
-          }),
-        )
-          .then(function () {
+            );
+
+        return variantFetchPromise          .then(function () {
             applyStorefrontEnrichment(bundle, priceMap, variantCache);
             var handles = [];
             for (var hsi = 0; hsi < bundle.steps.length; hsi++) {
@@ -707,20 +712,24 @@
                 if (ph && handles.indexOf(ph) < 0) handles.push(ph);
               }
             }
-            return Promise.all(
-              handles.map(function (h) {
-                return fetch(
-                  joinRoot('products/' + encodeURIComponent(h) + '.js'),
-                  { headers: { Accept: 'application/json' } },
-                )
-                  .then(function (r) {
-                    return r.ok ? r.json() : null;
+            // Prévisualisation admin : images viennent de storefront.imageUrl → pas de fetch handles
+            var handleFetchPromise = (explicitBundleData || handles.length === 0)
+              ? Promise.resolve()
+              : Promise.all(
+                  handles.map(function (h) {
+                    return fetch(
+                      joinRoot('products/' + encodeURIComponent(h) + '.js'),
+                      { headers: { Accept: 'application/json' } },
+                    )
+                      .then(function (r) {
+                        return r.ok ? r.json() : null;
+                      })
+                      .then(function (j) {
+                        if (j) productJsonByHandle[h] = j;
+                      });
                   })
-                  .then(function (j) {
-                    if (j) productJsonByHandle[h] = j;
-                  });
-              }),
-            );
+                );
+            return handleFetchPromise;
           })
           .then(function () {
           loading.hidden = true;
@@ -1728,6 +1737,13 @@
             next.textContent = isLast ? txtAddToCart : txtNext;
             next.addEventListener('click', function () {
               errBox.hidden = true;
+
+              // Mode prévisualisation admin : navigation uniquement, pas d'ajout au panier
+              if (explicitBundleData && explicitBundleData.__editorMode) {
+                if (!isLast) { state.stepIndex++; render(); }
+                return;
+              }
+
               if (!isLast) {
                 var vStep = validateStepRules(
                   bundle,
@@ -1927,8 +1943,10 @@
             footer.appendChild(nav);
             inner.appendChild(footer);
 
-            // Mise à jour du prix natif du thème Shopify (page produit)
-            syncThemeProductPrice();
+            // Mise à jour du prix natif du thème Shopify (page produit uniquement, pas en mode prévisualisation)
+            if (!explicitBundleData || !explicitBundleData.__editorMode) {
+              syncThemeProductPrice();
+            }
           }
 
           render();
