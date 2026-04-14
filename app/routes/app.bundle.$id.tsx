@@ -430,43 +430,128 @@ export default function AppBundleDetail() {
 import {
   useRouteError,
   isRouteErrorResponse,
+  useNavigate,
 } from "@remix-run/react";
-import { Box, Page, Layout, Card, Text, BlockStack } from "@shopify/polaris";
+import { useEffect } from "react";
+import {
+  Box, Page, Layout, Card, Text, BlockStack, Button, InlineStack,
+} from "@shopify/polaris";
 
 export function ErrorBoundary() {
   const error = useRouteError();
-  console.error("ErrorBoundary caught an error:", error);
+  const navigate = useNavigate();
+  console.error("[SAR Bundle] ErrorBoundary:", error);
 
-  let errorMessage = "";
-  if (isRouteErrorResponse(error)) {
-    const dataStr = typeof error.data === "object" ? JSON.stringify(error.data, null, 2) : error.data;
-    errorMessage = `${error.status} ${error.statusText}\n${dataStr}`;
-  } else if (error instanceof Error) {
-    errorMessage = `${error.name}: ${error.message}\n${error.stack}`;
-  } else {
-    errorMessage = JSON.stringify(error, null, 2);
-  }
+  // Erreur 404 : bundle introuvable
+  const is404 = isRouteErrorResponse(error) && error.status === 404;
+
+  // Erreur "stale client" : arrive après un redéploiement ou expiration de session.
+  // React tente de réconcilier avec de vieux chunks JS → full reload nécessaire.
+  const isStaleOrServerError =
+    !is404 &&
+    (error instanceof Error
+      ? error.message === "undefined" ||
+        error.message === "" ||
+        error.message?.toLowerCase().includes("unexpected server error") ||
+        error.message?.toLowerCase().includes("minified react")
+      : isRouteErrorResponse(error) && error.status >= 500);
+
+  // Auto-reload pour les erreurs transitoires (stale client, déploiement)
+  useEffect(() => {
+    if (isStaleOrServerError) {
+      const t = setTimeout(() => window.location.reload(), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [isStaleOrServerError]);
 
   return (
-    <Page title="Une erreur s'est produite">
+    <Page>
       <Layout>
         <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text as="h2" variant="headingLg" tone="critical">
-                Erreur de rendu du bundle
-              </Text>
-              <Box
-                padding="400"
-                background="bg-surface-critical"
-                borderRadius="200"
-              >
-                <div style={{ color: "var(--p-color-text-critical)", whiteSpace: "pre-wrap", overflowX: "auto" }}>
-                  {errorMessage}
-                </div>
-              </Box>
-            </BlockStack>
-          </Card>
+          <div style={{ maxWidth: 560, margin: "40px auto" }}>
+            <Card>
+              <BlockStack gap="400">
+                {isStaleOrServerError ? (
+                  // Cas 1 : session expirée / nouveau déploiement
+                  <>
+                    <InlineStack gap="300" blockAlign="center">
+                      <span style={{ fontSize: 36 }}>🔄</span>
+                      <BlockStack gap="100">
+                        <Text as="h2" variant="headingMd">
+                          Rechargement en cours…
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          L’application s’est mise à jour. Rechargement dans 3 s…
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    <InlineStack gap="200">
+                      <Button variant="primary" onClick={() => window.location.reload()}>
+                        Recharger maintenant
+                      </Button>
+                      <Button onClick={() => navigate("/app/bundles")}>
+                        Retour aux bundles
+                      </Button>
+                    </InlineStack>
+                  </>
+                ) : is404 ? (
+                  // Cas 2 : bundle introuvable
+                  <>
+                    <InlineStack gap="300" blockAlign="center">
+                      <span style={{ fontSize: 36 }}>🗂️</span>
+                      <BlockStack gap="100">
+                        <Text as="h2" variant="headingMd">
+                          Bundle introuvable
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Ce bundle n’existe pas ou a été supprimé.
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    <Button variant="primary" onClick={() => navigate("/app/bundles")}>
+                      Voir tous les bundles
+                    </Button>
+                  </>
+                ) : (
+                  // Cas 3 : erreur inattendue avec détails
+                  <>
+                    <InlineStack gap="300" blockAlign="center">
+                      <span style={{ fontSize: 36 }}>⚠️</span>
+                      <BlockStack gap="100">
+                        <Text as="h2" variant="headingMd" tone="critical">
+                          Erreur inattendue
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Une erreur s’est produite lors du chargement.
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    <Box
+                      padding="300"
+                      background="bg-surface-critical"
+                      borderRadius="200"
+                    >
+                      <Text as="p" variant="bodySm">
+                        {isRouteErrorResponse(error)
+                          ? `${error.status} ${error.statusText}`
+                          : error instanceof Error
+                            ? error.message
+                            : "Erreur inconnue"}
+                      </Text>
+                    </Box>
+                    <InlineStack gap="200">
+                      <Button variant="primary" onClick={() => window.location.reload()}>
+                        Réessayer
+                      </Button>
+                      <Button onClick={() => navigate("/app/bundles")}>
+                        Retour aux bundles
+                      </Button>
+                    </InlineStack>
+                  </>
+                )}
+              </BlockStack>
+            </Card>
+          </div>
         </Layout.Section>
       </Layout>
     </Page>
