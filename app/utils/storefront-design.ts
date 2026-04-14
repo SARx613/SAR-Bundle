@@ -66,6 +66,7 @@ export type StorefrontBlock =
   | {
       id: string;
       name?: string;
+  isHidden?: boolean;
       type: "heading";
       text: string;
       tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
@@ -74,6 +75,7 @@ export type StorefrontBlock =
   | {
       id: string;
       name?: string;
+  isHidden?: boolean;
       type: "text";
       text: string;
       style: TextStyleBlock;
@@ -81,12 +83,14 @@ export type StorefrontBlock =
   | {
       id: string;
       name?: string;
+  isHidden?: boolean;
       type: "image";
       url: string | null;
       alt: string;
       style: TextStyleBlock & { maxWidth?: string };
     }
-  | { id: string; name?: string; type: "spacer"; height: number };
+  | { id: string; name?: string;
+  isHidden?: boolean; type: "spacer"; height: number };
 
 export type StorefrontDesignV1 = {
   version: 1;
@@ -129,6 +133,7 @@ export type StorefrontDesignV1 = {
 export type HeroBlock = {
   id: string;
   name?: string;
+  isHidden?: boolean;
   type: "hero";
   headline: string;
   subtext?: string;
@@ -139,6 +144,7 @@ export type HeroBlock = {
 export type SplitBlock = {
   id: string;
   name?: string;
+  isHidden?: boolean;
   type: "split";
   title: string;
   body: string;
@@ -149,6 +155,7 @@ export type SplitBlock = {
 export type StepBarBlock = {
   id: string;
   name?: string;
+  isHidden?: boolean;
   type: "step_bar";
   preset?: "default" | "circles" | "lines" | "minimal" | "custom";
   style?: {
@@ -171,6 +178,7 @@ export type StepBarBlock = {
 export type ProductListBlock = {
   id: string;
   name?: string;
+  isHidden?: boolean;
   type: "product_list";
   source?: "step_pick" | "collection" | "all_products";
   collectionHandle?: string;
@@ -212,6 +220,7 @@ export type UpsellItem = {
 export type UpsellBlock = {
   id: string;
   name?: string;
+  isHidden?: boolean;
   title: string;
   type: "upsell";
   behavior: "single" | "multiple";

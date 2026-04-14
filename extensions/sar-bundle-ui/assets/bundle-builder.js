@@ -821,32 +821,38 @@
 
           function renderStepBarBlock(wrapEl, b, ctx) {
             var st = b.style || {};
-            // Moins de 2 étapes : afficher un placeholder discret en mode éditeur
+            // Moins de 2 étapes : masquage transparent en production. En éditeur, on continue normalement
+            var isInteractive = ctx && ctx.__explicitBundleData && ctx.__explicitBundleData.__editorMode;
             if (!ctx || !ctx.steps || ctx.steps.length < 2) {
-              var ph = document.createElement('div');
-              ph.style.cssText = 'padding:12px 16px;background:#f6f6f7;border:1.5px dashed #c5c5c5;border-radius:6px;color:#999;font-size:13px;text-align:center;';
-              ph.textContent = 'Barre d\u2019étapes — visible à partir de 2 étapes';
-              wrapEl.appendChild(ph);
+              if (isInteractive) {
+                var ph = document.createElement('div');
+                ph.style.cssText = 'padding:12px 16px;background:#f6f6f7;border:1.5px dashed #c5c5c5;border-radius:6px;color:#999;font-size:13px;text-align:center;';
+                ph.textContent = 'Barre d’étapes — au moins 2 étapes requises pour l’affichage';
+                wrapEl.appendChild(ph);
+              }
               return;
             }
+
             var bar = document.createElement('div');
-            bar.className = 'sar-stepbar';
+            bar.className = 'stepBar-module__step__rq sbb-overflow-hidden sbb-flex-1';
+            if (st.fontSize) bar.style.fontFamily = 'inherit'; // or specific font
+
+            var content = document.createElement('div');
+            content.className = 'stepBar-module__step_content__pF sbb-flex sbb-leading-[normal]';
+            content.style.transform = 'translate3d(0px, 0px, 0px)';
+            content.style.display = 'flex';
+            content.style.justifyContent = 'space-between';
 
             var activeIdx = ctx.stepIndex;
-            var isShowLine = st.showLine !== false;
 
-            // Set CSS vars for the whole bar
-            bar.style.setProperty('--sar-stepbar-borderColor', st.borderColor || 'transparent');
-            bar.style.setProperty('--sar-stepbar-lineColor', st.lineColor || st.borderColor || '#e1e3e5');
-            bar.style.setProperty('--sar-stepbar-active-bg', st.activeBg || '#555555');
-            bar.style.setProperty('--sar-stepbar-completed-bg', st.completedBg || st.activeBg || '#555555');
-            bar.style.setProperty('--sar-stepbar-inactive-bg', st.inactiveBg || '#f1f1f1');
-            bar.style.setProperty('--sar-stepbar-active-text', st.activeTextColor || '#ffffff');
-            bar.style.setProperty('--sar-stepbar-inactive-text', st.inactiveTextColor || '#999999');
-            bar.style.setProperty('--sar-stepbar-hover-bg', st.hoverBg || '');
-            bar.style.setProperty('--sar-stepbar-hover-text', st.hoverTextColor || '');
-            bar.style.setProperty('--sar-stepbar-label-color', st.labelColor || '#666');
-            if (st.fontSize) bar.style.setProperty('--sar-stepbar-font-size', st.fontSize);
+            // default colors that can be overridden by st
+            var activeBg = st.activeBg || '#555555';
+            var activeColor = st.activeTextColor || '#ffffff';
+            var completedBg = st.completedBg || st.activeBg || '#555555';
+            var inactiveBg = st.inactiveBg || '#f1f1f1';
+            var inactiveColor = st.inactiveTextColor || '#999999';
+            var lineColor = st.lineColor || st.borderColor || '#e1e3e5';
+            var labelColor = st.labelColor || '#666';
 
             for (var i = 0; i < ctx.steps.length; i++) {
               (function(idx) {
@@ -855,56 +861,79 @@
                 var isCompleted = idx < activeIdx;
 
                 var item = document.createElement('div');
-                item.className = 'sar-stepbar__item' + (isActive ? ' active' : '') + (isCompleted ? ' completed' : '');
-                item.style.flex = '1';
+                item.className = 'stepBar-module__step_item__Uy sbb-text-center sbb-relative sbb-w-full sbb-px-[4px]';
+                item.style.flex = '0 0 ' + (100 / ctx.steps.length) + '%';
                 item.style.position = 'relative';
                 item.style.textAlign = 'center';
                 item.style.cursor = 'pointer';
 
-                // Horizontal Line
-                if (idx < ctx.steps.length - 1 && isShowLine) {
-                  var line = document.createElement("div");
-                  line.className = "sar-stepbar__line";
+                // Préfixe Line (sauf pour le dernier si on voulait inverser, mais l'html client met le prefix sur l'actuel, avec left: 50%!)
+                // Le HTML du client montre le prefix_line partout sauf le premier?
+                // En fait dans le HTML client, il y a un prefix (left: 50%) sur les items, et visiblement le parent overlap.
+                // On met la ligne uniquement si idx < length - 1, et elle part du centre de cet element vers la droite
+                if (idx < ctx.steps.length - 1) {
+                  var line = document.createElement('div');
+                  line.className = 'stepBar-module__step_item_prefix__BA sbb-absolute sbb-w-full sbb-h-px sbb-z-0 sbb-left-0 sbb-top-[24px]';
+                  line.style.position = 'absolute';
+                  line.style.width = '100%';
+                  line.style.height = '1px';
+                  line.style.zIndex = '0';
+                  line.style.left = '50%';
+                  line.style.top = '24px';
+                  line.style.backgroundColor = lineColor;
                   item.appendChild(line);
                 }
 
-                // Circle Icon/Number
-                var circle = document.createElement("div");
-                circle.className = "sar-stepbar__icon-circle";
+                // Icon / Circle
+                var circleWrap = document.createElement('div');
+                circleWrap.className = 'stepBar-module__step_item_icon__id sbb-relative sbb-z-1 sbb-mx-auto sbb-mb-1 sbb-rounded-full sbb-flex sbb-items-center sbb-justify-center';
+                circleWrap.style.position = 'relative';
+                circleWrap.style.zIndex = '1';
+                circleWrap.style.margin = '0 auto 4px';
+                circleWrap.style.borderRadius = '50%';
+                circleWrap.style.display = 'flex';
+                circleWrap.style.alignItems = 'center';
+                circleWrap.style.justifyContent = 'center';
+                circleWrap.style.width = '48px';
+                circleWrap.style.height = '48px';
 
-                if (stepInfo.imageUrl) {
-                  var img = document.createElement('img');
-                  img.src = stepInfo.imageUrl;
-                  img.style.width = '24px';
-                  img.style.height = '24px';
-                  img.style.objectFit = 'contain';
-                  circle.appendChild(img);
+                if (isCompleted) {
+                  circleWrap.style.backgroundColor = completedBg;
+                  circleWrap.style.color = activeColor;
+                  circleWrap.innerHTML = '<span class="icon-module__root__Vo" style="min-width: 24px; display:inline-flex; align-items:center; justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>';
+                } else if (isActive) {
+                  circleWrap.style.backgroundColor = activeBg;
+                  circleWrap.style.color = activeColor;
+                  circleWrap.style.fontSize = '20px';
+                  circleWrap.textContent = String(idx + 1);
                 } else {
-                  var span = document.createElement('span');
-                  span.textContent = String(idx + 1);
-                  span.style.fontSize = '16px';
-                  span.style.fontWeight = '600';
-                  circle.appendChild(span);
+                  circleWrap.style.backgroundColor = inactiveBg;
+                  circleWrap.style.color = inactiveColor;
+                  circleWrap.style.fontSize = '20px';
+                  circleWrap.textContent = String(idx + 1);
                 }
-                item.appendChild(circle);
 
-                // Label
+                item.appendChild(circleWrap);
+
+                // Texte name
                 var label = document.createElement('div');
-                label.className = 'sar-stepbar__label';
+                label.className = 'stepBar-module__step_item_text_cosmetic__Sa step_item_text';
                 label.textContent = (stepInfo.name || 'Étape ' + (idx + 1)).slice(0, 24);
-                label.style.fontSize = 'var(--sar-stepbar-font-size, 12px)';
-                label.style.color = isActive ? '#000' : 'var(--sar-stepbar-label-color)';
+                label.style.fontSize = st.fontSize || '16px';
+                label.style.color = isActive ? '#000' : labelColor;
                 label.style.fontWeight = isActive ? '600' : '400';
                 item.appendChild(label);
 
-                item.addEventListener('click', function(e) {
+                item.addEventListener('click', function() {
                   state.stepIndex = idx;
                   render();
                 });
 
-                bar.appendChild(item);
+                content.appendChild(item);
               })(i);
             }
+
+            bar.appendChild(content);
             wrapEl.appendChild(bar);
           }
 
@@ -1106,18 +1135,24 @@
 
               var blockWrap = wrap;
               var isInteractive = ctx.__explicitBundleData && ctx.__explicitBundleData.__editorMode;
+
+              // 1. Gestion de la visibilité
+              if (b.isHidden && !isInteractive) continue; // Totalement masqué sur la boutique réelle
+
               if (isInteractive) {
                 blockWrap = document.createElement('div');
                 blockWrap.style.position = 'relative';
                 blockWrap.style.transition = 'all 0.2s';
                 blockWrap.style.borderRadius = '4px';
                 blockWrap.style.cursor = 'pointer';
+                if (b.isHidden) blockWrap.style.opacity = '0.45'; // Semi-transparent dans l'éditeur
+
                 // data-block-id pour le bridge hover (admin sidebar → iframe)
                 blockWrap.setAttribute('data-block-id', b.id);
-                // Bordure au bloc sélectionné
+                // Bordure forte au bloc sélectionné
                 if (ctx.__explicitBundleData.__selectedBlockId === b.id) {
-                  blockWrap.style.boxShadow = '0 0 0 2px var(--p-color-border-interactive-focus)';
-                  blockWrap.style.background = 'var(--p-color-bg-surface-secondary-hover)';
+                  blockWrap.style.outline = '2px solid #2C6ECB';
+                  blockWrap.style.background = 'var(--p-color-bg-surface-secondary-hover, rgba(0,0,0,0.02))';
                 }
                 blockWrap.addEventListener('click', (function(id) {
                   return function(e) {
@@ -1127,11 +1162,13 @@
                 })(b.id));
 
                 blockWrap.addEventListener('mouseenter', function(e) {
-                  e.currentTarget.style.boxShadow = '0 0 0 2px var(--p-color-border-interactive-focus)';
+                  if (ctx.__explicitBundleData.__selectedBlockId !== b.id) {
+                    e.currentTarget.style.outline = '2px solid #2C6ECB';
+                  }
                 });
                 blockWrap.addEventListener('mouseleave', function(e) {
                   if (ctx.__explicitBundleData.__selectedBlockId !== b.id) {
-                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.outline = 'none';
                   }
                 });
               }

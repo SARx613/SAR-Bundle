@@ -381,7 +381,6 @@ export function SidebarLevel2({
   onBlockClick,
   activeTab,
   onTabChange,
-  hiddenBlocks,
   onToggleBlockVisibility,
 }: {
   stepIndex: number;
@@ -395,8 +394,7 @@ export function SidebarLevel2({
   onBlockClick: (blockId: string) => void;
   activeTab: number;
   onTabChange: (t: number) => void;
-  hiddenBlocks: Set<string>;
-  onToggleBlockVisibility: (blockId: string) => void;
+  onToggleBlockVisibility: (blockId: string, isHidden: boolean) => void;
 }) {
   const shopifyBridge = useAppBridge();
   const safeDesign = ensurePermanentProductBlock(design);
@@ -843,8 +841,8 @@ export function SidebarLevel2({
                       onDelete={() => deleteBlock(block.id)}
                       onDuplicate={() => duplicateBlock(block.id)}
                       isLocked={false}
-                      isHidden={hiddenBlocks.has(block.id)}
-                      onToggleVisibility={() => onToggleBlockVisibility(block.id)}
+                      isHidden={block.isHidden}
+                      onToggleVisibility={() => onToggleBlockVisibility(block.id, !block.isHidden)}
                     />
                   ))}
                 </BlockStack>

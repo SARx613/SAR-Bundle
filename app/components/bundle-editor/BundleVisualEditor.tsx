@@ -210,9 +210,6 @@ export function BundleVisualEditor({
   setForm: Dispatch<SetStateAction<BundleFormState>>;
 }) {
   const [nav, setNav] = useState<SidebarLevel>({ level: 1 });
-  // Lifted from SidebarLevel2 so it can be shared with the preview
-  const [hiddenBlocks, setHiddenBlocks] = useState<Set<string>>(new Set());
-
   const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
@@ -324,12 +321,6 @@ export function BundleVisualEditor({
           },
         }));
       }
-      // Remove from hidden set if present
-      setHiddenBlocks((prev) => {
-        const next = new Set(prev);
-        next.delete(blockId);
-        return next;
-      });
       setNav((n) =>
         n.level === 3 ? { level: 2, stepIndex: n.stepIndex, activeTab: 0 } : n,
       );
@@ -337,14 +328,39 @@ export function BundleVisualEditor({
     [setForm],
   );
 
-  const toggleBlockVisibility = useCallback((blockId: string) => {
-    setHiddenBlocks((prev) => {
-      const next = new Set(prev);
-      if (next.has(blockId)) next.delete(blockId);
-      else next.add(blockId);
+  const toggleBlockVisibility = useCallback((blockId: string, forceToggle?: boolean) => {
+    setForm((f) => {
+      const next = { ...f };
+      let found = false;
+
+      // Update in stepOverrides if currently browsing a step
+      if (nav.level === 3 || next.storefrontDesign.stepDesigns?.[nav.stepIndex]) {
+        const key = String(nav.stepIndex);
+        const override = next.storefrontDesign.stepDesigns?.[key];
+        if (override) {
+          next.storefrontDesign.stepDesigns[key] = override.map((b) => {
+            if (b.id === blockId) {
+              found = true;
+              return { ...b, isHidden: forceToggle !== undefined ? forceToggle : !b.isHidden };
+            }
+            return b;
+          });
+        }
+      }
+
+      // Always also update global if not found in override or in global nav
+      if (!found || nav.level === 2) {
+        next.storefrontDesign.blocks = next.storefrontDesign.blocks.map((b) => {
+          if (b.id === blockId) {
+            return { ...b, isHidden: forceToggle !== undefined ? forceToggle : !b.isHidden };
+          }
+          return b;
+        });
+      }
+
       return next;
     });
-  }, []);
+  }, [setForm, nav]);
 
   const addStep = () => {
     setForm((f) => ({ ...f, steps: [...f.steps, emptyStep(f.steps.length)] }));
@@ -600,7 +616,6 @@ export function BundleVisualEditor({
           }
           activeTab={nav.activeTab}
           onTabChange={(t) => setNav({ ...nav, activeTab: t })}
-          hiddenBlocks={hiddenBlocks}
           onToggleBlockVisibility={toggleBlockVisibility}
         />
       );
