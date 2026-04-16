@@ -14,7 +14,6 @@
   background: var(--sar-color-bg, transparent);
   border: 1px solid var(--sar-color-border, #e1e3e5);
   border-radius: var(--sar-radius, 8px);
-  padding: var(--sar-padding, 1.25rem);
   max-width: 100%;
 }
 
@@ -112,6 +111,7 @@
 .sar-stepbar__item.completed .sar-stepbar__line {
   background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
 }
+
 .sar-stepbar__icon-circle {
   width: 48px;
   height: 48px;
@@ -136,20 +136,20 @@
   object-fit: contain;
 }
 
-.sar-stepbar__item.active 
-.sar-stepbar__item.completed .sar-stepbar__line {
+.sar-stepbar__item.active .sar-stepbar__item.completed .sar-stepbar__line {
   background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
 }
+
 .sar-stepbar__icon-circle {
   background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #1a1a1a));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
 
-.sar-stepbar__item.completed 
-.sar-stepbar__item.completed .sar-stepbar__line {
+.sar-stepbar__item.completed .sar-stepbar__item.completed .sar-stepbar__line {
   background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
 }
+
 .sar-stepbar__icon-circle {
   background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
   color: var(--sar-stepbar-active-text, #fff);
@@ -157,10 +157,10 @@
 }
 
 /* Hover effects */
-.sar-stepbar__item:not(.active):not(.completed):hover 
-.sar-stepbar__item.completed .sar-stepbar__line {
+.sar-stepbar__item:not(.active):not(.completed):hover .sar-stepbar__item.completed .sar-stepbar__line {
   background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
 }
+
 .sar-stepbar__icon-circle {
   background: var(--sar-stepbar-hover-bg, var(--sar-color-bg-subtle, #f0f7f5));
   color: var(--sar-stepbar-hover-text, var(--sar-color-primary, #1a1a1a));
@@ -190,7 +190,7 @@
   background: #fff;
   border: 1px solid #e1e3e5;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .sar-bundle__upsell-item {
@@ -359,7 +359,7 @@
 
 .sar-bundle__product-atc-btn:hover {
   opacity: 0.9;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .sar-bundle__product--overlay .sar-bundle__product-atc-btn,
