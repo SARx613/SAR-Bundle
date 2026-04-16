@@ -6,7 +6,6 @@ application_url = "https://sar-bundle.onrender.com"
 embedded = true
 
 [build]
-# Évite d’écraser App URL / App Proxy avec un tunnel trycloudflare quand tu lances `shopify app dev` en local.
 automatically_update_urls_on_dev = false
 
 [webhooks]
@@ -17,6 +16,10 @@ api_version = "2026-04"
   uri = "/webhooks/app/scopes_update"
 
   [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+
+  [[webhooks.subscriptions]]
   topics = [ "app/uninstalled" ]
   uri = "/webhooks/app/uninstalled"
 
@@ -24,18 +27,12 @@ api_version = "2026-04"
   topics = [ "products/update" ]
   uri = "/webhooks/products/update"
 
-  [[webhooks.subscriptions]]
-  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
-  uri = "/webhooks/compliance"
-
-
 [access_scopes]
-# Aligner avec la variable SCOPES sur l’hébergement si elle est définie.
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products,write_products,write_files,read_files,read_orders"
+scopes = "read_files,read_orders,read_products,write_files,write_products"
 
 [auth]
-redirect_urls = ["https://sar-bundle.onrender.com/auth/callback"]
+redirect_urls = [ "https://sar-bundle.onrender.com/auth/callback" ]
 
 [app_proxy]
 url = "https://sar-bundle.onrender.com/apps/sar-bundle"

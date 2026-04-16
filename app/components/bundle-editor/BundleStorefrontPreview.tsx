@@ -208,17 +208,26 @@ function ProductGridPreview({
   if (block?.priceColor) containerStyle["--sar-product-price-color"] = block.priceColor;
 
   if (products.length === 0) {
+    let emptyMessage = "Aucun produit dans cette étape. Ajoutez des produits via l'onglet Paramètres.";
+    if (block?.source === "collection") {
+      emptyMessage = "Les produits de la collection sélectionnée s'afficheront ici sur votre boutique.";
+    } else if (block?.source === "all_products") {
+      emptyMessage = "L'ensemble de votre catalogue s'affichera ici sur votre boutique.";
+    }
+
     return (
       <div
         style={{
-          padding: "2rem",
+          padding: "3rem 2rem",
           textAlign: "center",
-          color: "var(--p-color-text-subdued, #999)",
+          color: "var(--p-color-text-subdued, #6d7175)",
           border: "2px dashed var(--p-color-border, #e1e3e5)",
           borderRadius: 8,
+          background: "var(--p-color-bg-surface-secondary, #f4f6f8)",
         }}
       >
-        Aucun produit dans cette étape. Ajoutez des produits via l'onglet Paramètres.
+        <div style={{ fontSize: "2rem", marginBottom: "0.5rem", opacity: 0.5 }}>🛍️</div>
+        {emptyMessage}
       </div>
     );
   }

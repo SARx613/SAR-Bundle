@@ -14,7 +14,6 @@
   background: var(--sar-color-bg, transparent);
   border: 1px solid var(--sar-color-border, #e1e3e5);
   border-radius: var(--sar-radius, 8px);
-  padding: var(--sar-padding, 1.25rem);
   max-width: 100%;
 }
 
@@ -175,7 +174,7 @@
   background: #fff;
   border: 1px solid #e1e3e5;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .sar-bundle__upsell-item {
@@ -346,7 +345,7 @@
 
 .sar-bundle__product-atc-btn:hover {
   opacity: 0.9;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .sar-bundle__product--overlay .sar-bundle__product-atc-btn,
@@ -595,31 +594,22 @@
 /* ─── Admin layout overrides ─── */
 
 /*
- * Uniform page width: fullWidth removes Polaris's 800px content cap.
- * We add our own comfortable max-width + horizontal padding on all pages
- * so the content never touches the viewport edges on large screens.
+ * Uniform page width: force ALL pages to behave like fullWidth
+ * User requested maximum width (no max-width limit) and strictly 1.5rem padding everywhere.
  */
 .Polaris-Page {
+  max-width: none !important;
+  width: 100% !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
   padding-bottom: 3rem !important;
 }
 
-/* Inner content wrapper: max 1280px, centered, with comfortable side padding */
 .Polaris-Page__Content {
-  max-width: 1280px !important;
+  max-width: none !important;
   width: 100% !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-  padding-left: 1.5rem !important;
-  padding-right: 1.5rem !important;
-  box-sizing: border-box !important;
-}
-
-/* On large screens add more breathing room */
-@media (min-width: 1024px) {
-  .Polaris-Page__Content {
-    padding-left: 2.5rem !important;
-    padding-right: 2.5rem !important;
-  }
+  margin: 0 !important;
+  padding: 0 !important; /* Managed by the wrapper above */
 }
 
 /* Layout.Section always takes full available width */

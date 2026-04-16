@@ -931,15 +931,22 @@ function ProductListManager({
                 multiple: false,
                 action: "select",
               });
-              const rawSel = (selected as unknown as { selection?: Array<Record<string, unknown>> } | null)?.selection?.[0];
+              
+              // App Bridge v4 returns an array directly, v3 returns { selection: [] }
+              const payloadArray = Array.isArray(selected) 
+                ? selected 
+                : (selected as any)?.selection;
+                
+              const rawSel = Array.isArray(payloadArray) ? payloadArray[0] : null;
+              
               if (rawSel) {
                 const handle = typeof rawSel.handle === "string" ? rawSel.handle : "";
                 const title = typeof rawSel.title === "string" ? rawSel.title : "";
                 const gid = typeof rawSel.id === "string" ? rawSel.id : "";
-                const img = (rawSel.image && typeof (rawSel.image as { originalSrc?: unknown }).originalSrc === "string")
-                  ? (rawSel.image as { originalSrc: string }).originalSrc
-                  : (rawSel.image && typeof (rawSel.image as { url?: unknown }).url === "string")
-                  ? (rawSel.image as { url: string }).url
+                const img = (rawSel.image && typeof rawSel.image.originalSrc === "string")
+                  ? rawSel.image.originalSrc
+                  : (rawSel.image && typeof rawSel.image.url === "string")
+                  ? rawSel.image.url
                   : "";
                 onPatch({
                   collectionHandle: handle,

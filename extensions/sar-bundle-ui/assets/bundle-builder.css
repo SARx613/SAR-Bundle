@@ -21,7 +21,6 @@
   background: var(--sar-color-bg, transparent);
   border: 1px solid var(--sar-color-border, #e1e3e5);
   border-radius: var(--sar-radius, 8px);
-  padding: var(--sar-padding, 1.25rem);
   max-width: 100%;
 }
 
@@ -181,7 +180,7 @@
   background: #fff;
   border: 1px solid #e1e3e5;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .sar-bundle__upsell-item {
@@ -351,7 +350,7 @@
 
 .sar-bundle__product-atc-btn:hover {
   opacity: 0.9;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .sar-bundle__product--overlay .sar-bundle__product-atc-btn,
@@ -603,20 +602,24 @@
     align-items: stretch;
     gap: 0.5rem;
   }
+
   .sar-bundle__bundle-total {
     text-align: center;
     margin-bottom: 0.5rem;
   }
+
   .sar-bundle__bundle-total-value {
     text-align: center;
   }
+
   .sar-bundle__nav {
     display: flex;
     flex-direction: row;
     width: 100%;
     margin-top: 0;
   }
-  .sar-bundle__nav > .sar-bundle__btn {
+
+  .sar-bundle__nav>.sar-bundle__btn {
     flex: 1 1 50%;
   }
 }

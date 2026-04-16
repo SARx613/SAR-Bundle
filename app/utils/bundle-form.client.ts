@@ -265,10 +265,8 @@ function parseStorefrontDesign(raw: unknown): StorefrontDesignV2 {
 }
 
 export function emptyStep(sortOrder: number): UiStep {
-  // L'étape 1 démarre avec une disposition prête à l'emploi
-  const defaultStepDesign: import("./storefront-design").StorefrontDesignV2 | undefined =
-    sortOrder === 0
-      ? {
+  // Chaque nouvelle étape démarre avec cette disposition par défaut
+  const defaultStepDesign: import("./storefront-design").StorefrontDesignV2 | undefined = {
           version: 2,
           global: {},
           blocks: [
@@ -306,8 +304,7 @@ export function emptyStep(sortOrder: number): UiStep {
               source: "step_pick",
             } as import("./storefront-design").StorefrontBlockV2,
           ],
-        }
-      : undefined;
+        };
 
   return {
     sortOrder,
