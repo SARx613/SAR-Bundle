@@ -1,0 +1,65 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  SAR Bundle — Polaris Layout Overrides
+ *  Chargé APRÈS @shopify/polaris/build/esm/styles.css (via app.tsx links)
+ *  pour garantir la priorité sur toutes les pages admin.
+ *
+ *  Objectif : marges/padding identiques sur TOUTES les pages (y compris
+ *  l'éditeur visuel et ses niveaux imbriqués).
+ * ═══════════════════════════════════════════════════════════════════
+ */
+
+/* ─── Page wrapper ────────────────────────────────────────────────── */
+/*
+ * Force toutes les pages en pleine largeur avec un padding uniforme.
+ * On cible le sélecteur Polaris v12 exact pour battre sa spécificité.
+ */
+.Polaris-Page {
+  max-width: none !important;
+  width: 100% !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+  padding-bottom: 3rem !important;
+}
+
+/* Cas fullWidth : Polaris ajoute .Polaris-Page--fullWidth ; on le neutralise aussi */
+.Polaris-Page--fullWidth {
+  max-width: none !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+}
+
+/* Le contenu interne ne doit PAS re-ajouter du padding/margin */
+.Polaris-Page__Content {
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* ─── Layout ──────────────────────────────────────────────────────── */
+
+.Polaris-Layout {
+  max-width: 100% !important;
+}
+
+.Polaris-Layout__Section {
+  max-width: 100% !important;
+  flex: 1 1 100% !important;
+  min-width: 0 !important;
+}
+
+/* ─── Tabs panel ──────────────────────────────────────────────────── */
+
+.Polaris-Tabs__Panel {
+  max-width: 100% !important;
+}
+
+/* ─── Sidebar éditeur visuel ──────────────────────────────────────── */
+
+.sar-visual-editor-sidebar {
+  flex: 0 0 320px !important;
+  width: 320px !important;
+  min-width: 240px !important;
+  max-width: 360px !important;
+}

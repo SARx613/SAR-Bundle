@@ -591,48 +591,10 @@
   margin-top: 1rem;
 }
 
-/* ─── Admin layout overrides ─── */
 
+/* ─── Admin layout overrides ─────────────────────────────────────── */
 /*
- * Uniform page width: force ALL pages to behave like fullWidth
- * User requested maximum width (no max-width limit) and strictly 1.5rem padding everywhere.
+ * Ces règles sont maintenant dans app/styles/polaris-layout-overrides.css
+ * chargé via app.tsx links() APRÈS @shopify/polaris styles.
+ * Laissé ici comme fallback minimal (storefront preview hors admin).
  */
-.Polaris-Page {
-  max-width: none !important;
-  width: 100% !important;
-  padding-left: 1.5rem !important;
-  padding-right: 1.5rem !important;
-  padding-bottom: 3rem !important;
-}
-
-.Polaris-Page__Content {
-  max-width: none !important;
-  width: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important; /* Managed by the wrapper above */
-}
-
-/* Layout.Section always takes full available width */
-.Polaris-Layout__Section {
-  max-width: 100% !important;
-  flex: 1 1 100% !important;
-  min-width: 0 !important;
-}
-
-/* Layout itself full width */
-.Polaris-Layout {
-  max-width: 100% !important;
-}
-
-/* The visual editor tabs should not introduce extra horizontal constraints */
-.Polaris-Tabs__Panel {
-  max-width: 100% !important;
-}
-
-/* Sidebar card in the visual editor keeps stable width regardless of level */
-.sar-visual-editor-sidebar {
-  flex: 0 0 320px !important;
-  width: 320px !important;
-  min-width: 240px !important;
-  max-width: 360px !important;
-}

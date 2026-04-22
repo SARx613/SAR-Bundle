@@ -465,7 +465,7 @@ export function ErrorBoundary() {
   }, [isStaleOrServerError]);
 
   return (
-    <Page>
+    <Page fullWidth>
       <Layout>
         <Layout.Section>
           <div style={{ maxWidth: 560, margin: "40px auto" }}>

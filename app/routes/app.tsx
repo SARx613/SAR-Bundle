@@ -5,6 +5,7 @@ import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import layoutOverrides from "../styles/polaris-layout-overrides.css?url";
 import { Banner, BlockStack } from "@shopify/polaris";
 import { useEffect } from "react";
 
@@ -12,7 +13,11 @@ import { authenticate } from "../shopify.server";
 import { BILLING_PLANS, type BillingPlanHandle } from "../utils/billing-plans";
 import prisma from "../db.server";
 
-export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
+export const links = () => [
+  { rel: "stylesheet", href: polarisStyles },
+  // Overrides chargés APRÈS Polaris pour garantir la priorité sur toutes les pages
+  { rel: "stylesheet", href: layoutOverrides },
+];
 
 // ─── Helper: first day of current UTC month ────────────────────────────────
 
