@@ -2,7 +2,7 @@
 
 client_id = "35892f24b2856f9d3de4914a939f8a98"
 name = "SAR Bundle"
-application_url = "https://sar-bundle.onrender.com"
+application_url = "https://sar-bundle.vercel.app"
 embedded = true
 
 [build]
@@ -32,9 +32,9 @@ api_version = "2026-04"
 scopes = "read_files,read_orders,read_products,write_files,write_products"
 
 [auth]
-redirect_urls = [ "https://sar-bundle.onrender.com/auth/callback" ]
+redirect_urls = [ "https://sar-bundle.vercel.app/auth/callback" ]
 
 [app_proxy]
-url = "https://sar-bundle.onrender.com/apps/sar-bundle"
+url = "https://sar-bundle.vercel.app/apps/sar-bundle"
 subpath = "sar-bundle"
 prefix = "apps"
