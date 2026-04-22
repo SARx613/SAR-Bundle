@@ -3,44 +3,64 @@
  *  SAR Bundle — Polaris Layout Overrides
  *  Chargé APRÈS @shopify/polaris/build/esm/styles.css (via app.tsx)
  *
- *  STRATÉGIE :
- *  Polaris applique du padding à la fois sur .Polaris-Page ET sur
- *  .Polaris-Page__Content, ce qui crée un double-padding.
- *  → On remet .Polaris-Page à zéro (padding + margin)
- *  → On applique le padding uniforme UNIQUEMENT sur .Polaris-Page__Content
- *  → On harmonise le header (backAction / title / primaryAction)
+ *  STRATÉGIE v3 :
+ *  Polaris 12 calcule max-width via des CSS custom properties :
+ *    calc(--pg-layout-width-primary-max + --pg-layout-width-secondary-max + --pg-layout-width-inner-spacing-base)
+ *  On les redéfinit à :root pour neutraliser le calc(),
+ *  ET on force tous les sélecteurs directement avec !important
+ *  ET on couvre les propriétés logiques (padding-inline, margin-inline…)
  * ═══════════════════════════════════════════════════════════════════
  */
 
-/* ─── 1. Wrapper externe : reset TOTAL ──────────────────────────── */
+/* ─── 0. Neutralise les CSS vars Polaris pour le max-width ─────── */
 /*
- * Polaris met un margin: 0 auto + padding sur .Polaris-Page.
- * On les efface pour éviter le double-padding avec __Content.
+ * Même si !important ne gagne pas, le calc() lui-même devient 100%.
  */
-.Polaris-Page,
-.Polaris-Page--fullWidth {
+:root {
+  --pg-layout-width-primary-max: 100%;
+  --pg-layout-width-secondary-max: 0px;
+  --pg-layout-width-inner-spacing-base: 0px;
+}
+
+/* ─── 1. .Polaris-Page : reset TOTAL (pas de padding ici chez Polaris) */
+/*
+ * Polaris met : margin: 0 auto; max-width: calc(...); padding: 0
+ * On écrase margin et max-width. padding est déjà 0.
+ */
+.Polaris-Page {
   max-width: none !important;
   width: 100% !important;
-  /* Propriétés logiques ET classiques pour couvrir tous les navigateurs */
   margin: 0 !important;
   margin-inline: 0 !important;
   margin-block: 0 !important;
   padding: 0 !important;
   padding-inline: 0 !important;
   padding-block: 0 !important;
+  box-sizing: border-box !important;
 }
 
-/* ─── 2. Contenu : unique source de padding ─────────────────────── */
+/* Polaris ajoute .Polaris-Page--fullWidth pour max-width: none,
+   mais le margin: 0 auto reste. On le corrige explicitement. */
+.Polaris-Page--fullWidth {
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  margin-inline: 0 !important;
+  margin-block: 0 !important;
+}
+
+/* ─── 2. .Polaris-Page__Content : UNIQUE source du padding latéral */
 /*
- * C'est ICI et SEULEMENT ICI que le padding latéral est défini.
- * 1.5rem gauche/droite, 3rem en bas.
+ * C'est ici que Polaris met son padding réel.
+ * On remplace par un padding uniforme 1.5rem gauche/droite.
  */
 .Polaris-Page__Content {
   max-width: none !important;
   width: 100% !important;
   margin: 0 !important;
   margin-inline: 0 !important;
-  /* padding-top géré par les composants enfants (BlockStack gap, etc.) */
+  /* Pas de padding-top : géré par les BlockStack / composants enfants */
+  padding: 0 1.5rem 3rem !important;
   padding-top: 0 !important;
   padding-block-start: 0 !important;
   padding-left: 1.5rem !important;
@@ -48,6 +68,7 @@
   padding-inline: 1.5rem !important;
   padding-bottom: 3rem !important;
   padding-block-end: 3rem !important;
+  box-sizing: border-box !important;
 }
 
 /* ─── 3. En-tête de page (backAction / title / primaryAction) ────── */
@@ -60,7 +81,9 @@
   padding-right: 1.5rem !important;
   padding-inline: 1.5rem !important;
   padding-top: 1rem !important;
+  padding-block-start: 1rem !important;
   padding-bottom: 1rem !important;
+  padding-block-end: 1rem !important;
   max-width: none !important;
   width: 100% !important;
   box-sizing: border-box !important;
