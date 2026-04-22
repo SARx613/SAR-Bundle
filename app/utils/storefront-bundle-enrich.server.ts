@@ -107,10 +107,10 @@ function nodeToMeta(node: {
   const variantTitle = (node.title ?? "").trim() || "";
   const displayTitle =
     !variantTitle ||
-    variantTitle.toLowerCase() === "default title" ||
-    variantTitle === "Default Title"
+      variantTitle.toLowerCase() === "default title" ||
+      variantTitle === "Default Title"
       ? productTitle
-      : `${productTitle} – ${variantTitle}`;
+      : `${productTitle}`; // – ${variantTitle}`;
 
   const imageUrl =
     node.image?.url?.trim() ||
