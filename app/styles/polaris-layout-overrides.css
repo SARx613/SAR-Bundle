@@ -1,43 +1,72 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
  *  SAR Bundle — Polaris Layout Overrides
- *  Chargé APRÈS @shopify/polaris/build/esm/styles.css (via app.tsx links)
- *  pour garantir la priorité sur toutes les pages admin.
+ *  Chargé APRÈS @shopify/polaris/build/esm/styles.css (via app.tsx)
  *
- *  Objectif : marges/padding identiques sur TOUTES les pages (y compris
- *  l'éditeur visuel et ses niveaux imbriqués).
+ *  STRATÉGIE :
+ *  Polaris applique du padding à la fois sur .Polaris-Page ET sur
+ *  .Polaris-Page__Content, ce qui crée un double-padding.
+ *  → On remet .Polaris-Page à zéro (padding + margin)
+ *  → On applique le padding uniforme UNIQUEMENT sur .Polaris-Page__Content
+ *  → On harmonise le header (backAction / title / primaryAction)
  * ═══════════════════════════════════════════════════════════════════
  */
 
-/* ─── Page wrapper ────────────────────────────────────────────────── */
+/* ─── 1. Wrapper externe : reset TOTAL ──────────────────────────── */
 /*
- * Force toutes les pages en pleine largeur avec un padding uniforme.
- * On cible le sélecteur Polaris v12 exact pour battre sa spécificité.
+ * Polaris met un margin: 0 auto + padding sur .Polaris-Page.
+ * On les efface pour éviter le double-padding avec __Content.
  */
-.Polaris-Page {
-  max-width: none !important;
-  width: 100% !important;
-  padding-left: 1.5rem !important;
-  padding-right: 1.5rem !important;
-  padding-bottom: 3rem !important;
-}
-
-/* Cas fullWidth : Polaris ajoute .Polaris-Page--fullWidth ; on le neutralise aussi */
+.Polaris-Page,
 .Polaris-Page--fullWidth {
   max-width: none !important;
-  padding-left: 1.5rem !important;
-  padding-right: 1.5rem !important;
+  width: 100% !important;
+  /* Propriétés logiques ET classiques pour couvrir tous les navigateurs */
+  margin: 0 !important;
+  margin-inline: 0 !important;
+  margin-block: 0 !important;
+  padding: 0 !important;
+  padding-inline: 0 !important;
+  padding-block: 0 !important;
 }
 
-/* Le contenu interne ne doit PAS re-ajouter du padding/margin */
+/* ─── 2. Contenu : unique source de padding ─────────────────────── */
+/*
+ * C'est ICI et SEULEMENT ICI que le padding latéral est défini.
+ * 1.5rem gauche/droite, 3rem en bas.
+ */
 .Polaris-Page__Content {
   max-width: none !important;
   width: 100% !important;
   margin: 0 !important;
-  padding: 0 !important;
+  margin-inline: 0 !important;
+  /* padding-top géré par les composants enfants (BlockStack gap, etc.) */
+  padding-top: 0 !important;
+  padding-block-start: 0 !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+  padding-inline: 1.5rem !important;
+  padding-bottom: 3rem !important;
+  padding-block-end: 3rem !important;
 }
 
-/* ─── Layout ──────────────────────────────────────────────────────── */
+/* ─── 3. En-tête de page (backAction / title / primaryAction) ────── */
+/*
+ * Sur la page "Modifier le bundle", Polaris rend un .Polaris-Page-Header
+ * qui a son propre padding. On l'aligne avec __Content.
+ */
+.Polaris-Page-Header {
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+  padding-inline: 1.5rem !important;
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+  max-width: none !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* ─── 4. Layout / Sections ───────────────────────────────────────── */
 
 .Polaris-Layout {
   max-width: 100% !important;
@@ -49,13 +78,13 @@
   min-width: 0 !important;
 }
 
-/* ─── Tabs panel ──────────────────────────────────────────────────── */
+/* ─── 5. Tabs panel ──────────────────────────────────────────────── */
 
 .Polaris-Tabs__Panel {
   max-width: 100% !important;
 }
 
-/* ─── Sidebar éditeur visuel ──────────────────────────────────────── */
+/* ─── 6. Sidebar éditeur visuel ─────────────────────────────────── */
 
 .sar-visual-editor-sidebar {
   flex: 0 0 320px !important;
