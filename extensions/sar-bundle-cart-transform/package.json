@@ -35,6 +35,6 @@
     "@graphql-codegen/typescript-operations": "^5.1.0",
     "@shopify/shopify-function-test-helpers": "^1.0.0",
     "graphql": "^16.13.2",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.0"
   }
 }
