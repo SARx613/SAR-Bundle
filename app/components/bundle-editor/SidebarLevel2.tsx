@@ -123,6 +123,10 @@ import {
   TextInColumnsIcon,
   LayoutSidebarRightIcon,
   LayoutBlockIcon,
+  ButtonIcon,
+  MinusIcon,
+  QuestionCircleIcon,
+  ShieldCheckMarkIcon,
 } from "@shopify/polaris-icons";
 
 function blockIconSource(type: string) {
@@ -135,6 +139,10 @@ function blockIconSource(type: string) {
     case "spacer": return TextInColumnsIcon;
     case "hero": return LayoutBlockIcon;
     case "split": return LayoutSidebarRightIcon;
+    case "button": return ButtonIcon;
+    case "divider": return MinusIcon;
+    case "faq": return QuestionCircleIcon;
+    case "trust_badges": return ShieldCheckMarkIcon;
     default: return TextBlockIcon;
   }
 }
@@ -722,6 +730,16 @@ export function SidebarLevel2({
                 label="Espacement"
                 onClick={() => addBlock({ id: newBlockId(), type: "spacer", height: 24 })}
               />
+              <LibraryItem
+                icon={MinusIcon}
+                label="Séparateur"
+                onClick={() => addBlock({ id: newBlockId(), type: "divider", thickness: 1, lineStyle: "solid", spacing: 16 })}
+              />
+              <LibraryItem
+                icon={ShieldCheckMarkIcon}
+                label="Badges de confiance"
+                onClick={() => addBlock({ id: newBlockId(), type: "trust_badges", align: "center", iconSize: 32, items: [] })}
+              />
           </CategoryRow>
 
           <CategoryRow
@@ -757,6 +775,35 @@ export function SidebarLevel2({
                     type: "text",
                     text: "Nouveau texte",
                     style: { color: "var(--p-color-text)" },
+                  })
+                }
+              />
+              <LibraryItem
+                icon={ButtonIcon}
+                label="Bouton / CTA"
+                onClick={() =>
+                  addBlock({
+                    id: newBlockId(),
+                    type: "button",
+                    text: "Ajouter au panier",
+                    action: "scroll_to_bundle",
+                    fullWidth: false,
+                    style: {},
+                  })
+                }
+              />
+              <LibraryItem
+                icon={QuestionCircleIcon}
+                label="FAQ"
+                onClick={() =>
+                  addBlock({
+                    id: newBlockId(),
+                    type: "faq",
+                    allowMultipleOpen: false,
+                    items: [
+                      { id: newBlockId(), question: "Votre question ?", answer: "Votre réponse." },
+                    ],
+                    style: {},
                   })
                 }
               />

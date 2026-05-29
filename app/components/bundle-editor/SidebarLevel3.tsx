@@ -36,8 +36,14 @@ import {
   type StorefrontBlockV2,
   type StorefrontDesignV2,
   type TextStyleBlock,
+  type ButtonBlock,
+  type DividerBlock,
+  type FaqBlock,
+  type FaqItem,
+  type TrustBadgesBlock,
+  type TrustBadgeItem,
 } from "../../utils/storefront-design";
-import { blockDisplayLabel } from "../../utils/storefront-design";
+import { blockDisplayLabel, newBlockId } from "../../utils/storefront-design";
 import type { UiStep, UiStepProduct } from "../../utils/bundle-form.client";
 
 /* ────────────────────── Heading tags ────────────────────── */
@@ -1169,6 +1175,39 @@ function UpsellManager({
   );
 }
 
+/* ────────────────────── Upsell Style Fields ────────────────────── */
+
+function UpsellStyleFields({
+  block,
+  onPatch,
+}: {
+  block: import("../../utils/storefront-design").UpsellBlock;
+  onPatch: (patch: Partial<import("../../utils/storefront-design").UpsellBlock>) => void;
+}) {
+  const sty = block.style ?? {};
+  const set = (patch: Partial<NonNullable<typeof block.style>>) =>
+    onPatch({ style: { ...sty, ...patch } });
+  return (
+    <BlockStack gap="300">
+      <CollapsibleStyleSection title="Conteneur" id="sec-up-container" defaultOpen>
+        <BlockStack gap="300">
+          <ColorField label="Fond du conteneur" value={sty.containerBg ?? ""} onChange={(v) => set({ containerBg: v || undefined })} />
+          <ColorField label="Bordure" value={sty.borderColor ?? ""} onChange={(v) => set({ borderColor: v || undefined })} />
+          <ColorField label="Couleur du titre" value={sty.titleColor ?? ""} onChange={(v) => set({ titleColor: v || undefined })} />
+        </BlockStack>
+      </CollapsibleStyleSection>
+      <CollapsibleStyleSection title="Élément sélectionné" id="sec-up-selected">
+        <BlockStack gap="300">
+          <ColorField label="Fond sélectionné" value={sty.selectedBg ?? ""} onChange={(v) => set({ selectedBg: v || undefined })} />
+          <ColorField label="Bordure sélectionnée" value={sty.selectedBorderColor ?? ""} onChange={(v) => set({ selectedBorderColor: v || undefined })} />
+          <ColorField label="Couleur de la case" value={sty.checkboxColor ?? ""} onChange={(v) => set({ checkboxColor: v || undefined })} />
+          <ColorField label="Couleur du prix" value={sty.priceColor ?? ""} onChange={(v) => set({ priceColor: v || undefined })} />
+        </BlockStack>
+      </CollapsibleStyleSection>
+    </BlockStack>
+  );
+}
+
 /* ────────────────────── Block General Fields ────────────────────── */
 
 function BlockGeneralFields({
@@ -1326,6 +1365,193 @@ function BlockGeneralFields({
   if (block.type === "upsell") {
     return <UpsellManager block={block} onPatch={onPatch} />;
   }
+  if (block.type === "button") {
+    const btn = block as ButtonBlock;
+    return (
+      <BlockStack gap="300">
+        <TextField
+          label="Libellé"
+          value={btn.text}
+          onChange={(v) => onPatch({ text: v } as Partial<StorefrontBlockV2>)}
+          autoComplete="off"
+        />
+        <Select
+          label="Action au clic"
+          options={[
+            { label: "Faire défiler vers le bundle", value: "scroll_to_bundle" },
+            { label: "Ouvrir un lien (URL)", value: "url" },
+            { label: "Aucune", value: "none" },
+          ]}
+          value={btn.action ?? "scroll_to_bundle"}
+          onChange={(v) => onPatch({ action: v as ButtonBlock["action"] } as Partial<StorefrontBlockV2>)}
+        />
+        {btn.action === "url" ? (
+          <>
+            <TextField
+              label="URL"
+              value={btn.url ?? ""}
+              onChange={(v) => onPatch({ url: v || undefined } as Partial<StorefrontBlockV2>)}
+              autoComplete="off"
+              placeholder="https://…"
+            />
+            <Checkbox
+              label="Ouvrir dans un nouvel onglet"
+              checked={!!btn.openInNewTab}
+              onChange={(v) => onPatch({ openInNewTab: v } as Partial<StorefrontBlockV2>)}
+            />
+          </>
+        ) : null}
+        <Checkbox
+          label="Pleine largeur"
+          checked={!!btn.fullWidth}
+          onChange={(v) => onPatch({ fullWidth: v } as Partial<StorefrontBlockV2>)}
+        />
+      </BlockStack>
+    );
+  }
+  if (block.type === "divider") {
+    const dv = block as DividerBlock;
+    return (
+      <BlockStack gap="300">
+        <SliderNumericField
+          label="Épaisseur"
+          value={dv.thickness ?? 1}
+          onChange={(v) => onPatch({ thickness: Math.max(0, v) } as Partial<StorefrontBlockV2>)}
+          min={1}
+          max={12}
+        />
+        <Select
+          label="Style de ligne"
+          options={[
+            { label: "Pleine", value: "solid" },
+            { label: "Tirets", value: "dashed" },
+            { label: "Pointillés", value: "dotted" },
+          ]}
+          value={dv.lineStyle ?? "solid"}
+          onChange={(v) => onPatch({ lineStyle: v as DividerBlock["lineStyle"] } as Partial<StorefrontBlockV2>)}
+        />
+        <ColorField
+          label="Couleur"
+          value={dv.lineColor ?? ""}
+          onChange={(v) => onPatch({ lineColor: v || undefined } as Partial<StorefrontBlockV2>)}
+        />
+        <SliderNumericField
+          label="Espacement (haut/bas)"
+          value={dv.spacing ?? 16}
+          onChange={(v) => onPatch({ spacing: Math.max(0, v) } as Partial<StorefrontBlockV2>)}
+          min={0}
+          max={80}
+        />
+      </BlockStack>
+    );
+  }
+  if (block.type === "faq") {
+    const faq = block as FaqBlock;
+    const patchItems = (items: FaqItem[]) => onPatch({ items } as Partial<StorefrontBlockV2>);
+    return (
+      <BlockStack gap="300">
+        <Checkbox
+          label="Autoriser plusieurs réponses ouvertes"
+          checked={!!faq.allowMultipleOpen}
+          onChange={(v) => onPatch({ allowMultipleOpen: v } as Partial<StorefrontBlockV2>)}
+        />
+        {faq.items.map((it, idx) => (
+          <Box key={it.id} padding="300" background="bg-surface" borderStyle="solid" borderWidth="025" borderColor="border" borderRadius="200">
+            <BlockStack gap="200">
+              <TextField
+                label={`Question ${idx + 1}`}
+                value={it.question}
+                onChange={(v) => patchItems(faq.items.map((x) => (x.id === it.id ? { ...x, question: v } : x)))}
+                autoComplete="off"
+              />
+              <TextField
+                label="Réponse"
+                value={it.answer}
+                onChange={(v) => patchItems(faq.items.map((x) => (x.id === it.id ? { ...x, answer: v } : x)))}
+                multiline={3}
+                autoComplete="off"
+              />
+              <Button
+                tone="critical"
+                variant="plain"
+                icon={DeleteIcon}
+                onClick={() => patchItems(faq.items.filter((x) => x.id !== it.id))}
+              >
+                Supprimer
+              </Button>
+            </BlockStack>
+          </Box>
+        ))}
+        <Button
+          icon={PlusIcon}
+          onClick={() => patchItems([...faq.items, { id: newBlockId(), question: "", answer: "" }])}
+        >
+          Ajouter une question
+        </Button>
+      </BlockStack>
+    );
+  }
+  if (block.type === "trust_badges") {
+    const tb = block as TrustBadgesBlock;
+    const patchItems = (items: TrustBadgeItem[]) => onPatch({ items } as Partial<StorefrontBlockV2>);
+    return (
+      <BlockStack gap="300">
+        <Select
+          label="Alignement"
+          options={[
+            { label: "Gauche", value: "left" },
+            { label: "Centre", value: "center" },
+            { label: "Droite", value: "right" },
+          ]}
+          value={tb.align ?? "center"}
+          onChange={(v) => onPatch({ align: v as TrustBadgesBlock["align"] } as Partial<StorefrontBlockV2>)}
+        />
+        <SliderNumericField
+          label="Taille des icônes"
+          value={tb.iconSize ?? 32}
+          onChange={(v) => onPatch({ iconSize: Math.max(12, v) } as Partial<StorefrontBlockV2>)}
+          min={16}
+          max={96}
+        />
+        <ColorField
+          label="Couleur du texte"
+          value={tb.textColor ?? ""}
+          onChange={(v) => onPatch({ textColor: v || undefined } as Partial<StorefrontBlockV2>)}
+        />
+        {tb.items.map((it, idx) => (
+          <Box key={it.id} padding="300" background="bg-surface" borderStyle="solid" borderWidth="025" borderColor="border" borderRadius="200">
+            <BlockStack gap="200">
+              <ImageUploadField
+                label={`Icône / image ${idx + 1}`}
+                imageUrl={it.imageUrl ?? null}
+                onImageChange={(url) => patchItems(tb.items.map((x) => (x.id === it.id ? { ...x, imageUrl: url ?? undefined } : x)))}
+              />
+              <TextField
+                label="Libellé"
+                value={it.label}
+                onChange={(v) => patchItems(tb.items.map((x) => (x.id === it.id ? { ...x, label: v } : x)))}
+                autoComplete="off"
+              />
+              <Button
+                tone="critical"
+                variant="plain"
+                icon={DeleteIcon}
+                onClick={() => patchItems(tb.items.filter((x) => x.id !== it.id))}
+              >
+                Supprimer
+              </Button>
+            </BlockStack>
+          </Box>
+        ))}
+        <Button
+          icon={PlusIcon}
+          onClick={() => patchItems([...tb.items, { id: newBlockId(), label: "" }])}
+        >
+          Ajouter un badge
+        </Button>
+      </BlockStack>
+    );
+  }
   return null;
 }
 
@@ -1385,12 +1611,11 @@ export function SidebarLevel3({
     });
   };
 
-  const styleBlock =
-    "style" in block
-      ? (block.style as TextStyleBlock)
-      : { fontSize: "1rem", color: "var(--p-color-text)" };
+  const styleBlock = (("style" in block && block.style ? block.style : {}) as TextStyleBlock);
 
   const supportsTextPreset = block.type === "heading" || block.type === "text";
+  // Blocs qui partagent l'éditeur de style texte/conteneur (StyleFields)
+  const STYLE_FIELDS_TYPES = ["heading", "text", "image", "hero", "split", "button", "faq"];
 
   const backBtn = (
     <Tooltip content={stepName || "Mise en page"}>
@@ -1491,7 +1716,47 @@ export function SidebarLevel3({
                 autoComplete="off"
                 helpText="Ex: 4px, 8px, 999px"
               />
+              <InlineGrid columns={2} gap="200">
+                <TextField
+                  label="Padding vertical"
+                  value={(block as ProductListBlock).buttonPaddingY ?? ""}
+                  onChange={(v) => patchBlock({ buttonPaddingY: v || undefined } as Partial<StorefrontBlockV2>)}
+                  placeholder="10px"
+                  autoComplete="off"
+                />
+                <TextField
+                  label="Padding horizontal"
+                  value={(block as ProductListBlock).buttonPaddingX ?? ""}
+                  onChange={(v) => patchBlock({ buttonPaddingX: v || undefined } as Partial<StorefrontBlockV2>)}
+                  placeholder="16px"
+                  autoComplete="off"
+                />
+              </InlineGrid>
+              <InlineGrid columns={2} gap="200">
+                <TextField
+                  label="Bordure (épaisseur)"
+                  value={(block as ProductListBlock).buttonBorderWidth ?? ""}
+                  onChange={(v) => patchBlock({ buttonBorderWidth: v || undefined } as Partial<StorefrontBlockV2>)}
+                  placeholder="1px"
+                  autoComplete="off"
+                />
+                <ColorField
+                  label="Bordure (couleur)"
+                  value={(block as ProductListBlock).buttonBorderColor ?? ""}
+                  onChange={(v) => patchBlock({ buttonBorderColor: v || undefined } as Partial<StorefrontBlockV2>)}
+                />
+              </InlineGrid>
             </BlockStack>
+          </CollapsibleStyleSection>
+          <CollapsibleStyleSection title="Grille" id="sec-pl-grid-style">
+            <TextField
+              label="Espacement entre cartes (gap)"
+              value={(block as ProductListBlock).gap ?? ""}
+              onChange={(v) => patchBlock({ gap: v || undefined } as Partial<StorefrontBlockV2>)}
+              placeholder="16px"
+              autoComplete="off"
+              helpText="Ex: 8px, 16px, 24px"
+            />
           </CollapsibleStyleSection>
           <CollapsibleStyleSection title="Texte des produits" id="sec-pl-text-style">
             <BlockStack gap="300">
@@ -1508,12 +1773,39 @@ export function SidebarLevel3({
             </BlockStack>
           </CollapsibleStyleSection>
         </BlockStack>
-      ) : "style" in block ? (
-        <StyleFields
-          style={styleBlock}
-          onChange={(s) => patchBlock({ style: s } as Partial<StorefrontBlockV2>)}
-          showTextPreset={supportsTextPreset}
+      ) : block.type === "upsell" ? (
+        <UpsellStyleFields
+          block={block as import("../../utils/storefront-design").UpsellBlock}
+          onPatch={(patch) => patchBlock(patch as Partial<StorefrontBlockV2>)}
         />
+      ) : STYLE_FIELDS_TYPES.includes(block.type) ? (
+        <BlockStack gap="300">
+          <StyleFields
+            style={styleBlock}
+            onChange={(s) => patchBlock({ style: s } as Partial<StorefrontBlockV2>)}
+            showTextPreset={supportsTextPreset}
+          />
+          {block.type === "button" ? (
+            <CollapsibleStyleSection title="Survol (hover)" id="sec-btn-hover">
+              <BlockStack gap="300">
+                <ColorField
+                  label="Fond au survol"
+                  value={(block as ButtonBlock).style?.hoverBackground ?? ""}
+                  onChange={(v) =>
+                    patchBlock({ style: { ...styleBlock, hoverBackground: v || undefined } } as Partial<StorefrontBlockV2>)
+                  }
+                />
+                <ColorField
+                  label="Texte au survol"
+                  value={(block as ButtonBlock).style?.hoverColor ?? ""}
+                  onChange={(v) =>
+                    patchBlock({ style: { ...styleBlock, hoverColor: v || undefined } } as Partial<StorefrontBlockV2>)
+                  }
+                />
+              </BlockStack>
+            </CollapsibleStyleSection>
+          ) : null}
+        </BlockStack>
       ) : (
         <Text as="p" variant="bodySm" tone="subdued">
           Ce type de bloc n'a pas de styles configurables ici.

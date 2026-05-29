@@ -48,30 +48,37 @@ export async function enrichBundleStepProductsForStorefront(
 
   for (let i = 0; i < ids.length; i += CHUNK) {
     const chunk = ids.slice(i, i + CHUNK);
-    const res = await admin.graphql(
-      `${PRODUCT_DISPLAY_FIELDS}
-      ${VARIANT_DISPLAY_FIELDS}
-      query StorefrontBundleVariants($ids: [ID!]!) {
-        nodes(ids: $ids) {
-          ... on ProductVariant {
-            ...VariantDisplayFields
+    try {
+      const res = await admin.graphql(
+        `${PRODUCT_DISPLAY_FIELDS}
+        ${VARIANT_DISPLAY_FIELDS}
+        query StorefrontBundleVariants($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            ... on ProductVariant {
+              ...VariantDisplayFields
+            }
           }
-        }
-      }`,
-      { variables: { ids: chunk } },
-    );
-    const body = await res.json();
-    if (body.errors?.length) {
-      console.error("storefront enrich variants", body.errors);
-      continue;
-    }
-    const nodes = body.data?.nodes;
-    if (!Array.isArray(nodes)) continue;
+        }`,
+        { variables: { ids: chunk } },
+      );
+      const body = await res.json();
+      if (body.errors?.length) {
+        console.error("storefront enrich variants", body.errors);
+        continue;
+      }
+      const nodes = body.data?.nodes;
+      if (!Array.isArray(nodes)) continue;
 
-    for (const node of nodes) {
-      if (!node?.id) continue;
-      const meta = nodeToMeta(node);
-      if (meta) byVariantId.set(node.id, meta);
+      for (const node of nodes) {
+        if (!node?.id) continue;
+        const meta = nodeToMeta(node);
+        if (meta) byVariantId.set(node.id, meta);
+      }
+    } catch (err) {
+      // Réseau / throttling : on n'interrompt pas le chargement de la page.
+      // Le storefront retombe sur /variants/{id}.js pour les variantes non enrichies.
+      console.error("storefront enrich variants (chunk failed)", err);
+      continue;
     }
   }
 
@@ -102,6 +109,9 @@ function nodeToMeta(node: {
     featuredImage?: { url?: string | null } | null;
   } | null;
   image?: { url?: string | null } | null;
+  presentmentPrices?: {
+    nodes?: Array<{ price?: { amount?: string; currencyCode?: string } }> | null;
+  } | null;
 }): StepProductStorefrontMeta | null {
   const productTitle = (node.product?.title ?? "").trim() || "Produit";
   const variantTitle = (node.title ?? "").trim() || "";
@@ -110,7 +120,7 @@ function nodeToMeta(node: {
       variantTitle.toLowerCase() === "default title" ||
       variantTitle === "Default Title"
       ? productTitle
-      : `${productTitle}`; // – ${variantTitle}`;
+      : `${productTitle} — ${variantTitle}`;
 
   const imageUrl =
     node.image?.url?.trim() ||
@@ -118,7 +128,7 @@ function nodeToMeta(node: {
     null;
 
   const priceAmount = typeof node.price === "string" ? node.price : null;
-  const currencyCode = null; // Scalar doesn't include currency Code
+  const currencyCode = node.presentmentPrices?.nodes?.[0]?.price?.currencyCode ?? null;
   const compareAtAmount = typeof node.compareAtPrice === "string" ? node.compareAtPrice : null;
 
   return {

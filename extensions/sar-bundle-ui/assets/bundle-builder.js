@@ -772,6 +772,8 @@
                 el.style.setProperty('--sar-radius', br + 'px');
               }
             }
+            if (gc.fontBody) el.style.setProperty('--sar-font-body', gc.fontBody);
+            if (gc.fontHeading) el.style.setProperty('--sar-font-heading', gc.fontHeading);
           }
 
           var state = {
@@ -941,12 +943,20 @@
             var items = b.items || [];
             if (items.length === 0) return;
 
+            var sty = b.style || {};
+            var primary = 'var(--sar-color-primary, #72cff7)';
+            var selBorder = sty.selectedBorderColor || sty.checkboxColor || primary;
+            var selBg = sty.selectedBg || 'var(--sar-color-bg-subtle, #f0f7f5)';
+            var idleBorder = sty.borderColor || '#e1e3e5';
+            var checkColor = sty.checkboxColor || primary;
+            var priceColor = sty.priceColor || primary;
+
             var container = document.createElement('div');
             container.className = 'sar-bundle__upsell';
             container.style.margin = '24px 0';
             container.style.padding = '20px';
-            container.style.background = '#fff';
-            container.style.border = '1px solid #e1e3e5';
+            container.style.background = sty.containerBg || '#fff';
+            container.style.border = '1px solid ' + idleBorder;
             container.style.borderRadius = '12px';
             container.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
 
@@ -954,6 +964,7 @@
             title.style.marginBottom = '16px';
             title.style.fontSize = '18px';
             title.style.fontWeight = '700';
+            if (sty.titleColor) title.style.color = sty.titleColor;
             title.textContent = b.title || (bundle.translations && bundle.translations.label_upsell_title) || 'Extra Options';
             container.appendChild(title);
 
@@ -980,8 +991,8 @@
                 row.style.gap = '12px';
                 row.style.padding = '12px';
                 row.style.borderRadius = '8px';
-                row.style.border = '1px solid ' + (isSelected ? 'var(--sar-color-primary, #72cff7)' : '#e1e3e5');
-                row.style.background = isSelected ? 'var(--sar-color-bg-subtle, #f0f7f5)' : 'transparent';
+                row.style.border = '1px solid ' + (isSelected ? selBorder : idleBorder);
+                row.style.background = isSelected ? selBg : 'transparent';
                 row.style.cursor = 'pointer';
                 row.style.transition = 'all 0.2s';
 
@@ -989,11 +1000,11 @@
                 check.style.width = '20px';
                 check.style.height = '20px';
                 check.style.borderRadius = behavior === 'single' ? '50%' : '4px';
-                check.style.border = '2px solid ' + (isSelected ? 'var(--sar-color-primary, #72cff7)' : '#d1d3d5');
+                check.style.border = '2px solid ' + (isSelected ? checkColor : '#d1d3d5');
                 check.style.display = 'flex';
                 check.style.alignItems = 'center';
                 check.style.justifyContent = 'center';
-                check.style.background = isSelected ? 'var(--sar-color-primary, #72cff7)' : '#fff';
+                check.style.background = isSelected ? checkColor : '#fff';
                 if (isSelected) {
                   var inner = document.createElement('div');
                   inner.style.width = behavior === 'single' ? '8px' : '10px';
@@ -1034,7 +1045,7 @@
                 var price = document.createElement('div');
                 price.style.fontWeight = '700';
                 price.style.fontSize = '14px';
-                price.style.color = 'var(--sar-color-primary, #72cff7)';
+                price.style.color = priceColor;
                 price.textContent = '+' + formatMoneyDisplay(item.priceAmount, item.currencyCode);
                 row.appendChild(price);
 
@@ -1052,6 +1063,125 @@
               })(items[i]);
             }
             wrapEl.appendChild(container);
+          }
+
+          function renderButtonBlock(wrapEl, b, ctx) {
+            var st = b.style || {};
+            var isLink = b.action === 'url' && b.url;
+            var el = document.createElement(isLink ? 'a' : 'button');
+            el.className = 'sar-bundle__cta-btn';
+            el.textContent = b.text || 'Bouton';
+            if (isLink) {
+              el.href = b.url;
+              if (b.openInNewTab) { el.target = '_blank'; el.rel = 'noopener'; }
+            } else {
+              el.type = 'button';
+            }
+            el.style.display = b.fullWidth ? 'block' : 'inline-block';
+            if (b.fullWidth) el.style.width = '100%';
+            el.style.textAlign = st.textAlign || 'center';
+            el.style.textDecoration = 'none';
+            el.style.cursor = 'pointer';
+            el.style.padding = st.padding || '12px 20px';
+            el.style.borderRadius = st.borderRadius || '8px';
+            el.style.background = st.backgroundColor || 'var(--sar-color-primary, #72cff7)';
+            el.style.color = st.color || '#fff';
+            el.style.fontWeight = st.fontWeight || '600';
+            if (st.fontSize) el.style.fontSize = st.fontSize;
+            if (st.fontFamily) el.style.fontFamily = st.fontFamily;
+            if (st.borderWidth) {
+              el.style.borderStyle = 'solid';
+              el.style.borderWidth = st.borderWidth;
+              el.style.borderColor = st.borderColor || 'transparent';
+            } else {
+              el.style.border = 'none';
+            }
+            if (st.marginTop) el.style.marginTop = st.marginTop;
+            if (st.marginBottom) el.style.marginBottom = st.marginBottom;
+            var baseBg = el.style.background, baseColor = el.style.color;
+            el.addEventListener('mouseenter', function () {
+              if (st.hoverBackground) el.style.background = st.hoverBackground;
+              if (st.hoverColor) el.style.color = st.hoverColor;
+            });
+            el.addEventListener('mouseleave', function () {
+              el.style.background = baseBg; el.style.color = baseColor;
+            });
+            if (b.action === 'scroll_to_bundle') {
+              el.addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.querySelector('.sar-bundle__total, .sar-bundle__nav, .sar-bundle');
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              });
+            }
+            wrapEl.appendChild(el);
+          }
+
+          function renderFaqBlock(wrapEl, b, st) {
+            var items = b.items || [];
+            if (items.length === 0) return;
+            var faq = document.createElement('div');
+            faq.className = 'sar-bundle__faq';
+            applyTextStyle(faq, st || {});
+            for (var i = 0; i < items.length; i++) {
+              var it = items[i];
+              if (!it || (!it.question && !it.answer)) continue;
+              var det = document.createElement('details');
+              det.className = 'sar-bundle__faq-item';
+              var sum = document.createElement('summary');
+              sum.className = 'sar-bundle__faq-q';
+              sum.textContent = it.question || '';
+              det.appendChild(sum);
+              var ans = document.createElement('div');
+              ans.className = 'sar-bundle__faq-a';
+              ans.textContent = it.answer || '';
+              det.appendChild(ans);
+              if (!b.allowMultipleOpen) det.setAttribute('name', 'sar-faq-' + b.id);
+              faq.appendChild(det);
+            }
+            wrapEl.appendChild(faq);
+          }
+
+          function renderTrustBadgesBlock(wrapEl, b) {
+            var items = b.items || [];
+            if (items.length === 0) return;
+            var row = document.createElement('div');
+            row.className = 'sar-bundle__badges';
+            row.style.display = 'flex';
+            row.style.flexWrap = 'wrap';
+            row.style.gap = '16px';
+            row.style.justifyContent =
+              b.align === 'left' ? 'flex-start' : b.align === 'right' ? 'flex-end' : 'center';
+            if (b.textColor) row.style.color = b.textColor;
+            var iconSize = (b.iconSize || 32) + 'px';
+            for (var i = 0; i < items.length; i++) {
+              var it = items[i];
+              if (!it) continue;
+              var badge = document.createElement('div');
+              badge.className = 'sar-bundle__badge';
+              badge.style.display = 'flex';
+              badge.style.flexDirection = 'column';
+              badge.style.alignItems = 'center';
+              badge.style.gap = '6px';
+              badge.style.textAlign = 'center';
+              if (it.imageUrl) {
+                var im = document.createElement('img');
+                im.src = it.imageUrl;
+                im.alt = it.label || '';
+                im.loading = 'lazy';
+                im.style.width = iconSize;
+                im.style.height = iconSize;
+                im.style.objectFit = 'contain';
+                badge.appendChild(im);
+              }
+              if (it.label) {
+                var lab = document.createElement('span');
+                lab.style.fontSize = '13px';
+                lab.textContent = it.label;
+                badge.appendChild(lab);
+              }
+              row.appendChild(badge);
+            }
+            wrapEl.appendChild(row);
           }
 
           function fetchCollectionProducts(handle) {
@@ -1103,6 +1233,7 @@
             ctx.__productListButtonBorderRadius = b.buttonBorderRadius || '';
             ctx.__productListTitleColor = b.titleColor || '';
             ctx.__productListPriceColor = b.priceColor || '';
+            ctx.__productListGap = b.gap || '';
 
             var container = document.createElement('div');
             container.className = 'sar-bundle__products';
@@ -1111,6 +1242,11 @@
             if (b.buttonBackground) container.style.setProperty('--sar-color-primary', b.buttonBackground);
             if (b.buttonColor) container.style.setProperty('--sar-button-text', b.buttonColor);
             if (b.buttonBorderRadius) container.style.setProperty('--sar-button-radius', b.buttonBorderRadius);
+            if (b.buttonPaddingY || b.buttonPaddingX) {
+              container.style.setProperty('--sar-button-padding', (b.buttonPaddingY || '10px') + ' ' + (b.buttonPaddingX || '16px'));
+            }
+            if (b.buttonBorderWidth) container.style.setProperty('--sar-button-border-width', b.buttonBorderWidth);
+            if (b.buttonBorderColor) container.style.setProperty('--sar-button-border-color', b.buttonBorderColor);
             if (b.titleColor) container.style.setProperty('--sar-product-title-color', b.titleColor);
             if (b.priceColor) container.style.setProperty('--sar-product-price-color', b.priceColor);
 
@@ -1208,6 +1344,7 @@
                 var hero = document.createElement('section');
                 hero.className =
                   'sar-bundle__hero sar-bundle__hero--' + (b.layout || 'stack');
+                applyTextStyle(hero, st);
                 if (b.imageUrl) {
                   var him = document.createElement('img');
                   him.src = b.imageUrl;
@@ -1233,6 +1370,7 @@
                 spl.className =
                   'sar-bundle__split sar-bundle__split--img-' +
                   (b.imageSide === 'right' ? 'right' : 'left');
+                applyTextStyle(spl, st);
                 if (b.imageUrl) {
                   var sim = document.createElement('img');
                   sim.src = b.imageUrl;
@@ -1257,6 +1395,23 @@
                 renderProductListBlock(blockWrap, b, ctx);
               } else if (b.type === 'upsell') {
                 renderUpsellBlock(blockWrap, b, ctx);
+              } else if (b.type === 'button') {
+                renderButtonBlock(blockWrap, b, ctx);
+              } else if (b.type === 'divider') {
+                var dv = document.createElement('hr');
+                dv.className = 'sar-bundle__divider';
+                dv.style.border = 'none';
+                dv.style.borderTopWidth = (b.thickness || 1) + 'px';
+                dv.style.borderTopStyle = b.lineStyle || 'solid';
+                dv.style.borderTopColor = b.lineColor || 'var(--sar-color-border, #e1e3e5)';
+                var dvSpace = (b.spacing == null ? 16 : b.spacing) + 'px';
+                dv.style.marginTop = dvSpace;
+                dv.style.marginBottom = dvSpace;
+                blockWrap.appendChild(dv);
+              } else if (b.type === 'faq') {
+                renderFaqBlock(blockWrap, b, st);
+              } else if (b.type === 'trust_badges') {
+                renderTrustBadgesBlock(blockWrap, b);
               }
 
               if (isInteractive) {
@@ -1276,9 +1431,18 @@
             if (st.marginTop) el.style.marginTop = st.marginTop;
             if (st.marginBottom) el.style.marginBottom = st.marginBottom;
             if (st.padding) el.style.padding = st.padding;
+            // Padding/marge individuels — appliqués APRÈS le raccourci pour pouvoir l'écraser
+            if (st.paddingTop) el.style.paddingTop = st.paddingTop;
+            if (st.paddingRight) el.style.paddingRight = st.paddingRight;
+            if (st.paddingBottom) el.style.paddingBottom = st.paddingBottom;
+            if (st.paddingLeft) el.style.paddingLeft = st.paddingLeft;
+            if (st.marginLeft) el.style.marginLeft = st.marginLeft;
+            if (st.marginRight) el.style.marginRight = st.marginRight;
             if (st.borderRadius) el.style.borderRadius = st.borderRadius;
             if (st.borderWidth) el.style.borderWidth = st.borderWidth;
             if (st.borderColor) el.style.borderColor = st.borderColor;
+            // Sans border-style, borderWidth+borderColor ne rendent AUCUNE bordure visible
+            if (st.borderWidth || st.borderColor) el.style.borderStyle = st.borderStyle || 'solid';
             if (st.fontFamily) el.style.fontFamily = st.fontFamily;
           }
 
@@ -1444,8 +1608,9 @@
                 var colsMobile = designCtx.__productListColumnsMobile || Math.min(2, colsDesk);
                 designCtx.__productListMount.style.setProperty('--grid-cols-desktop', colsDesk);
                 designCtx.__productListMount.style.setProperty('--grid-cols-mobile', colsMobile);
-                designCtx.__productListMount.style.setProperty('--grid-gap-x', '16px');
-                designCtx.__productListMount.style.setProperty('--grid-gap-y', '16px');
+                var gridGap = designCtx.__productListGap || '16px';
+                designCtx.__productListMount.style.setProperty('--grid-gap-x', gridGap);
+                designCtx.__productListMount.style.setProperty('--grid-gap-y', gridGap);
                 designCtx.__productListMount.style.display = 'grid';
               }
               function renderProductsLoop() {

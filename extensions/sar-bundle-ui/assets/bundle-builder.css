@@ -12,6 +12,13 @@
  */
 
 /* ═══ SHARED UI (source: bundle-shared-ui.css) ═══ */
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  SAR Bundle — Shared UI CSS
+ *  Source unique de vérité pour Admin Preview (React) ET Storefront (Liquid/JS).
+ *  NE PAS modifier sans mettre à jour la copie dans app/styles/bundle-builder.css
+ * ═══════════════════════════════════════════════════════════════════
+ */
 
 /* ─── Root wrapper ─── */
 
@@ -46,9 +53,8 @@
   margin: 1rem 0 0;
   padding: 0.75rem 1rem;
   border-radius: var(--sar-radius, 8px);
-  border: 1px solid var(--sar-total-border-color, var(--sar-color-border, #e1e3e5));
-  background: var(--sar-total-bg, var(--sar-color-bg-subtle, #f6f6f7));
-  color: var(--sar-total-text-color, var(--sar-color-text, #121212));
+  border: 1px solid var(--sar-color-border, #e1e3e5);
+  background: var(--sar-color-bg-subtle, #f6f6f7);
   font-size: 1.05rem;
 }
 
@@ -66,7 +72,7 @@
   margin-right: 0.25rem;
 }
 
-/* ─── Step Pills ─── */
+/* ─── Step Pills (fallback when no step_bar block) ─── */
 
 .sar-bundle__steps {
   display: flex;
@@ -83,12 +89,12 @@
 }
 
 .sar-bundle__step-pill--active {
-  background: var(--sar-color-primary, #72cff7);
+  background: var(--sar-color-primary, #1a1a1a);
   color: #fff;
-  border-color: var(--sar-color-primary, #72cff7);
+  border-color: var(--sar-color-primary, #1a1a1a);
 }
 
-/* ─── Step Bar ─── */
+/* ─── Step Bar (icon-circle design) ─── */
 
 .sar-stepbar {
   display: flex;
@@ -113,6 +119,11 @@
   height: 1px;
   z-index: 0;
   background: var(--sar-stepbar-lineColor, #e1e3e5);
+}
+
+
+.sar-stepbar__item.completed .sar-stepbar__line {
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
 }
 
 .sar-stepbar__icon-circle {
@@ -140,21 +151,22 @@
 }
 
 .sar-stepbar__item.active .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-active-bg, #555555);
+  background: var(--sar-stepbar-active-bg, var(--sar-color-primary, #1a1a1a));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
 
 .sar-stepbar__item.completed .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-completed-bg, #555555);
+  background: var(--sar-stepbar-completed-bg, var(--sar-color-primary, #1a1a1a));
   color: var(--sar-stepbar-active-text, #fff);
   border: none;
 }
 
+/* Hover effects */
 .sar-stepbar__item:not(.active):not(.completed):hover .sar-stepbar__icon-circle {
-  background: var(--sar-stepbar-hover-bg, #f0f0f0);
-  color: var(--sar-stepbar-hover-text, #333);
-  border-color: var(--sar-stepbar-borderColor, #e1e3e5);
+  background: var(--sar-stepbar-hover-bg, var(--sar-color-bg-subtle, #f0f7f5));
+  color: var(--sar-stepbar-hover-text, var(--sar-color-primary, #1a1a1a));
+  border-color: var(--sar-color-primary, #1a1a1a);
 }
 
 .sar-stepbar__label {
@@ -172,7 +184,7 @@
   color: #000;
 }
 
-/* ─── Upsell ─── */
+/* ─── Upsell (Order Bump) ─── */
 
 .sar-bundle__upsell {
   margin: 24px 0;
@@ -196,12 +208,12 @@
 }
 
 .sar-bundle__upsell-item.is-selected {
-  border-color: var(--sar-color-primary, #72cff7);
+  border-color: var(--sar-color-primary, #1a1a1a);
   background: var(--sar-color-bg-subtle, #f0f7f5);
 }
 
 .sar-bundle__upsell-item:hover {
-  border-color: var(--sar-color-primary, #72cff7);
+  border-color: var(--sar-color-primary, #1a1a1a);
 }
 
 /* ─── Product Grid ─── */
@@ -228,7 +240,7 @@
   width: 100%;
 }
 
-/* ─── Product Card — Classic ─── */
+/* ─── Product Card — Classic layout ─── */
 
 .sar-bundle__product--classic {
   justify-content: space-between;
@@ -252,7 +264,6 @@
 .sar-bundle__product-title {
   font-weight: 500;
   font-size: 1rem;
-  color: var(--sar-product-title-color, var(--sar-color-text, #121212));
   line-height: normal;
   margin: 0;
   display: -webkit-box;
@@ -265,11 +276,10 @@
 .sar-bundle__product-price {
   font-weight: 600;
   font-size: 1rem;
-  color: var(--sar-product-price-color, var(--sar-color-text, #121212));
   margin: 0;
 }
 
-/* ─── Product Card — Overlay ─── */
+/* ─── Product Card — Overlay layout ─── */
 
 .sar-bundle__product--overlay .sar-bundle__product-img-wrapper {
   position: relative;
@@ -306,7 +316,7 @@
   transform: translateY(0);
 }
 
-/* ─── Product Card — Media-left ─── */
+/* ─── Product Card — Media-left layouts ─── */
 
 .sar-bundle__product--media-left-stack,
 .sar-bundle__product--row-compact {
@@ -335,15 +345,17 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  border: 1px solid var(--sar-color-primary, #72cff7);
-  padding: 8px 16px;
-  height: 40px;
+  border-style: solid;
+  border-width: var(--sar-button-border-width, 1px);
+  border-color: var(--sar-button-border-color, var(--sar-color-primary, #1a1a1a));
+  padding: var(--sar-button-padding, 8px 16px);
+  min-height: 40px;
   width: 100%;
   border-radius: var(--sar-button-radius, 4px);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  background: var(--sar-color-primary, #72cff7);
+  background: var(--sar-color-primary, #1a1a1a);
   color: var(--sar-button-text, #fff);
   transition: all 0.15s ease;
 }
@@ -389,19 +401,13 @@
   font-size: 16px;
 }
 
-/* ─── Navigation ─── */
+/* ─── Navigation buttons ─── */
 
 .sar-bundle__nav {
   display: flex;
   gap: 0.75rem;
   margin-top: 1.25rem;
   flex-wrap: wrap;
-}
-
-.sar-bundle__nav .sar-bundle__btn {
-  flex: 1 1 0;
-  text-align: center;
-  min-width: 0;
 }
 
 .sar-bundle__btn {
@@ -415,25 +421,23 @@
 }
 
 .sar-bundle__btn--primary {
-  background: var(--sar-btn-primary-bg, #555);
-  color: var(--sar-btn-primary-color, #fff);
+  background: var(--sar-color-primary, #1a1a1a);
+  color: #fff;
 }
 
 .sar-bundle__btn--primary:hover {
-  background: var(--sar-btn-primary-hover-bg, #333);
-  color: var(--sar-btn-primary-hover-color, #fff);
   opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(0, 128, 96, 0.3);
 }
 
 .sar-bundle__btn--secondary {
-  background: var(--sar-btn-secondary-bg, transparent);
-  color: var(--sar-btn-secondary-color, #555);
-  border: 2px solid var(--sar-btn-secondary-border-color, #555);
+  background: transparent;
+  color: var(--sar-color-primary, #1a1a1a);
+  border: 2px solid var(--sar-color-primary, #1a1a1a);
 }
 
 .sar-bundle__btn--secondary:hover {
-  background: var(--sar-btn-secondary-hover-bg, #f0f0f0);
-  color: var(--sar-btn-secondary-hover-color, #333);
+  background: var(--sar-color-bg-subtle, #f0f7f5);
 }
 
 .sar-bundle__btn:disabled {
@@ -492,7 +496,7 @@
   opacity: 0.7;
 }
 
-/* ─── Hero ─── */
+/* ─── Hero block ─── */
 
 .sar-bundle__hero {
   display: flex;
@@ -528,7 +532,7 @@
   opacity: 0.85;
 }
 
-/* ─── Split ─── */
+/* ─── Split block ─── */
 
 .sar-bundle__split {
   display: flex;
@@ -558,7 +562,7 @@
   white-space: pre-wrap;
 }
 
-/* ─── Grid fallback ─── */
+/* ─── Product grid (admin fallback) ─── */
 
 .sar-bundle__product-grid {
   margin-bottom: 1rem;
@@ -586,6 +590,68 @@
   font-size: 0.9rem;
 }
 
+/* ─── CTA button block ─── */
+
+.sar-bundle__cta-btn {
+  border: none;
+  font-family: inherit;
+  line-height: 1.2;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.sar-bundle__cta-btn:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* ─── FAQ / accordion block ─── */
+
+.sar-bundle__faq {
+  margin: 16px 0;
+}
+.sar-bundle__faq-item {
+  border-bottom: 1px solid var(--sar-color-border, #e1e3e5);
+  padding: 4px 0;
+}
+.sar-bundle__faq-q {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 10px 0;
+  list-style: none;
+  position: relative;
+  padding-right: 24px;
+}
+.sar-bundle__faq-q::-webkit-details-marker { display: none; }
+.sar-bundle__faq-q::after {
+  content: "+";
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  line-height: 1;
+}
+.sar-bundle__faq-item[open] .sar-bundle__faq-q::after { content: "–"; }
+.sar-bundle__faq-a {
+  padding: 0 0 12px;
+  opacity: 0.85;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ─── Trust badges block ─── */
+
+.sar-bundle__badges {
+  margin: 16px 0;
+}
+.sar-bundle__badge {
+  min-width: 80px;
+}
+
+/* ─── Divider block ─── */
+
+.sar-bundle__divider {
+  width: 100%;
+}
+
 /* ─── Footer ─── */
 
 .sar-bundle__footer {
@@ -594,32 +660,4 @@
   justify-content: space-between;
   gap: 1rem;
   margin-top: 1rem;
-}
-
-@media (max-width: 480px) {
-  .sar-bundle__footer {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-  }
-
-  .sar-bundle__bundle-total {
-    text-align: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .sar-bundle__bundle-total-value {
-    text-align: center;
-  }
-
-  .sar-bundle__nav {
-    display: flex;
-    flex-direction: row;
-    width: 100%;
-    margin-top: 0;
-  }
-
-  .sar-bundle__nav>.sar-bundle__btn {
-    flex: 1 1 50%;
-  }
 }

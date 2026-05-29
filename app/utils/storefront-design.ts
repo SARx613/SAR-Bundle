@@ -139,6 +139,7 @@ export type HeroBlock = {
   subtext?: string;
   imageUrl: string | null;
   layout?: "stack" | "image_left" | "image_right";
+  style?: TextStyleBlock;
 };
 
 export type SplitBlock = {
@@ -150,6 +151,7 @@ export type SplitBlock = {
   body: string;
   imageUrl: string | null;
   imageSide: "left" | "right";
+  style?: TextStyleBlock;
 };
 
 export type StepBarBlock = {
@@ -197,6 +199,16 @@ export type ProductListBlock = {
   buttonBorderRadius?: string;
   buttonHoverBackground?: string;
   buttonHoverColor?: string;
+  /** Button vertical padding (px) */
+  buttonPaddingY?: string;
+  /** Button horizontal padding (px) */
+  buttonPaddingX?: string;
+  /** Button border width (px) */
+  buttonBorderWidth?: string;
+  /** Button border color */
+  buttonBorderColor?: string;
+  /** Grid gap between product cards (px) */
+  gap?: string;
   /** Product title color */
   titleColor?: string;
   /** Product price color (only shown in STANDARD/TIERED modes) */
@@ -217,6 +229,16 @@ export type UpsellItem = {
   defaultEnabled: boolean;
 };
 
+export type UpsellStyle = {
+  containerBg?: string;
+  borderColor?: string;
+  titleColor?: string;
+  selectedBg?: string;
+  selectedBorderColor?: string;
+  checkboxColor?: string;
+  priceColor?: string;
+};
+
 export type UpsellBlock = {
   id: string;
   name?: string;
@@ -225,6 +247,62 @@ export type UpsellBlock = {
   type: "upsell";
   behavior: "single" | "multiple";
   items: UpsellItem[];
+  style?: UpsellStyle;
+};
+
+/** CTA button / link */
+export type ButtonBlock = {
+  id: string;
+  name?: string;
+  isHidden?: boolean;
+  type: "button";
+  text: string;
+  action?: "scroll_to_bundle" | "url" | "none";
+  url?: string;
+  openInNewTab?: boolean;
+  fullWidth?: boolean;
+  /** Uses backgroundColor as button bg, color as text, plus border/radius/padding/margin */
+  style: TextStyleBlock & { hoverBackground?: string; hoverColor?: string };
+};
+
+/** Styled horizontal separator (distinct from the plain spacer) */
+export type DividerBlock = {
+  id: string;
+  name?: string;
+  isHidden?: boolean;
+  type: "divider";
+  lineColor?: string;
+  thickness?: number;
+  lineStyle?: "solid" | "dashed" | "dotted";
+  spacing?: number;
+};
+
+export type FaqItem = { id: string; question: string; answer: string };
+
+/** Collapsible FAQ / accordion */
+export type FaqBlock = {
+  id: string;
+  name?: string;
+  isHidden?: boolean;
+  type: "faq";
+  items: FaqItem[];
+  allowMultipleOpen?: boolean;
+  style: TextStyleBlock;
+};
+
+export type TrustBadgeItem = { id: string; label: string; imageUrl?: string };
+
+/** Row of trust/reassurance badges */
+export type TrustBadgesBlock = {
+  id: string;
+  name?: string;
+  isHidden?: boolean;
+  type: "trust_badges";
+  items: TrustBadgeItem[];
+  columns?: number;
+  iconSize?: number;
+  align?: "left" | "center" | "right";
+  textColor?: string;
 };
 
 export type StorefrontBlockV2 =
@@ -233,7 +311,11 @@ export type StorefrontBlockV2 =
   | SplitBlock
   | StepBarBlock
   | ProductListBlock
-  | UpsellBlock;
+  | UpsellBlock
+  | ButtonBlock
+  | DividerBlock
+  | FaqBlock
+  | TrustBadgesBlock;
 
 export type StorefrontDesignV2 = {
   version: 2;
@@ -295,6 +377,7 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
           raw.layout === "image_left" || raw.layout === "image_right"
             ? raw.layout
             : "stack",
+        ...(isRecord(raw.style) ? { style: raw.style as TextStyleBlock } : {}),
       };
     }
     case "split": {
@@ -308,6 +391,7 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
             ? raw.imageUrl.trim()
             : null,
         imageSide: raw.imageSide === "right" ? "right" : "left",
+        ...(isRecord(raw.style) ? { style: raw.style as TextStyleBlock } : {}),
       };
     }
     case "product_grid": {
@@ -359,6 +443,11 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
         buttonBorderRadius: typeof raw.buttonBorderRadius === "string" ? raw.buttonBorderRadius : undefined,
         buttonHoverBackground: typeof raw.buttonHoverBackground === "string" ? raw.buttonHoverBackground : undefined,
         buttonHoverColor: typeof raw.buttonHoverColor === "string" ? raw.buttonHoverColor : undefined,
+        buttonPaddingY: typeof raw.buttonPaddingY === "string" ? raw.buttonPaddingY : undefined,
+        buttonPaddingX: typeof raw.buttonPaddingX === "string" ? raw.buttonPaddingX : undefined,
+        buttonBorderWidth: typeof raw.buttonBorderWidth === "string" ? raw.buttonBorderWidth : undefined,
+        buttonBorderColor: typeof raw.buttonBorderColor === "string" ? raw.buttonBorderColor : undefined,
+        gap: typeof raw.gap === "string" ? raw.gap : undefined,
         titleColor: typeof raw.titleColor === "string" ? raw.titleColor : undefined,
         priceColor: typeof raw.priceColor === "string" ? raw.priceColor : undefined,
       };
@@ -387,7 +476,74 @@ function normalizeBlockV2(raw: unknown): StorefrontBlockV2 | null {
             defaultEnabled: Boolean(o.defaultEnabled),
           } satisfies UpsellItem;
         }).filter(Boolean) as UpsellItem[],
+        ...(isRecord(raw.style) ? { style: raw.style as UpsellStyle } : {}),
       } satisfies UpsellBlock;
+    }
+    case "button": {
+      const action =
+        raw.action === "url" || raw.action === "none" ? raw.action : "scroll_to_bundle";
+      return {
+        id,
+        type: "button",
+        text: typeof raw.text === "string" ? raw.text : "Ajouter au panier",
+        action,
+        url: typeof raw.url === "string" ? raw.url : undefined,
+        openInNewTab: Boolean(raw.openInNewTab),
+        fullWidth: Boolean(raw.fullWidth),
+        style: isRecord(raw.style) ? (raw.style as ButtonBlock["style"]) : {},
+      } satisfies ButtonBlock;
+    }
+    case "divider": {
+      return {
+        id,
+        type: "divider",
+        lineColor: typeof raw.lineColor === "string" ? raw.lineColor : undefined,
+        thickness: typeof raw.thickness === "number" ? raw.thickness : undefined,
+        lineStyle:
+          raw.lineStyle === "dashed" || raw.lineStyle === "dotted" ? raw.lineStyle : "solid",
+        spacing: typeof raw.spacing === "number" ? raw.spacing : undefined,
+      } satisfies DividerBlock;
+    }
+    case "faq": {
+      const items = Array.isArray(raw.items) ? raw.items : [];
+      return {
+        id,
+        type: "faq",
+        allowMultipleOpen: Boolean(raw.allowMultipleOpen),
+        items: items
+          .map((it: unknown) => {
+            if (!isRecord(it)) return null;
+            return {
+              id: typeof it.id === "string" ? it.id : newBlockId(),
+              question: typeof it.question === "string" ? it.question : "",
+              answer: typeof it.answer === "string" ? it.answer : "",
+            } satisfies FaqItem;
+          })
+          .filter(Boolean) as FaqItem[],
+        style: isRecord(raw.style) ? (raw.style as TextStyleBlock) : {},
+      } satisfies FaqBlock;
+    }
+    case "trust_badges": {
+      const items = Array.isArray(raw.items) ? raw.items : [];
+      return {
+        id,
+        type: "trust_badges",
+        columns: typeof raw.columns === "number" ? raw.columns : undefined,
+        iconSize: typeof raw.iconSize === "number" ? raw.iconSize : undefined,
+        align:
+          raw.align === "left" || raw.align === "right" ? raw.align : "center",
+        textColor: typeof raw.textColor === "string" ? raw.textColor : undefined,
+        items: items
+          .map((it: unknown) => {
+            if (!isRecord(it)) return null;
+            return {
+              id: typeof it.id === "string" ? it.id : newBlockId(),
+              label: typeof it.label === "string" ? it.label : "",
+              imageUrl: typeof it.imageUrl === "string" ? it.imageUrl : undefined,
+            } satisfies TrustBadgeItem;
+          })
+          .filter(Boolean) as TrustBadgeItem[],
+      } satisfies TrustBadgesBlock;
     }
     case "heading":
     case "text":
@@ -498,6 +654,10 @@ export function defaultBlockName(type: StorefrontBlockV2["type"]): string {
     case "step_bar": return "Barre d'étape";
     case "product_list": return "Liste de produits";
     case "upsell": return "Options Supplémentaires";
+    case "button": return "Bouton";
+    case "divider": return "Séparateur";
+    case "faq": return "FAQ";
+    case "trust_badges": return "Badges de confiance";
     default: return "Bloc";
   }
 }

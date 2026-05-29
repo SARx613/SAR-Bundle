@@ -22,6 +22,14 @@ export const VARIANT_DISPLAY_FIELDS = `
     }
     price
     compareAtPrice
+    presentmentPrices(first: 1) {
+      nodes {
+        price {
+          amount
+          currencyCode
+        }
+      }
+    }
   }
 `;
 

@@ -91,14 +91,29 @@
 
 /* ─── 4. Layout / Sections ───────────────────────────────────────── */
 
+/*
+ * Polaris donne à .Polaris-Layout un margin négatif (-1rem haut/gauche) SANS
+ * marge compensatoire sur la section → tout contenu enveloppé dans <Layout>
+ * est décalé de 16px vers la GAUCHE par rapport au contenu en simple
+ * <BlockStack>. C'est LA cause des marges latérales différentes entre pages.
+ * On neutralise le margin négatif et on recrée l'espacement via `gap`.
+ */
 .Polaris-Layout {
   max-width: 100% !important;
+  margin-top: 0 !important;
+  margin-left: 0 !important;
+  margin-inline-start: 0 !important;
+  gap: 1rem !important;
 }
 
 .Polaris-Layout__Section {
   max-width: 100% !important;
-  flex: 1 1 100% !important;
   min-width: 0 !important;
+}
+
+/* Section pleine largeur (cas par défaut) : occupe toute la ligne */
+.Polaris-Layout__Section:not(.Polaris-Layout__Section--oneHalf):not(.Polaris-Layout__Section--oneThird) {
+  flex: 1 1 100% !important;
 }
 
 /* ─── 5. Tabs panel ──────────────────────────────────────────────── */

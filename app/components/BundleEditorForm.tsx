@@ -711,6 +711,34 @@ export function BundleEditorForm({
                       autoComplete="off"
                       helpText="Le client doit avoir exactement ce nombre d’articles pour valider. Vérifiez la cohérence avec vos règles sur l’étape finale."
                     />
+                    {(() => {
+                      const n = parseInt(String(form.fixedBoxItemCount), 10);
+                      const totalProducts = form.steps.reduce(
+                        (sum, s) => sum + s.products.length,
+                        0,
+                      );
+                      if (!form.fixedBoxItemCount.trim() || Number.isNaN(n) || n < 1) {
+                        return (
+                          <Banner tone="warning">
+                            <p>
+                              Indiquez un <strong>nombre exact d’articles ≥ 1</strong> :
+                              sans cela, l’ajout au panier sera bloqué côté boutique.
+                            </p>
+                          </Banner>
+                        );
+                      }
+                      if (totalProducts === 0) {
+                        return (
+                          <Banner tone="warning">
+                            <p>
+                              Aucun produit n’est encore configuré dans vos étapes :
+                              le client ne pourra jamais atteindre {n} article(s).
+                            </p>
+                          </Banner>
+                        );
+                      }
+                      return null;
+                    })()}
                   </BlockStack>
                 ) : null}
 

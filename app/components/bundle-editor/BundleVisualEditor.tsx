@@ -492,6 +492,13 @@ export function BundleVisualEditor({
             <BlockStack gap="300">
               <Text as="h3" variant="headingSm">Section</Text>
               <GlobalColorField
+                label="Couleur principale (Boutons, icônes actives)"
+                value={g.colorPrimary ?? ""}
+                onChange={(v) => updateGlobal({ colorPrimary: v || undefined })}
+                placeholder="#1a1a1a"
+                helpText="Si vide, la couleur de la section Shopify sera utilisée."
+              />
+              <GlobalColorField
                 label="Couleur des bordures"
                 value={g.colorBorder ?? ""}
                 onChange={(v) => updateGlobal({ colorBorder: v || undefined })}
@@ -581,6 +588,23 @@ export function BundleVisualEditor({
                   suffix={<span style={{ minWidth: 24, textAlign: "right" }}>{g.borderRadius ?? "8"}px</span>}
                 />
               </div>
+              <Text as="h3" variant="headingSm" style={{ marginTop: "12px" }}>Polices de caractères (CSS)</Text>
+              <TextField
+                label="Police du corps"
+                value={g.fontBody ?? ""}
+                onChange={(v) => updateGlobal({ fontBody: v || undefined })}
+                placeholder="system-ui, sans-serif"
+                autoComplete="off"
+                helpText="Nom de police (ex: 'Inter', sans-serif). Par défaut: police de votre thème."
+              />
+              <TextField
+                label="Police des titres"
+                value={g.fontHeading ?? ""}
+                onChange={(v) => updateGlobal({ fontHeading: v || undefined })}
+                placeholder="system-ui, sans-serif"
+                autoComplete="off"
+                helpText="Nom de police (ex: 'Playfair Display', serif)."
+              />
             </BlockStack>
           </Box>
         </BlockStack>
