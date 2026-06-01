@@ -37,15 +37,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const shop = session.shop;
 
-  // Enforce billing
-  await billing.require({
-    plans: [BILLING_PLANS.sar_bundle_plan.handle],
-    isTest: true, // MUST BE true for Development Stores!
-    onFailure: async () => billing.request({
-      plan: BILLING_PLANS.sar_bundle_plan.handle,
+  // Vérifie l'abonnement. Une redirection (Response) = abonnement requis → on la
+  // laisse passer. Toute autre erreur = panne transitoire de l'API Billing : on
+  // affiche quand même la page plutôt que de planter (sinon → boucle de rechargement).
+  try {
+    await billing.require({
+      plans: [BILLING_PLANS.sar_bundle_plan.handle],
       isTest: true, // MUST BE true for Development Stores!
-    }),
-  });
+      onFailure: async () => billing.request({
+        plan: BILLING_PLANS.sar_bundle_plan.handle,
+        isTest: true, // MUST BE true for Development Stores!
+      }),
+    });
+  } catch (err) {
+    if (err instanceof Response) throw err;
+    console.error("[SAR/pricing] billing.require a échoué (panne transitoire ?) — affichage de la page malgré tout", err);
+  }
 
   let monthlyRevenue = 0;
   let charged200 = false;

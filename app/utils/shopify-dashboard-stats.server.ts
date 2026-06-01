@@ -9,7 +9,9 @@
 
 const BUNDLE_LINE_PROP = "_sar_bundle_id";
 const ORDERS_PER_PAGE = 100;
-const MAX_ORDER_PAGES = 40;
+// Borné pour rester sous le timeout des fonctions serverless Vercel.
+// 10 pages × 100 = 1000 commandes récentes (au-delà : `truncated = true`).
+const MAX_ORDER_PAGES = 10;
 
 type AdminGraphql = {
   graphql: (
@@ -67,17 +69,23 @@ export async function fetchCommerceDashboardStats(
 
   let currencyCode = "EUR";
 
-  const shopRes = await admin.graphql(
-    `#graphql
-      query ShopCurrency {
-        shop {
-          currencyCode
-        }
-      }`,
-  );
-  const shopJson = await shopRes.json();
-  const cc = shopJson?.data?.shop?.currencyCode;
-  if (typeof cc === "string" && cc) currencyCode = cc;
+  // Requête devise protégée : ne JAMAIS laisser une panne API faire planter le
+  // dashboard (sinon → 500 → boucle de rechargement de l'app).
+  try {
+    const shopRes = await admin.graphql(
+      `#graphql
+        query ShopCurrency {
+          shop {
+            currencyCode
+          }
+        }`,
+    );
+    const shopJson = await shopRes.json();
+    const cc = shopJson?.data?.shop?.currencyCode;
+    if (typeof cc === "string" && cc) currencyCode = cc;
+  } catch (e) {
+    return empty(currencyCode, e instanceof Error ? e.message : String(e));
+  }
 
   const monthStart = new Date();
   monthStart.setDate(1);
