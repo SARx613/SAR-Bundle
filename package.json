@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "remix vite:build",
-    "vercel-build": "npm run setup && remix vite:build",
+    "vercel-build": "prisma generate && remix vite:build",
     "dev": "shopify app dev",
     "dev:verbose": "shopify app dev --verbose",
     "dev:localhost": "shopify app dev --use-localhost",
