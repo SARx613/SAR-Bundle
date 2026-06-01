@@ -6,12 +6,11 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import layoutOverrides from "../styles/polaris-layout-overrides.css?url";
-import { Banner, BlockStack } from "@shopify/polaris";
+import { BlockStack } from "@shopify/polaris";
 import { useEffect } from "react";
 
 import { authenticate } from "../shopify.server";
-import { BILLING_PLANS, type BillingPlanHandle } from "../utils/billing-plans";
-import prisma from "../db.server";
+import { BILLING_PLANS } from "../utils/billing-plans";
 
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -19,28 +18,31 @@ export const links = () => [
   { rel: "stylesheet", href: layoutOverrides },
 ];
 
-// ─── Helper: first day of current UTC month ────────────────────────────────
-
-function startOfCurrentMonthUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-}
-
 // ─── Loader ──────────────────────────────────────────────────────────────────
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
-  const shop = session.shop;
+  // L'authentification peut lever une redirection (échange de jeton App Bridge).
+  // On la laisse remonter telle quelle — ne JAMAIS l'envelopper dans un try/catch.
+  const { billing } = await authenticate.admin(request);
 
-  // Enforce the usage-based billing plan!
-  await billing.require({
-    plans: [BILLING_PLANS.sar_bundle_plan.handle],
-    isTest: true, // MUST BE true for Development Stores!
-    onFailure: async () => billing.request({
-      plan: BILLING_PLANS.sar_bundle_plan.handle,
+  // Vérifie l'abonnement usage-based.
+  try {
+    await billing.require({
+      plans: [BILLING_PLANS.sar_bundle_plan.handle],
       isTest: true, // MUST BE true for Development Stores!
-    }),
-  });
+      onFailure: async () =>
+        billing.request({
+          plan: BILLING_PLANS.sar_bundle_plan.handle,
+          isTest: true, // MUST BE true for Development Stores!
+        }),
+    });
+  } catch (err) {
+    // Une redirection (Response) = abonnement requis → on la laisse passer.
+    if (err instanceof Response) throw err;
+    // Sinon = panne transitoire de l'API Billing : on n'enferme pas le marchand
+    // hors de l'app pour autant. L'app se charge, la facturation se revérifie au prochain appel.
+    console.error("[SAR] billing.require a échoué (panne transitoire ?) — chargement de l'app malgré tout", err);
+  }
 
   return json({
     apiKey: process.env.SHOPIFY_API_KEY || "",
@@ -56,6 +58,12 @@ export default function App() {
   // These errors are thrown outside React's render tree and won't be caught
   // by ErrorBoundary — a full reload is the only reliable fix.
   useEffect(() => {
+    // L'app s'est rendue avec succès → on réinitialise le compteur de rechargements.
+    try {
+      sessionStorage.removeItem("sar-reload-count");
+    } catch {
+      /* sessionStorage indisponible */
+    }
     function handleGlobalError(event: ErrorEvent) {
       const msg = event?.error?.message || event?.message || "";
       if (
@@ -106,12 +114,28 @@ export function ErrorBoundary() {
     (isRouteErrorResponse(error) && error.status >= 500);
 
   useEffect(() => {
-    if (isStaleError) {
-      const timer = setTimeout(() => {
-        window.location.reload();
-      }, 3000);
-      return () => clearTimeout(timer);
+    if (!isStaleError) return;
+    // Rechargement borné : on retente au maximum 3 fois d'affilée pour éviter
+    // une boucle infinie quand l'erreur est persistante (ex. base injoignable).
+    let count = 0;
+    try {
+      count = parseInt(sessionStorage.getItem("sar-reload-count") || "0", 10) || 0;
+    } catch {
+      /* sessionStorage indisponible */
     }
+    if (count >= 1) return; // un seul rechargement auto (stale deploy), puis bouton manuel — pas de boucle
+    try {
+      sessionStorage.setItem("sar-reload-count", String(count + 1));
+    } catch {
+      /* ignore */
+    }
+    const timer = setTimeout(() => {
+      // reload() recharge l'URL COURANTE (avec les paramètres embarqués host/shop),
+      // ce qui permet à App Bridge de refaire l'échange de jeton — contrairement à
+      // une navigation vers "/app" qui sortirait de l'iframe et tomberait sur /auth/login.
+      window.location.reload();
+    }, 3000);
+    return () => clearTimeout(timer);
   }, [isStaleError]);
 
   if (isStaleError) {
@@ -137,21 +161,30 @@ export function ErrorBoundary() {
         <p style={{ margin: 0, color: "#6d7175", fontSize: "14px" }}>
           Une erreur temporaire s&apos;est produite. Rechargement dans 3 secondes…
         </p>
-        <a
-          href="/app"
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              sessionStorage.removeItem("sar-reload-count");
+            } catch {
+              /* ignore */
+            }
+            window.location.reload();
+          }}
           style={{
             marginTop: "8px",
             padding: "10px 20px",
             background: "#008060",
             color: "#fff",
+            border: "none",
             borderRadius: "8px",
-            textDecoration: "none",
+            cursor: "pointer",
             fontSize: "14px",
             fontWeight: 600,
           }}
         >
-          Retourner à l&apos;accueil maintenant
-        </a>
+          Réessayer maintenant
+        </button>
       </div>
     );
   }
