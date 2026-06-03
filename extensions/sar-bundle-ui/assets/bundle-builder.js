@@ -1309,6 +1309,7 @@
                 });
               }
 
+              try {
               if (b.type === 'heading') {
                 var hx = document.createElement(b.tag || 'h2');
                 hx.textContent = b.text || '';
@@ -1412,6 +1413,16 @@
                 renderFaqBlock(blockWrap, b, st);
               } else if (b.type === 'trust_badges') {
                 renderTrustBadgesBlock(blockWrap, b);
+              }
+              } catch (blockErr) {
+                // Un bloc défaillant ne doit PAS casser le rendu des autres blocs.
+                console.error('[SAR] Erreur de rendu du bloc', b && b.type, blockErr);
+                if (isInteractive) {
+                  var errPh = document.createElement('div');
+                  errPh.style.cssText = 'padding:8px;border:1px dashed #d72c0d;border-radius:6px;color:#d72c0d;font-size:12px;';
+                  errPh.textContent = '⚠️ Erreur d\'affichage du bloc « ' + (b && b.type) + ' »';
+                  blockWrap.appendChild(errPh);
+                }
               }
 
               if (isInteractive) {

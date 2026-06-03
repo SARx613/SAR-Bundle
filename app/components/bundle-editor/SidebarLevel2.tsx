@@ -738,7 +738,11 @@ export function SidebarLevel2({
               <LibraryItem
                 icon={ShieldCheckMarkIcon}
                 label="Badges de confiance"
-                onClick={() => addBlock({ id: newBlockId(), type: "trust_badges", align: "center", iconSize: 32, items: [] })}
+                onClick={() => addBlock({ id: newBlockId(), type: "trust_badges", align: "center", iconSize: 32, items: [
+                  { id: newBlockId(), label: "Paiement sécurisé" },
+                  { id: newBlockId(), label: "Livraison rapide" },
+                  { id: newBlockId(), label: "Satisfait ou remboursé" },
+                ] })}
               />
           </CategoryRow>
 
