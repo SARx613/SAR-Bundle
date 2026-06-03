@@ -6,12 +6,14 @@ import {
   type SetStateAction,
 } from "react";
 import {
+  ActionList,
   BlockStack,
   Box,
   Button,
   Card,
   Icon,
   InlineStack,
+  Popover,
   RangeSlider,
   Select,
   Text,
@@ -44,8 +46,8 @@ import {
   type BundleFormState,
   type UiStep,
 } from "../../utils/bundle-form.client";
-import type { StorefrontDesignV2 } from "../../utils/storefront-design";
-import { fontOptionsWith } from "../../utils/storefront-design";
+import type { StorefrontDesignV2, StorefrontBlockV2 } from "../../utils/storefront-design";
+import { fontOptionsWith, newBlockId } from "../../utils/storefront-design";
 
 /* ── Inline colour picker (circle swatch + hex text field) ── */
 function GlobalColorField({
@@ -214,6 +216,7 @@ export function BundleVisualEditor({
   shopDomain?: string;
 }) {
   const [nav, setNav] = useState<SidebarLevel>({ level: 1 });
+  const [addStepOpen, setAddStepOpen] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
@@ -366,8 +369,46 @@ export function BundleVisualEditor({
     });
   }, [setForm, nav]);
 
-  const addStep = () => {
-    setForm((f) => ({ ...f, steps: [...f.steps, emptyStep(f.steps.length)] }));
+  // Presets de contenu pour une nouvelle étape (évite l'étape vide).
+  const stepPresetBlocks = (preset: "products" | "upsell" | "blank"): StorefrontBlockV2[] => {
+    const headingStyle = {
+      fontSize: "1.5rem",
+      fontWeight: "700",
+      color: "#1f2937",
+      textAlign: "center" as const,
+      marginTop: "0",
+      marginBottom: "0.5rem",
+    };
+    if (preset === "blank") return [];
+    if (preset === "upsell") {
+      return [
+        { id: newBlockId(), type: "heading", text: "Complétez votre commande", tag: "h2", style: headingStyle },
+        { id: newBlockId(), type: "upsell", title: "Options supplémentaires", behavior: "multiple", items: [] },
+      ] as StorefrontBlockV2[];
+    }
+    return [
+      { id: newBlockId(), type: "heading", text: "Choisissez vos produits", tag: "h2", style: headingStyle },
+      { id: newBlockId(), type: "product_list", source: "step_pick", cardLayout: "classic", columns: 3, columnsMobile: 2 },
+    ] as StorefrontBlockV2[];
+  };
+
+  const addStep = (preset: "products" | "upsell" | "blank" = "products") => {
+    setForm((f) => {
+      const newIndex = f.steps.length;
+      return {
+        ...f,
+        steps: [...f.steps, emptyStep(newIndex)],
+        storefrontDesign: {
+          ...f.storefrontDesign,
+          version: 2,
+          stepDesigns: {
+            ...(f.storefrontDesign.stepDesigns ?? {}),
+            [String(newIndex)]: stepPresetBlocks(preset),
+          },
+        },
+      };
+    });
+    setAddStepOpen(false);
   };
 
   const deleteStep = (i: number) => {
@@ -412,7 +453,7 @@ export function BundleVisualEditor({
               <Button
                 icon={PlusIcon}
                 variant="plain"
-                onClick={addStep}
+                onClick={() => addStep("products")}
                 accessibilityLabel="Ajouter une étape"
               />
             </Tooltip>
@@ -449,9 +490,24 @@ export function BundleVisualEditor({
             </DndContext>
           )}
 
-          <Button variant="primary" onClick={addStep} fullWidth>
-            + Ajouter une étape
-          </Button>
+          <Popover
+            active={addStepOpen}
+            onClose={() => setAddStepOpen(false)}
+            activator={
+              <Button variant="primary" fullWidth disclosure onClick={() => setAddStepOpen((o) => !o)}>
+                + Ajouter une étape
+              </Button>
+            }
+          >
+            <ActionList
+              actionRole="menuitem"
+              items={[
+                { content: "Étape produits (titre + liste)", onAction: () => addStep("products") },
+                { content: "Étape options (titre + upsell)", onAction: () => addStep("upsell") },
+                { content: "Étape vide", onAction: () => addStep("blank") },
+              ]}
+            />
+          </Popover>
 
           <Box paddingBlockStart="400" paddingBlockEnd="200">
             <Text as="h3" variant="headingSm">
