@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Page,
   Layout,
@@ -282,12 +282,36 @@ export default function AppBundles() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createName, setCreateName] = useState("");
 
+  // ── UI optimiste : retire immédiatement les bundles en cours de suppression ──
+  // (sinon il faut attendre la revalidation du loader, ralentie par l'appel
+  //  Shopify fetchProductHandlesByGids → impression que « rien ne se passe »).
+  const pendingDeleteIds = useMemo(() => {
+    const fd = fetcher.formData;
+    if (!fd || fetcher.state === "idle") return new Set<string>();
+    const intent = fd.get("intent");
+    if (intent === "delete") {
+      const id = fd.get("bundleId");
+      return typeof id === "string" ? new Set([id]) : new Set<string>();
+    }
+    if (intent === "bulk_delete") {
+      return new Set(
+        fd.getAll("ids").filter((v): v is string => typeof v === "string"),
+      );
+    }
+    return new Set<string>();
+  }, [fetcher.formData, fetcher.state]);
+
+  const visibleBundles = useMemo(
+    () => bundles.filter((b) => !pendingDeleteIds.has(b.id)),
+    [bundles, pendingDeleteIds],
+  );
+
   const {
     selectedResources,
     allResourcesSelected,
     handleSelectionChange,
     clearSelection,
-  } = useIndexResourceState(bundles);
+  } = useIndexResourceState(visibleBundles);
 
   useEffect(() => {
     if (fetcher.state !== "idle") return;
@@ -339,7 +363,7 @@ export default function AppBundles() {
     plural: "bundles",
   };
 
-  const rowMarkup = bundles.map((b, index) => (
+  const rowMarkup = visibleBundles.map((b, index) => (
     <IndexTable.Row
       id={b.id}
       key={b.id}
@@ -485,7 +509,7 @@ export default function AppBundles() {
         <Layout>
           <Layout.Section>
             <Card>
-              {bundles.length === 0 ? (
+              {visibleBundles.length === 0 ? (
                 <EmptyState
                   heading="Créez votre premier bundle"
                   action={{
@@ -501,7 +525,7 @@ export default function AppBundles() {
               ) : (
                 <IndexTable
                   resourceName={resourceName}
-                  itemCount={bundles.length}
+                  itemCount={visibleBundles.length}
                   selectable
                   selectedItemsCount={
                     allResourcesSelected
