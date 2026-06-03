@@ -721,13 +721,13 @@ export function SidebarLevel2({
               />
               <LibraryItem
                 icon={PlusIcon}
-                label="Options Supplémentaires"
-                onClick={() => addBlock({ 
-                  id: newBlockId(), 
-                  type: "upsell", 
-                  title: "Complétez votre commande", 
-                  behavior: "multiple", 
-                  items: [] 
+                label="Options / Sous-produits ★"
+                onClick={() => addBlock({
+                  id: newBlockId(),
+                  type: "upsell",
+                  title: "Complétez votre commande",
+                  behavior: "multiple",
+                  items: []
                 })}
               />
               <LibraryItem

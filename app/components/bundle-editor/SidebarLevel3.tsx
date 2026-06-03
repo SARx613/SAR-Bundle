@@ -1064,6 +1064,23 @@ function UpsellManager({
     patchItems(newItems);
   };
 
+  // Sous-produit personnalisé : pas de variante Shopify, juste image/titre/prix.
+  // Visuel + prix ajouté au total (pas de ligne panier distincte).
+  const addCustom = () => {
+    patchItems([
+      ...items,
+      {
+        id: Math.random().toString(36).substring(2, 9),
+        variantGid: "",
+        variantId: 0,
+        productTitle: "Nouvelle option",
+        priceAmount: "0",
+        currencyCode: "EUR",
+        defaultEnabled: false,
+      },
+    ]);
+  };
+
   const removeItem = (idx: number) => {
     const next = [...items];
     next.splice(idx, 1);
@@ -1097,14 +1114,18 @@ function UpsellManager({
       <Divider />
 
       <BlockStack gap="200">
-        <InlineStack align="space-between" blockAlign="center">
-          <Text as="h3" variant="headingSm">Options (Items)</Text>
-          <Button variant="plain" onClick={openPicker} icon={PlusIcon}>Ajouter un produit</Button>
+        <Text as="h3" variant="headingSm">Options (sous-produits)</Text>
+        <InlineStack gap="200">
+          <Button onClick={addCustom} icon={PlusIcon} variant="primary">Option personnalisée</Button>
+          <Button onClick={openPicker} icon={PlusIcon}>Depuis Shopify</Button>
         </InlineStack>
 
         {items.length === 0 && (
           <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-            <Text as="p" variant="bodySm" tone="subdued">Aucune option. Sélectionnez un produit Shopify.</Text>
+            <Text as="p" variant="bodySm" tone="subdued">
+              Aucune option. Ajoutez une « option personnalisée » (image + titre + prix,
+              hors catalogue) ou un produit Shopify existant.
+            </Text>
           </Box>
         )}
 
@@ -1113,7 +1134,9 @@ function UpsellManager({
             <BlockStack gap="200">
               <InlineStack align="space-between" blockAlign="center">
                 <InlineStack gap="200" blockAlign="center">
-                  {item.defaultImageUrl && <Thumbnail source={item.defaultImageUrl} alt="" size="small" />}
+                  {(item.overrideImage || item.defaultImageUrl) && (
+                    <Thumbnail source={(item.overrideImage || item.defaultImageUrl) as string} alt="" size="small" />
+                  )}
                   <BlockStack gap="050">
                     <Text as="span" variant="bodySm" fontWeight="bold">{item.overrideLabel || item.productTitle}</Text>
                     <Text as="span" variant="bodyXs" tone="subdued">+{item.priceAmount} {item.currencyCode}</Text>
@@ -1121,6 +1144,12 @@ function UpsellManager({
                 </InlineStack>
                 <Button variant="plain" icon={DeleteIcon} tone="critical" onClick={() => removeItem(idx)} />
               </InlineStack>
+
+              <ImageUploadField
+                label="Image"
+                imageUrl={(item.overrideImage || item.defaultImageUrl) ?? null}
+                onImageChange={(url) => updateItem(idx, { overrideImage: url ?? undefined })}
+              />
 
               <TextField
                 label="Nom affiché"
