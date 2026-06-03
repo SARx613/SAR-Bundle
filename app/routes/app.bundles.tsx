@@ -39,7 +39,8 @@ import {
   syncBundleShopifyProduct,
   syncFixedPriceBoxCatalogVariantPrice,
 } from "../utils/shopify-bundle-product.server";
-import { slugifyProductHandle } from "../utils/storefront-design";
+import { Prisma } from "@prisma/client";
+import { slugifyProductHandle, seededStorefrontDesign } from "../utils/storefront-design";
 import { fetchProductHandlesByGids } from "../utils/shopify-product-lookup.server";
 
 type BundleRow = {
@@ -136,6 +137,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         status: "DRAFT",
         pricingScope: "FLAT",
         discountValueType: "PERCENT",
+        // Design pré-rempli + 1re étape : l'éditeur n'est jamais vide à la création.
+        storefrontDesign: seededStorefrontDesign() as unknown as Prisma.InputJsonValue,
+        steps: {
+          create: [
+            { sortOrder: 0, name: "Choisissez vos produits", isFinalStep: true },
+          ],
+        },
       },
     });
     return redirect(`/app/bundle/${created.id}`);
