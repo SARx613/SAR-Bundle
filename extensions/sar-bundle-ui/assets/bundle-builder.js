@@ -1060,9 +1060,10 @@
                 }
                 row.appendChild(check);
 
-                if (item.defaultImageUrl) {
+                var upImg = item.overrideImage || item.defaultImageUrl;
+                if (upImg) {
                   var img = document.createElement('img');
-                  img.src = item.defaultImageUrl;
+                  img.src = upImg;
                   img.style.width = '48px';
                   img.style.height = '48px';
                   img.style.objectFit = 'cover';
