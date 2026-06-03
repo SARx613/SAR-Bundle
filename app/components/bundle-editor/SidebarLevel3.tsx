@@ -97,38 +97,38 @@ function ColorField({
   value: string;
   onChange: (v: string) => void;
 }) {
-  // Parse hex to display
   const displayValue = value || "";
+  // L'input natif n'accepte qu'un hex #rrggbb : on l'alimente proprement.
+  const hexForInput = /^#[0-9a-fA-F]{6}$/.test(displayValue) ? displayValue : "#000000";
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <Text as="span" variant="bodyMd">{label}</Text>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <InlineStack gap="200" blockAlign="center" align="space-between" wrap={false}>
+      <Text as="span" variant="bodyMd">{label}</Text>
+      <InlineStack gap="100" blockAlign="center">
         <label
+          title={displayValue || "Choisir une couleur"}
           style={{
             display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             borderRadius: "50%",
             border: "1px solid var(--p-color-border)",
             cursor: "pointer",
             overflow: "hidden",
             position: "relative",
-            background: displayValue || "#ffffff",
+            background: displayValue || "var(--p-color-bg-surface, #fff)",
           }}
         >
           <input
             type="color"
-            value={displayValue || "#000000"}
+            value={hexForInput}
             onChange={(e) => onChange(e.target.value)}
             style={{
               position: "absolute",
-              width: "100%",
-              height: "100%",
+              width: "150%",
+              height: "150%",
+              top: "-25%",
+              left: "-25%",
               opacity: 0,
               cursor: "pointer",
               border: "none",
@@ -136,33 +136,24 @@ function ColorField({
             }}
           />
         </label>
-        <div style={{ flex: 1 }}>
-          <TextField
-            label=""
-            labelHidden
-            value={displayValue}
-            onChange={onChange}
-            autoComplete="off"
-            placeholder="#000000 ou rgba()"
-          />
-        </div>
-        {displayValue && (
+        {displayValue ? (
           <button
             type="button"
             onClick={() => onChange("")}
+            title="Réinitialiser"
             style={{
               background: "none",
               border: "none",
               cursor: "pointer",
               color: "var(--p-color-text-subdued)",
-              fontSize: 16,
-              padding: 4,
+              fontSize: 13,
+              lineHeight: 1,
+              padding: 2,
             }}
-            title="Effacer"
           >✕</button>
-        )}
-      </div>
-    </div>
+        ) : null}
+      </InlineStack>
+    </InlineStack>
   );
 }
 
