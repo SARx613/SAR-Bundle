@@ -406,17 +406,27 @@
 .sar-bundle__nav {
   display: flex;
   gap: 0.75rem;
-  margin-top: 1.25rem;
-  flex-wrap: wrap;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+/* Previous = compact ; bouton principal (Suivant / Ajouter au panier) = prioritaire */
+.sar-bundle__nav .sar-bundle__btn--secondary {
+  flex: 0 0 auto;
+}
+.sar-bundle__nav .sar-bundle__btn--primary {
+  flex: 1 1 auto;
 }
 
 .sar-bundle__btn {
   font-family: inherit;
   font-size: var(--sar-body-size, 1rem);
-  padding: 0.65rem 1.25rem;
-  border-radius: var(--sar-radius, 8px);
+  font-weight: 600;
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--sar-radius, 10px);
   border: none;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.15s ease;
 }
 
@@ -426,8 +436,8 @@
 }
 
 .sar-bundle__btn--primary:hover {
-  opacity: 0.9;
-  box-shadow: 0 2px 8px rgba(0, 128, 96, 0.3);
+  opacity: 0.92;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .sar-bundle__btn--secondary {
