@@ -356,6 +356,57 @@ export function defaultStorefrontDesign(): StorefrontDesignV2 {
   };
 }
 
+/**
+ * Design pré-rempli et stylé pour un nouveau bundle : barre d'étape (globale)
+ * + 1re étape avec titre, texte d'intro et liste de produits. Évite l'éditeur
+ * « vide » à la création et donne un rendu présentable immédiatement.
+ */
+export function seededStorefrontDesign(): StorefrontDesignV2 {
+  return {
+    version: 2,
+    global: defaultGlobal(),
+    blocks: [{ id: newBlockId(), type: "step_bar", preset: "inline", style: {} }],
+    stepDesigns: {
+      "0": [
+        {
+          id: newBlockId(),
+          type: "heading",
+          text: "Composez votre coffret",
+          tag: "h2",
+          style: {
+            fontSize: "1.75rem",
+            fontWeight: "700",
+            color: "#1f2937",
+            textAlign: "center",
+            marginTop: "0",
+            marginBottom: "0.5rem",
+          },
+        },
+        {
+          id: newBlockId(),
+          type: "text",
+          text: "Sélectionnez vos produits préférés étape par étape et profitez d'un tarif avantageux sur l'ensemble.",
+          style: {
+            fontSize: "1rem",
+            color: "#6b7280",
+            textAlign: "center",
+            marginTop: "0",
+            marginBottom: "1.25rem",
+          },
+        },
+        {
+          id: newBlockId(),
+          type: "product_list",
+          source: "step_pick",
+          cardLayout: "classic",
+          columns: 3,
+          columnsMobile: 2,
+        },
+      ],
+    },
+  };
+}
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object";
 }
