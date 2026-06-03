@@ -181,10 +181,12 @@ export function BundleIframePreview({
     };
   }, [sendUpdate, onSelectBlock]);
 
-  // Debounce 50ms : met à jour l'aperçu dès que form/step/block changent
+  // Debounce 280ms : l'aperçu se re-monte entièrement à chaque update (innerHTML
+  // effacé + mount), donc un debounce trop court (ex. 50ms) recrée tout le DOM à
+  // chaque frappe et interrompt le chargement des images. On attend une pause.
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(sendUpdate, 50);
+    debounceRef.current = setTimeout(sendUpdate, 280);
     return () => clearTimeout(debounceRef.current);
   }, [form, activeStepIndex, selectedBlockId, sendUpdate]);
 
