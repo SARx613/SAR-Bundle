@@ -13,6 +13,7 @@ import {
   Icon,
   InlineStack,
   RangeSlider,
+  Select,
   Text,
   TextField,
   Tooltip,
@@ -44,6 +45,7 @@ import {
   type UiStep,
 } from "../../utils/bundle-form.client";
 import type { StorefrontDesignV2 } from "../../utils/storefront-design";
+import { fontOptionsWith } from "../../utils/storefront-design";
 
 /* ── Inline colour picker (circle swatch + hex text field) ── */
 function GlobalColorField({
@@ -588,22 +590,18 @@ export function BundleVisualEditor({
                   suffix={<span style={{ minWidth: 24, textAlign: "right" }}>{g.borderRadius ?? "8"}px</span>}
                 />
               </div>
-              <Text as="h3" variant="headingSm" style={{ marginTop: "12px" }}>Polices de caractères (CSS)</Text>
-              <TextField
+              <Text as="h3" variant="headingSm">Polices de caractères</Text>
+              <Select
                 label="Police du corps"
+                options={fontOptionsWith(g.fontBody)}
                 value={g.fontBody ?? ""}
                 onChange={(v) => updateGlobal({ fontBody: v || undefined })}
-                placeholder="system-ui, sans-serif"
-                autoComplete="off"
-                helpText="Nom de police (ex: 'Inter', sans-serif). Par défaut: police de votre thème."
               />
-              <TextField
+              <Select
                 label="Police des titres"
+                options={fontOptionsWith(g.fontHeading)}
                 value={g.fontHeading ?? ""}
                 onChange={(v) => updateGlobal({ fontHeading: v || undefined })}
-                placeholder="system-ui, sans-serif"
-                autoComplete="off"
-                helpText="Nom de police (ex: 'Playfair Display', serif)."
               />
             </BlockStack>
           </Box>
