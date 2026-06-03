@@ -456,13 +456,18 @@ export function ErrorBoundary() {
         error.message?.toLowerCase().includes("minified react")
       : isRouteErrorResponse(error) && error.status >= 500);
 
-  // Auto-reload pour les erreurs transitoires (stale client, déploiement)
+  // Erreur transitoire (client obsolète / redéploiement) : on redirige
+  // DIRECTEMENT vers l'accueil, sans afficher d'écran de rechargement.
   useEffect(() => {
     if (isStaleOrServerError) {
-      const t = setTimeout(() => window.location.reload(), 3000);
-      return () => clearTimeout(t);
+      navigate("/app", { replace: true });
     }
-  }, [isStaleOrServerError]);
+  }, [isStaleOrServerError, navigate]);
+
+  // Pendant la redirection, on n'affiche pas l'écran « Rechargement en cours… ».
+  if (isStaleOrServerError) {
+    return null;
+  }
 
   return (
     <Page fullWidth>
