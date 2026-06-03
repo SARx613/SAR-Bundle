@@ -823,38 +823,79 @@
 
           function renderStepBarBlock(wrapEl, b, ctx) {
             var st = b.style || {};
-            // Moins de 2 étapes : masquage transparent en production. En éditeur, on continue normalement
+            // Presets: 'inline' (rond + label à côté, reliés), 'stacked' (rond + label dessous),
+            // 'minimal' (petites pastilles). Défaut = 'inline' (style demandé par capture).
+            var preset = b.preset || 'inline';
+            if (preset === 'default' || preset === 'circles') preset = 'stacked';
+            if (preset === 'lines') preset = 'inline';
             var isInteractive = ctx && ctx.__explicitBundleData && ctx.__explicitBundleData.__editorMode;
             if (!ctx || !ctx.steps || ctx.steps.length < 2) {
               if (isInteractive) {
                 var ph = document.createElement('div');
-                ph.style.cssText = 'padding:12px 16px;background:#f6f6f7;border:1.5px dashed #c5c5c5;border-radius:6px;color:#999;font-size:13px;text-align:center;';
+                ph.style.cssText = 'padding:12px 16px;background:#f6f6f7;border:1.5px dashed #c5c5c5;border-radius:8px;color:#999;font-size:13px;text-align:center;';
                 ph.textContent = 'Barre d’étapes — au moins 2 étapes requises pour l’affichage';
                 wrapEl.appendChild(ph);
               }
               return;
             }
 
-            var bar = document.createElement('div');
-            bar.className = 'stepBar-module__step__rq sbb-overflow-hidden sbb-flex-1';
-            if (st.fontSize) bar.style.fontFamily = 'inherit'; // or specific font
-
-            var content = document.createElement('div');
-            content.className = 'stepBar-module__step_content__pF sbb-flex sbb-leading-[normal]';
-            content.style.transform = 'translate3d(0px, 0px, 0px)';
-            content.style.display = 'flex';
-            content.style.justifyContent = 'space-between';
-
             var activeIdx = ctx.stepIndex;
-
-            // default colors that can be overridden by st
-            var activeBg = st.activeBg || '#555555';
+            var activeBg = st.activeBg || '#1f2937';
             var activeColor = st.activeTextColor || '#ffffff';
-            var completedBg = st.completedBg || st.activeBg || '#555555';
-            var inactiveBg = st.inactiveBg || '#f1f1f1';
-            var inactiveColor = st.inactiveTextColor || '#999999';
+            var completedBg = st.completedBg || st.activeBg || '#1f2937';
+            var inactiveBg = st.inactiveBg || '#eef0f2';
+            var inactiveColor = st.inactiveTextColor || '#9ca3af';
             var lineColor = st.lineColor || st.borderColor || '#e1e3e5';
-            var labelColor = st.labelColor || '#666';
+            var labelColor = st.labelColor || '#6b7280';
+            var showLine = st.showLine !== false;
+            var dot = st.dotSize || (preset === 'minimal' ? 30 : 40);
+            var fontSize = st.fontSize || '14px';
+
+            var bar = document.createElement('div');
+            bar.className = 'sar-stepbar sar-stepbar--' + preset;
+            bar.style.display = 'flex';
+            bar.style.alignItems = 'center';
+            bar.style.justifyContent = preset === 'inline' ? 'center' : 'space-between';
+            bar.style.gap = preset === 'inline' ? '10px' : '0';
+            bar.style.margin = '0 0 1.5rem';
+            bar.style.fontFamily = 'inherit';
+
+            function makeCircle(idx, isActive, isCompleted) {
+              var bg = isCompleted ? completedBg : (isActive ? activeBg : inactiveBg);
+              var fg = (isCompleted || isActive) ? activeColor : inactiveColor;
+              var c = document.createElement('div');
+              c.style.flex = '0 0 auto';
+              c.style.width = dot + 'px';
+              c.style.height = dot + 'px';
+              c.style.borderRadius = '50%';
+              c.style.display = 'flex';
+              c.style.alignItems = 'center';
+              c.style.justifyContent = 'center';
+              c.style.background = bg;
+              c.style.color = fg;
+              c.style.fontWeight = '600';
+              c.style.fontSize = Math.round(dot * 0.42) + 'px';
+              c.style.zIndex = '1';
+              c.style.position = 'relative';
+              c.style.transition = 'background .2s, color .2s';
+              c.style.boxShadow = isActive ? '0 0 0 4px ' + hexA(activeBg, 0.15) : 'none';
+              if (isCompleted) {
+                c.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.round(dot * 0.5) + '" height="' + Math.round(dot * 0.5) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+              } else {
+                c.textContent = String(idx + 1);
+              }
+              return c;
+            }
+
+            function makeLabel(stepInfo, idx, isActive) {
+              var label = document.createElement('span');
+              label.textContent = (stepInfo.name || 'Étape ' + (idx + 1)).slice(0, 24);
+              label.style.fontSize = fontSize;
+              label.style.whiteSpace = 'nowrap';
+              label.style.color = isActive ? (st.labelColor || '#1f2937') : labelColor;
+              label.style.fontWeight = isActive ? '600' : '500';
+              return label;
+            }
 
             for (var i = 0; i < ctx.steps.length; i++) {
               (function(idx) {
@@ -863,80 +904,84 @@
                 var isCompleted = idx < activeIdx;
 
                 var item = document.createElement('div');
-                item.className = 'stepBar-module__step_item__Uy sbb-text-center sbb-relative sbb-w-full sbb-px-[4px]';
-                item.style.flex = '0 0 ' + (100 / ctx.steps.length) + '%';
-                item.style.position = 'relative';
-                item.style.textAlign = 'center';
                 item.style.cursor = 'pointer';
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.position = 'relative';
+                item.addEventListener('click', function() { state.stepIndex = idx; render(); });
 
-                // Préfixe Line (sauf pour le dernier si on voulait inverser, mais l'html client met le prefix sur l'actuel, avec left: 50%!)
-                // Le HTML du client montre le prefix_line partout sauf le premier?
-                // En fait dans le HTML client, il y a un prefix (left: 50%) sur les items, et visiblement le parent overlap.
-                // On met la ligne uniquement si idx < length - 1, et elle part du centre de cet element vers la droite
-                if (idx < ctx.steps.length - 1) {
-                  var line = document.createElement('div');
-                  line.className = 'stepBar-module__step_item_prefix__BA sbb-absolute sbb-w-full sbb-h-px sbb-z-0 sbb-left-0 sbb-top-[24px]';
-                  line.style.position = 'absolute';
-                  line.style.width = '100%';
-                  line.style.height = '1px';
-                  line.style.zIndex = '0';
-                  line.style.left = '50%';
-                  line.style.top = '24px';
-                  line.style.backgroundColor = lineColor;
-                  item.appendChild(line);
-                }
-
-                // Icon / Circle
-                var circleWrap = document.createElement('div');
-                circleWrap.className = 'stepBar-module__step_item_icon__id sbb-relative sbb-z-1 sbb-mx-auto sbb-mb-1 sbb-rounded-full sbb-flex sbb-items-center sbb-justify-center';
-                circleWrap.style.position = 'relative';
-                circleWrap.style.zIndex = '1';
-                circleWrap.style.margin = '0 auto 4px';
-                circleWrap.style.borderRadius = '50%';
-                circleWrap.style.display = 'flex';
-                circleWrap.style.alignItems = 'center';
-                circleWrap.style.justifyContent = 'center';
-                circleWrap.style.width = '48px';
-                circleWrap.style.height = '48px';
-
-                if (isCompleted) {
-                  circleWrap.style.backgroundColor = completedBg;
-                  circleWrap.style.color = activeColor;
-                  circleWrap.innerHTML = '<span class="icon-module__root__Vo" style="min-width: 24px; display:inline-flex; align-items:center; justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>';
-                } else if (isActive) {
-                  circleWrap.style.backgroundColor = activeBg;
-                  circleWrap.style.color = activeColor;
-                  circleWrap.style.fontSize = '20px';
-                  circleWrap.textContent = String(idx + 1);
+                if (preset === 'inline') {
+                  item.style.flexDirection = 'row';
+                  item.style.gap = '8px';
+                  item.style.flex = '0 0 auto';
+                  item.appendChild(makeCircle(idx, isActive, isCompleted));
+                  item.appendChild(makeLabel(stepInfo, idx, isActive));
+                  bar.appendChild(item);
+                  // Ligne de liaison entre items
+                  if (showLine && idx < ctx.steps.length - 1) {
+                    var ln = document.createElement('div');
+                    ln.style.flex = '1 1 24px';
+                    ln.style.minWidth = '16px';
+                    ln.style.height = '2px';
+                    ln.style.background = idx < activeIdx ? completedBg : lineColor;
+                    ln.style.borderRadius = '2px';
+                    bar.appendChild(ln);
+                  }
+                } else if (preset === 'minimal') {
+                  item.style.flexDirection = 'column';
+                  item.style.flex = '0 0 auto';
+                  item.appendChild(makeCircle(idx, isActive, isCompleted));
+                  bar.appendChild(item);
+                  if (showLine && idx < ctx.steps.length - 1) {
+                    var ln2 = document.createElement('div');
+                    ln2.style.flex = '1 1 auto';
+                    ln2.style.height = '2px';
+                    ln2.style.margin = '0 6px';
+                    ln2.style.background = idx < activeIdx ? completedBg : lineColor;
+                    ln2.style.borderRadius = '2px';
+                    bar.appendChild(ln2);
+                  }
                 } else {
-                  circleWrap.style.backgroundColor = inactiveBg;
-                  circleWrap.style.color = inactiveColor;
-                  circleWrap.style.fontSize = '20px';
-                  circleWrap.textContent = String(idx + 1);
+                  // stacked : rond en haut, label dessous, ligne horizontale derrière les ronds
+                  item.style.flexDirection = 'column';
+                  item.style.flex = '1';
+                  item.style.textAlign = 'center';
+                  if (showLine && idx < ctx.steps.length - 1) {
+                    var hl = document.createElement('div');
+                    hl.style.position = 'absolute';
+                    hl.style.top = (dot / 2 - 1) + 'px';
+                    hl.style.left = '50%';
+                    hl.style.width = '100%';
+                    hl.style.height = '2px';
+                    hl.style.zIndex = '0';
+                    hl.style.background = idx < activeIdx ? completedBg : lineColor;
+                    item.appendChild(hl);
+                  }
+                  var col = document.createElement('div');
+                  col.style.display = 'flex';
+                  col.style.flexDirection = 'column';
+                  col.style.alignItems = 'center';
+                  col.style.gap = '6px';
+                  col.style.position = 'relative';
+                  col.style.zIndex = '1';
+                  var circ = makeCircle(idx, isActive, isCompleted);
+                  circ.style.margin = '0 auto';
+                  col.appendChild(circ);
+                  col.appendChild(makeLabel(stepInfo, idx, isActive));
+                  item.appendChild(col);
+                  bar.appendChild(item);
                 }
-
-                item.appendChild(circleWrap);
-
-                // Texte name
-                var label = document.createElement('div');
-                label.className = 'stepBar-module__step_item_text_cosmetic__Sa step_item_text';
-                label.textContent = (stepInfo.name || 'Étape ' + (idx + 1)).slice(0, 24);
-                label.style.fontSize = st.fontSize || '16px';
-                label.style.color = isActive ? '#000' : labelColor;
-                label.style.fontWeight = isActive ? '600' : '400';
-                item.appendChild(label);
-
-                item.addEventListener('click', function() {
-                  state.stepIndex = idx;
-                  render();
-                });
-
-                content.appendChild(item);
               })(i);
             }
 
-            bar.appendChild(content);
             wrapEl.appendChild(bar);
+          }
+
+          // Convertit #rrggbb + alpha → rgba() (pour un halo léger sous le rond actif)
+          function hexA(hex, alpha) {
+            var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
+            if (!m) return 'rgba(31,41,55,' + alpha + ')';
+            return 'rgba(' + parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16) + ',' + alpha + ')';
           }
 
           function renderUpsellBlock(wrapEl, b, ctx) {

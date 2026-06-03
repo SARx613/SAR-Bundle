@@ -159,7 +159,8 @@ export type StepBarBlock = {
   name?: string;
   isHidden?: boolean;
   type: "step_bar";
-  preset?: "default" | "circles" | "lines" | "minimal" | "custom";
+  /** inline = n° + label à côté (reliés) · stacked = n° + label dessous · minimal = pastilles */
+  preset?: "inline" | "stacked" | "minimal" | "default" | "circles" | "lines" | "custom";
   style?: {
     borderColor?: string;
     activeBg?: string;
