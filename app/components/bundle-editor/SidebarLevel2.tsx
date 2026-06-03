@@ -453,6 +453,9 @@ export function SidebarLevel2({
           displayName: meta.displayTitle || p.displayName,
           imageUrl: meta.imageUrl ?? p.imageUrl,
           productHandle: meta.productHandle ?? p.productHandle,
+          // Prix : indispensable pour l'affichage dans l'aperçu (sf.priceAmount)
+          priceAmount: meta.priceAmount ?? p.priceAmount,
+          currencyCode: meta.currencyCode ?? p.currencyCode,
         };
       }),
     );
@@ -476,7 +479,8 @@ export function SidebarLevel2({
         !name ||
         looksLikeId ||
         name.toLowerCase() === "default title" ||
-        !p.productHandle
+        !p.productHandle ||
+        !p.priceAmount
       );
     });
     if (needsEnrich.length > 0) {
@@ -543,7 +547,8 @@ export function SidebarLevel2({
           !name ||
           looksLikeId ||
           name.toLowerCase() === "default title" ||
-          !a.productHandle
+          !a.productHandle ||
+          !a.priceAmount
         );
       })
       .map((a) => a.variantGid);
@@ -604,7 +609,7 @@ export function SidebarLevel2({
         .filter((a) => {
           const name = (a.displayName ?? "").trim();
           const looksLikeId = /^\d{8,}$/.test(name);
-          return !a.imageUrl || !name || looksLikeId || !a.productHandle;
+          return !a.imageUrl || !name || looksLikeId || !a.productHandle || !a.priceAmount;
         })
         .map((a) => a.variantGid);
       if (missing.length) enrichVariants(missing);
