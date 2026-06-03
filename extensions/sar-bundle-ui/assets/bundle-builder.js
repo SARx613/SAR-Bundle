@@ -1815,7 +1815,21 @@
               var isCollection = designCtx.__productListSource === 'collection' && designCtx.__productListCollection;
               var isAllProducts = designCtx.__productListSource === 'all_products';
 
-              if (isCollection || isAllProducts) {
+              if ((isCollection || isAllProducts) && bundle.__editorMode) {
+                // En aperçu admin (mode éditeur), l'iframe est servie depuis le
+                // domaine de l'app : fetch('/collections/.../products.json') cible
+                // l'app et non la boutique → impossible. On affiche un repère clair.
+                // Sur la vraie boutique, window.Shopify.routes.root pointe la boutique
+                // et le chargement fonctionne normalement (branche ci-dessous).
+                var handleEd = isAllProducts ? 'all' : designCtx.__productListCollection;
+                var srcLabel = isAllProducts
+                  ? 'tous les produits de la boutique'
+                  : ('la collection « ' + handleEd + ' »');
+                grid.innerHTML =
+                  '<div class="sar-bundle__preview-note" style="grid-column:1/-1;padding:1.25rem;border:1.5px dashed #c5c5c5;border-radius:8px;color:#6d7175;text-align:center;font-size:13px;line-height:1.5;">' +
+                  '🛍️ Les produits de ' + srcLabel + ' s\'afficheront automatiquement ici <strong>sur votre boutique</strong>.<br>(L\'aperçu admin ne peut pas les charger.)' +
+                  '</div>';
+              } else if (isCollection || isAllProducts) {
                 var handle = isAllProducts ? 'all' : designCtx.__productListCollection;
                 var loadId = 'loading-' + handle;
                 if (!grid.querySelector('#' + loadId)) {
