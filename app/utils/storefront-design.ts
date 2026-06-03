@@ -687,6 +687,30 @@ export function normalizeProductHandle(raw: unknown): string | null {
   return slugifyProductHandle(t);
 }
 
+/** Polices proposées dans les menus déroulants (web-safe / compatibles thèmes). */
+export const FONT_OPTIONS: { label: string; value: string }[] = [
+  { label: "Par défaut (thème)", value: "" },
+  { label: "Système (sans-serif)", value: "system-ui, -apple-system, sans-serif" },
+  { label: "Inter", value: "Inter, sans-serif" },
+  { label: "Helvetica / Arial", value: "Helvetica, Arial, sans-serif" },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+  { label: "Trebuchet MS", value: "'Trebuchet MS', Helvetica, sans-serif" },
+  { label: "Tahoma", value: "Tahoma, Geneva, sans-serif" },
+  { label: "Georgia (serif)", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Times New Roman (serif)", value: "'Times New Roman', Times, serif" },
+  { label: "Garamond (serif)", value: "Garamond, 'Times New Roman', serif" },
+  { label: "Palatino (serif)", value: "'Palatino Linotype', Palatino, serif" },
+  { label: "Courier (monospace)", value: "'Courier New', Courier, monospace" },
+];
+
+/** Options de police, avec ajout de la valeur courante si personnalisée (compat anciennes données). */
+export function fontOptionsWith(current?: string) {
+  if (current && !FONT_OPTIONS.some((f) => f.value === current)) {
+    return [...FONT_OPTIONS, { label: "Personnalisé (actuel)", value: current }];
+  }
+  return FONT_OPTIONS;
+}
+
 export function newBlockId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();

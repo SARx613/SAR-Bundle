@@ -43,7 +43,7 @@ import {
   type TrustBadgesBlock,
   type TrustBadgeItem,
 } from "../../utils/storefront-design";
-import { blockDisplayLabel, newBlockId } from "../../utils/storefront-design";
+import { blockDisplayLabel, newBlockId, fontOptionsWith } from "../../utils/storefront-design";
 import type { UiStep, UiStepProduct } from "../../utils/bundle-form.client";
 
 /* ────────────────────── Heading tags ────────────────────── */
@@ -261,44 +261,23 @@ function SliderNumericField({
 
 /* ────────────────────── Collapsible Section ────────────────────── */
 
+// Section de style « à plat » : plus d'accordéon, le contenu est toujours visible.
+// On conserve la signature (id/defaultOpen) pour ne pas casser les appels existants.
 function CollapsibleStyleSection({
   title,
-  id,
   children,
-  defaultOpen = false,
 }: {
   title: string;
-  id: string;
+  id?: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
   return (
-    <Box borderBlockEndWidth="025" borderColor="border">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-          padding: "12px 12px",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: "var(--p-color-text)",
-        }}
-        aria-expanded={open}
-      >
-        <Text as="span" variant="headingMd">{title}</Text>
-        <Icon source={open ? ChevronDownIcon : ChevronRightIcon} />
-      </button>
-      <Collapsible id={id} open={open}>
-        <Box padding="300">
-          {children}
-        </Box>
-      </Collapsible>
+    <Box borderBlockEndWidth="025" borderColor="border" paddingBlockEnd="300">
+      <Box paddingBlockStart="300" paddingBlockEnd="150">
+        <Text as="span" variant="headingSm">{title}</Text>
+      </Box>
+      {children}
     </Box>
   );
 }
@@ -407,12 +386,11 @@ function StyleFields({
                   min={8}
                   max={72}
                 />
-                <TextField
-                  label="Police (CSS)"
+                <Select
+                  label="Police"
+                  options={fontOptionsWith(style.fontFamily)}
                   value={style.fontFamily ?? ""}
                   onChange={(v) => onChange({ ...style, fontFamily: v || undefined })}
-                  autoComplete="off"
-                  helpText="ex. system-ui, Georgia"
                 />
                 <Select
                   label="Graisse"
