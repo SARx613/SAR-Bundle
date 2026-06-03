@@ -444,24 +444,17 @@ export function BundleEditorForm({
                 />
                 <Divider />
                 <Text as="h3" variant="headingSm">
-                  Inventaire du produit
+                  Inventaire
                 </Text>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Définissez la quantité disponible sur le produit Shopify associé. Laissez vide pour ne pas modifier l'inventaire.
-                </Text>
-                <TextField
-                  label="Quantité en stock"
-                  type="number"
-                  value={form.inventoryQuantity}
-                  onChange={(v) => setForm((f) => ({ ...f, inventoryQuantity: v }))}
-                  autoComplete="off"
-                  placeholder="Ex: 100 — laisser vide = ne pas modifier"
-                  helpText={
-                    form.steps.some(s => s.products.length > 0)
-                      ? `Valeur minimale suggérée basée sur vos étapes : saisissez manuellement.`
-                      : "Saisissez le nombre d'unités disponibles."
-                  }
-                />
+                <Banner tone="info">
+                  <p>
+                    L’inventaire est <strong>automatique</strong> : la disponibilité du
+                    bundle suit le stock de ses produits. Le produit en rupture devient
+                    le goulot d’étranglement et limite le nombre de bundles vendables —
+                    Shopify applique cette limite au paiement. Aucune saisie manuelle
+                    n’est nécessaire.
+                  </p>
+                </Banner>
                 <Divider />
                 <Text as="h3" variant="headingSm">
                   Galerie du bundle
