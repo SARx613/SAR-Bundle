@@ -531,8 +531,25 @@ function StepBarStyleFields({
   const patchStyle = (s: Partial<StepBarBlock["style"]>) =>
     onPatch({ style: { ...style, ...s } } as Partial<StorefrontBlockV2>);
 
+  const presetValue =
+    block.preset === "stacked" || block.preset === "default" || block.preset === "circles"
+      ? "stacked"
+      : block.preset === "minimal"
+        ? "minimal"
+        : "inline";
+
   return (
     <BlockStack gap="300">
+      <Select
+        label="Style de la barre d'étape"
+        options={[
+          { label: "Numéro + label à côté (reliés)", value: "inline" },
+          { label: "Numéro + label en dessous", value: "stacked" },
+          { label: "Minimal (pastilles)", value: "minimal" },
+        ]}
+        value={presetValue}
+        onChange={(v) => onPatch({ preset: v } as Partial<StorefrontBlockV2>)}
+      />
       <Checkbox
         label="Afficher la ligne entre les étapes"
         checked={style.showLine !== false}
