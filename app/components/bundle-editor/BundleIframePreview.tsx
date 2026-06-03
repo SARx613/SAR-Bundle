@@ -13,6 +13,7 @@ import type { BundleFormState } from "~/utils/bundle-form.client";
 
 interface BundleIframePreviewProps {
   form: BundleFormState;
+  shopDomain?: string;
   activeStepIndex: number;
   selectedBlockId: string | null;
   onSelectBlock: (id: string | null) => void;
@@ -26,6 +27,7 @@ function buildPreviewBundle(
   form: BundleFormState,
   activeStepIndex: number,
   selectedBlockId: string | null,
+  shopDomain?: string,
 ) {
   const pricingScope = form.bundlePricingMode === "TIERED" ? "TIERED" : "FLAT";
   const discountValueType =
@@ -107,6 +109,7 @@ function buildPreviewBundle(
     })),
     __editorMode: true,
     __selectedBlockId: selectedBlockId,
+    __shopDomain: shopDomain || null,
     stepIndex: activeStepIndex,
   };
 }
@@ -115,6 +118,7 @@ function buildPreviewBundle(
 
 export function BundleIframePreview({
   form,
+  shopDomain,
   activeStepIndex,
   selectedBlockId,
   onSelectBlock,
@@ -128,12 +132,12 @@ export function BundleIframePreview({
   const sendUpdate = useCallback(() => {
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
-    const bundle = buildPreviewBundle(form, activeStepIndex, selectedBlockId);
+    const bundle = buildPreviewBundle(form, activeStepIndex, selectedBlockId, shopDomain);
     iframe.contentWindow.postMessage(
       { type: "sar-preview-update", bundle, stepIndex: activeStepIndex, selectedBlockId },
       "*",
     );
-  }, [form, activeStepIndex, selectedBlockId]);
+  }, [form, activeStepIndex, selectedBlockId, shopDomain]);
 
   // Dès que l'iframe est chargée, on envoie les données (après 200ms pour laisser les scripts démarrer)
   const handleLoad = useCallback(() => {

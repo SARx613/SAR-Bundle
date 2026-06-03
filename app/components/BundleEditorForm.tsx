@@ -591,6 +591,7 @@ export function BundleEditorForm({
                 <BundleVisualEditor
                   form={form}
                   setForm={setForm}
+                  shopDomain={shopDomain}
                 />
               ) : null}
               {selectedTab === 2 ? (
