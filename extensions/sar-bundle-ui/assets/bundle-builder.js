@@ -2256,13 +2256,20 @@
             });
             nav.appendChild(next);
 
-            // Footer: total + nav on same line
+            // Footer: total + nav. Sur largeur suffisante: côte à côte ;
+            // étroit: chacun passe en pleine ligne (flex-wrap) — fini l'empilement
+            // bancal des boutons à droite.
             var footer = document.createElement('div');
             footer.className = 'sar-bundle__footer';
             footer.style.display = 'flex';
             footer.style.alignItems = 'center';
             footer.style.justifyContent = 'space-between';
+            footer.style.flexWrap = 'wrap';
             footer.style.gap = '1rem';
+            footer.style.marginTop = '1.25rem';
+            totalBox.style.flex = '1 1 200px';
+            nav.style.flex = '2 1 300px';
+            nav.style.justifyContent = 'flex-end';
             footer.appendChild(totalBox);
             footer.appendChild(nav);
             inner.appendChild(footer);
