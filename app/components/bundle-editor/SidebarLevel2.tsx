@@ -760,11 +760,14 @@ export function SidebarLevel2({
                   addBlock({
                     id: newBlockId(),
                     type: "heading",
-                    text: "Nouveau titre",
+                    text: "Composez votre coffret",
                     tag: "h2",
                     style: {
-                      fontSize: "1.25rem",
-                      color: "var(--p-color-text)",
+                      fontSize: "1.75rem",
+                      fontWeight: "700",
+                      color: "#1f2937",
+                      textAlign: "center",
+                      marginTop: "0",
                       marginBottom: "0.5rem",
                     },
                   })
@@ -777,8 +780,14 @@ export function SidebarLevel2({
                   addBlock({
                     id: newBlockId(),
                     type: "text",
-                    text: "Nouveau texte",
-                    style: { color: "var(--p-color-text)" },
+                    text: "Sélectionnez vos produits préférés étape par étape et profitez d'un tarif avantageux sur l'ensemble.",
+                    style: {
+                      fontSize: "1rem",
+                      color: "#6b7280",
+                      textAlign: "center",
+                      marginTop: "0",
+                      marginBottom: "1rem",
+                    },
                   })
                 }
               />
@@ -791,8 +800,18 @@ export function SidebarLevel2({
                     type: "button",
                     text: "Ajouter au panier",
                     action: "scroll_to_bundle",
-                    fullWidth: false,
-                    style: {},
+                    fullWidth: true,
+                    style: {
+                      backgroundColor: "#1f2937",
+                      color: "#ffffff",
+                      fontSize: "1rem",
+                      fontWeight: "600",
+                      textAlign: "center",
+                      padding: "14px 28px",
+                      borderRadius: "10px",
+                      hoverBackground: "#374151",
+                      hoverColor: "#ffffff",
+                    },
                   })
                 }
               />
@@ -841,10 +860,17 @@ export function SidebarLevel2({
                   addBlock({
                     id: newBlockId(),
                     type: "hero",
-                    headline: "Titre principal",
-                    subtext: "",
+                    headline: "Votre coffret sur mesure",
+                    subtext: "Composez, personnalisez, économisez.",
                     imageUrl: null,
                     layout: "stack",
+                    style: {
+                      padding: "2.5rem 2rem",
+                      backgroundColor: "#f7f5f2",
+                      borderRadius: "16px",
+                      textAlign: "center",
+                      color: "#1f2937",
+                    },
                   })
                 }
               />
@@ -855,10 +881,16 @@ export function SidebarLevel2({
                   addBlock({
                     id: newBlockId(),
                     type: "split",
-                    title: "Titre",
-                    body: "Texte descriptif",
+                    title: "Pourquoi nos coffrets ?",
+                    body: "Des produits sélectionnés avec soin, réunis à un tarif groupé avantageux.",
                     imageUrl: null,
                     imageSide: "left",
+                    style: {
+                      padding: "1.5rem",
+                      backgroundColor: "#ffffff",
+                      borderRadius: "12px",
+                      color: "#1f2937",
+                    },
                   })
                 }
               />
