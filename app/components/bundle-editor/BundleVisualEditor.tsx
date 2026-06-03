@@ -207,9 +207,11 @@ function SortableStepRow({
 export function BundleVisualEditor({
   form,
   setForm,
+  shopDomain,
 }: {
   form: BundleFormState;
   setForm: Dispatch<SetStateAction<BundleFormState>>;
+  shopDomain?: string;
 }) {
   const [nav, setNav] = useState<SidebarLevel>({ level: 1 });
   const sensors = useSensors(useSensor(PointerSensor));
@@ -730,6 +732,7 @@ export function BundleVisualEditor({
             </InlineStack>
             <BundleIframePreview
               form={form}
+              shopDomain={shopDomain}
               activeStepIndex={activeStepIndex}
               selectedBlockId={nav.level === 3 ? nav.blockId : null}
               isMobile={isMobilePreview}

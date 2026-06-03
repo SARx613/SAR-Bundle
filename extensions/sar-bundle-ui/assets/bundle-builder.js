@@ -1872,19 +1872,54 @@
               var isAllProducts = designCtx.__productListSource === 'all_products';
 
               if ((isCollection || isAllProducts) && bundle.__editorMode) {
-                // En aperçu admin (mode éditeur), l'iframe est servie depuis le
-                // domaine de l'app : fetch('/collections/.../products.json') cible
-                // l'app et non la boutique → impossible. On affiche un repère clair.
-                // Sur la vraie boutique, window.Shopify.routes.root pointe la boutique
-                // et le chargement fonctionne normalement (branche ci-dessous).
+                // Aperçu admin : l'iframe (domaine app) ne peut pas charger les
+                // produits boutique (CORS). On passe par l'endpoint same-origin
+                // /api/collection-products (Admin API). Repli sur un repère si KO.
                 var handleEd = isAllProducts ? 'all' : designCtx.__productListCollection;
                 var srcLabel = isAllProducts
                   ? 'tous les produits de la boutique'
                   : ('la collection « ' + handleEd + ' »');
-                grid.innerHTML =
+                var noteHtml =
                   '<div class="sar-bundle__preview-note" style="grid-column:1/-1;padding:1.25rem;border:1.5px dashed #c5c5c5;border-radius:8px;color:#6d7175;text-align:center;font-size:13px;line-height:1.5;">' +
-                  '🛍️ Les produits de ' + srcLabel + ' s\'afficheront automatiquement ici <strong>sur votre boutique</strong>.<br>(L\'aperçu admin ne peut pas les charger.)' +
+                  '🛍️ Les produits de ' + srcLabel + ' s\'afficheront <strong>sur votre boutique</strong>.' +
                   '</div>';
+                function mapColProducts(arr) {
+                  return (arr || []).map(function (p) {
+                    var v0 = p.variants && p.variants[0];
+                    var vId = v0 ? v0.id : null;
+                    if (!vId) return null;
+                    var gid = typeof vId === 'number' ? 'gid://shopify/ProductVariant/' + vId : vId;
+                    variantCache[gid] = v0;
+                    if (v0 && v0.price) priceMap[gid] = parseMoney(v0.price);
+                    var img0 = p.images && p.images[0];
+                    var url = typeof img0 === 'string' ? img0 : (img0 && img0.src ? img0.src : '');
+                    return {
+                      variantGid: gid,
+                      storefront: {
+                        imageUrl: url,
+                        displayTitle: p.title,
+                        priceAmount: v0 && v0.price ? String(v0.price) : '0',
+                        currencyCode: (typeof Shopify !== 'undefined' && Shopify.currency && Shopify.currency.active) || 'EUR',
+                        productHandle: p.handle
+                      }
+                    };
+                  }).filter(Boolean);
+                }
+                if (bundle.__shopDomain) {
+                  grid.innerHTML = '<div class="sar-bundle__loading" style="grid-column:1/-1">Chargement des produits…</div>';
+                  fetch('/api/collection-products?shop=' + encodeURIComponent(bundle.__shopDomain) + '&handle=' + encodeURIComponent(handleEd), { headers: { Accept: 'application/json' } })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (j) {
+                      var prods = mapColProducts(j && j.products);
+                      grid.innerHTML = '';
+                      if (!prods.length) { grid.innerHTML = noteHtml; return; }
+                      stepProds = prods;
+                      renderProductsLoop();
+                    })
+                    .catch(function () { grid.innerHTML = noteHtml; });
+                } else {
+                  grid.innerHTML = noteHtml;
+                }
               } else if (isCollection || isAllProducts) {
                 var handle = isAllProducts ? 'all' : designCtx.__productListCollection;
                 var loadId = 'loading-' + handle;
