@@ -1607,7 +1607,7 @@ export function SidebarLevel3({
     return (
       <BlockStack gap="300">
         <InlineStack gap="200" blockAlign="center">
-          <Button icon={ArrowLeftIcon} variant="plain" onClick={onBack} accessibilityLabel="Retour" />
+          <Button icon={ArrowLeftIcon} variant="tertiary" onClick={onBack}>Retour</Button>
           <Text as="p" tone="subdued" variant="bodySm">
             Bloc introuvable.
           </Text>
@@ -1633,13 +1633,10 @@ export function SidebarLevel3({
   const STYLE_FIELDS_TYPES = ["heading", "text", "image", "hero", "split", "button", "faq"];
 
   const backBtn = (
-    <Tooltip content={stepName || "Mise en page"}>
-      <Button
-        icon={ArrowLeftIcon}
-        variant="plain"
-        onClick={onBack}
-        accessibilityLabel={`Retour à ${stepName}`}
-      />
+    <Tooltip content={`Retour à ${stepName || "l'étape"}`}>
+      <Button icon={ArrowLeftIcon} variant="tertiary" onClick={onBack}>
+        Retour
+      </Button>
     </Tooltip>
   );
 
