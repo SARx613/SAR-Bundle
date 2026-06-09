@@ -455,6 +455,7 @@ export function BundleEditorForm({
               onSelect={setSelectedTab}
             >
               {selectedTab === 0 ? (
+            <BlockStack gap="400">
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
@@ -622,6 +623,48 @@ export function BundleEditorForm({
                 />
               </BlockStack>
             </Card>
+
+            <Card>
+              <BlockStack gap="400">
+                <Text as="h2" variant="headingMd">Publier sur la page produit</Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  À l'enregistrement, un produit Shopify est créé/mis à jour
+                  automatiquement. Il reste à ajouter le bloc « SAR Bundle Builder »
+                  sur sa page produit.
+                </Text>
+                <InlineStack gap="200">
+                  <Badge tone={form.status === "ACTIVE" ? "success" : "attention"}>
+                    {form.status === "ACTIVE" ? "Bundle actif" : "Brouillon — pensez à activer"}
+                  </Badge>
+                </InlineStack>
+                <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="100">
+                    <Text as="p" variant="bodySm"><strong>1.</strong> Masquez les blocs natifs (Prix, Sélecteur de variante, Bouton d'achat).</Text>
+                    <Text as="p" variant="bodySm"><strong>2.</strong> Ajoutez le bloc « SAR Bundle Builder ».</Text>
+                    <Text as="p" variant="bodySm"><strong>3.</strong> Enregistrez le thème.</Text>
+                  </BlockStack>
+                </Box>
+                <InlineStack gap="200">
+                  <Button
+                    variant="primary"
+                    url={`https://${shopDomain}/admin/themes/current/editor?previewPath=${encodeURIComponent(`/products/${(form.productHandle || "").trim()}`)}`}
+                    target="_blank"
+                    disabled={!form.productHandle?.trim()}
+                  >
+                    Ouvrir l'éditeur de thème
+                  </Button>
+                  {form.productHandle?.trim() ? (
+                    <Button url={`https://${shopDomain}/products/${form.productHandle.trim()}`} target="_blank">
+                      Voir la page produit
+                    </Button>
+                  ) : null}
+                </InlineStack>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Astuce : enregistrez le bundle d'abord pour que la page produit existe.
+                </Text>
+              </BlockStack>
+            </Card>
+            </BlockStack>
               ) : null}
               {selectedTab === 1 ? (
                 <BundleVisualEditor
