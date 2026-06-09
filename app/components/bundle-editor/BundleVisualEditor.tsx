@@ -47,7 +47,7 @@ import {
   type UiStep,
 } from "../../utils/bundle-form.client";
 import type { StorefrontDesignV2, StorefrontBlockV2 } from "../../utils/storefront-design";
-import { fontOptionsWith, newBlockId } from "../../utils/storefront-design";
+import { fontOptionsWith, newBlockId, blockDisplayLabel } from "../../utils/storefront-design";
 
 /* ── Inline colour picker (circle swatch + hex text field) ── */
 function GlobalColorField({
@@ -733,6 +733,42 @@ export function BundleVisualEditor({
     return null;
   };
 
+  // Fil d'Ariane cliquable : Étapes ▸ {Étape N} ▸ {Bloc}. Remplace l'orientation
+  // par les seules petites flèches retour.
+  const renderBreadcrumb = () => {
+    if (nav.level === 1 || nav.level === "global") return null;
+    const stepName = form.steps[nav.stepIndex]?.name?.trim() || `Étape ${nav.stepIndex + 1}`;
+    const crumbs: { label: string; onClick?: () => void }[] = [
+      { label: "Étapes", onClick: () => setNav({ level: 1 }) },
+    ];
+    if (nav.level === 2) {
+      crumbs.push({ label: stepName });
+    } else {
+      crumbs.push({
+        label: stepName,
+        onClick: () => setNav({ level: 2, stepIndex: nav.stepIndex, activeTab: 0 }),
+      });
+      const blk = getStepDesign(nav.stepIndex).blocks.find((b) => b.id === nav.blockId);
+      crumbs.push({ label: blk ? blockDisplayLabel(blk) : "Bloc" });
+    }
+    return (
+      <Box paddingBlockEnd="200">
+        <InlineStack gap="100" blockAlign="center" wrap>
+          {crumbs.map((c, i) => (
+            <InlineStack key={i} gap="100" blockAlign="center">
+              {i > 0 ? <Text as="span" variant="bodySm" tone="subdued">▸</Text> : null}
+              {c.onClick ? (
+                <Button variant="plain" onClick={c.onClick}>{c.label}</Button>
+              ) : (
+                <Text as="span" variant="bodySm" fontWeight="semibold">{c.label}</Text>
+              )}
+            </InlineStack>
+          ))}
+        </InlineStack>
+      </Box>
+    );
+  };
+
   const [isMobilePreview, setIsMobilePreview] = useState(false);
 
   return (
@@ -754,7 +790,10 @@ export function BundleVisualEditor({
         }}
       >
         <Card>
-          <BlockStack gap="300">{renderSidebar()}</BlockStack>
+          <BlockStack gap="300">
+            {renderBreadcrumb()}
+            {renderSidebar()}
+          </BlockStack>
         </Card>
       </div>
 

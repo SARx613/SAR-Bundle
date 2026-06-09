@@ -666,12 +666,9 @@ export function SidebarLevel2({
 
   const backBtn = (
     <Tooltip content="Retour aux étapes">
-      <Button
-        icon={ArrowLeftIcon}
-        variant="plain"
-        onClick={onBack}
-        accessibilityLabel="Retour aux étapes"
-      />
+      <Button icon={ArrowLeftIcon} variant="tertiary" onClick={onBack}>
+        Retour
+      </Button>
     </Tooltip>
   );
 
