@@ -447,9 +447,9 @@ export function BundleEditorForm({
 
             <Tabs
               tabs={[
-                { id: "page", content: "Page & URL" },
-                { id: "visual", content: "Éditeur visuel" },
-                { id: "pricing", content: "Tarifs & panier" },
+                { id: "page", content: "Infos & publication" },
+                { id: "visual", content: "Étapes & design" },
+                { id: "pricing", content: "Tarifs" },
               ]}
               selected={selectedTab}
               onSelect={setSelectedTab}

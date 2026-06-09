@@ -404,8 +404,8 @@ export default function AppBundles() {
         ) : (
           <Text as="span" variant="bodySm" tone="subdued">
             {b.shopifyProductId
-              ? "Handle indisponible"
-              : "Pas encore de produit Shopify"}
+              ? "Produit pas encore publié"
+              : "Enregistrez pour créer la page produit"}
           </Text>
         )}
       </IndexTable.Cell>

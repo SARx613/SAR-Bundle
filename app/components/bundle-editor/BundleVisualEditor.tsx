@@ -458,6 +458,10 @@ export function BundleVisualEditor({
               />
             </Tooltip>
           </InlineStack>
+          <Text as="p" variant="bodySm" tone="subdued">
+            Les étapes = le parcours du client. Cliquez une étape pour ajouter ses
+            produits et la mettre en page.
+          </Text>
 
           {form.steps.length === 0 ? (
             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
@@ -510,9 +514,14 @@ export function BundleVisualEditor({
           </Popover>
 
           <Box paddingBlockStart="400" paddingBlockEnd="200">
-            <Text as="h3" variant="headingSm">
-              Apparence de la section
-            </Text>
+            <BlockStack gap="100">
+              <Text as="h3" variant="headingSm">
+                Apparence de la section
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                Le style global du widget (couleurs, bordures, polices), commun à toutes les étapes.
+              </Text>
+            </BlockStack>
           </Box>
           <Button
             onClick={() => setNav({ level: "global" })}
