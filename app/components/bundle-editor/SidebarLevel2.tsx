@@ -561,7 +561,10 @@ export function SidebarLevel2({
       multiple: true,
       action: "add",
     });
-    const sel = (selected as unknown as { selection?: Array<Record<string, unknown>> } | null)?.selection;
+    // App Bridge v4 renvoie un tableau ; v3 renvoie { selection: [] }.
+    const sel = Array.isArray(selected)
+      ? (selected as Array<Record<string, unknown>>)
+      : (selected as unknown as { selection?: Array<Record<string, unknown>> } | null)?.selection;
     if (!Array.isArray(sel) || sel.length === 0) return;
 
     const existing = new Set(step.products.map((p) => p.variantGid));
@@ -672,6 +675,62 @@ export function SidebarLevel2({
     </Tooltip>
   );
 
+  // Section produits de l'étape — visible directement (plus besoin d'aller
+  // chercher dans les réglages du bloc « Liste de Produits »).
+  const productsSection = (
+    <BlockStack gap="200">
+      <Text as="h4" variant="headingSm">Produits de l'étape</Text>
+      <Text as="p" variant="bodySm" tone="subdued">
+        Les produits que le client pourra choisir à cette étape.
+      </Text>
+      <InlineStack gap="200" wrap>
+        <Button onClick={openProductPicker} icon={PlusIcon} variant="primary">
+          Ajouter des produits
+        </Button>
+        <Button onClick={openVariantPicker}>Variantes précises</Button>
+      </InlineStack>
+      {step.products.length === 0 ? (
+        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+          <Text as="p" variant="bodySm" tone="subdued">
+            Aucun produit — cliquez « Ajouter des produits ».
+          </Text>
+        </Box>
+      ) : (
+        <BlockStack gap="150">
+          {step.products.map((p, pi) => (
+            <Box
+              key={p.variantGid}
+              padding="200"
+              borderWidth="025"
+              borderColor="border"
+              borderRadius="200"
+              background="bg-surface"
+            >
+              <InlineStack gap="200" blockAlign="center" wrap={false}>
+                {p.imageUrl ? <Thumbnail source={p.imageUrl} alt="" size="small" /> : null}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text as="p" variant="bodySm" truncate>{p.displayName}</Text>
+                  {p.priceAmount ? (
+                    <Text as="span" variant="bodyXs" tone="subdued">
+                      {p.priceAmount} {p.currencyCode}
+                    </Text>
+                  ) : null}
+                </div>
+                <Button
+                  variant="plain"
+                  tone="critical"
+                  icon={DeleteIcon}
+                  accessibilityLabel="Retirer"
+                  onClick={() => onStepProductsChange(step.products.filter((_, i) => i !== pi))}
+                />
+              </InlineStack>
+            </Box>
+          ))}
+        </BlockStack>
+      )}
+    </BlockStack>
+  );
+
   const layoutTab = (
     <BlockStack gap="300">
       <InlineStack gap="200" blockAlign="center">
@@ -680,6 +739,12 @@ export function SidebarLevel2({
           {step.name.trim() || `Étape ${stepIndex + 1}`}
         </Text>
       </InlineStack>
+
+      {!showLibrary && productsSection}
+      {!showLibrary && <Divider />}
+      {!showLibrary && (
+        <Text as="h4" variant="headingSm">Blocs de mise en page</Text>
+      )}
 
       {showLibrary ? (
         <BlockStack gap="200">
