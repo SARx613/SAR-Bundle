@@ -28,6 +28,7 @@ import {
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  CheckIcon,
   DeleteIcon,
   InfoIcon,
 } from "@shopify/polaris-icons";
@@ -401,6 +402,48 @@ export function BundleEditorForm({
                 <p>{actionError} {saveFetcher.data && "details" in saveFetcher.data ? `- ${(saveFetcher.data as any).details}` : ''}</p>
               </Banner>
             ) : null}
+
+            {(() => {
+              const checklist = [
+                { label: "Nommer le bundle", done: !!form.name.trim(), goTo: 0 },
+                { label: "Ajouter des produits à une étape", done: form.steps.some((s) => s.products.length > 0), goTo: 1 },
+                { label: "Définir le prix", done: form.bundlePricingMode !== "FIXED_PRICE_BOX" || !!form.flatDiscountValue, goTo: 2 },
+                { label: "Activer le bundle (statut « Actif »)", done: form.status === "ACTIVE", goTo: 0 },
+              ];
+              const doneCount = checklist.filter((i) => i.done).length;
+              return (
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text as="h2" variant="headingSm">
+                        Configuration du bundle ({doneCount}/{checklist.length})
+                      </Text>
+                      {doneCount === checklist.length ? <Badge tone="success">Prêt</Badge> : null}
+                    </InlineStack>
+                    <BlockStack gap="150">
+                      {checklist.map((it, i) => (
+                        <InlineStack key={i} align="space-between" blockAlign="center">
+                          <InlineStack gap="200" blockAlign="center">
+                            <div style={{ color: it.done ? "var(--p-color-icon-success)" : "var(--p-color-icon-subdued)" }}>
+                              <Icon source={CheckIcon} />
+                            </div>
+                            <Text as="span" variant="bodyMd" tone={it.done ? "subdued" : "base"}>
+                              {it.label}
+                            </Text>
+                          </InlineStack>
+                          {!it.done ? (
+                            <Button variant="plain" onClick={() => setSelectedTab(it.goTo)}>Configurer</Button>
+                          ) : null}
+                        </InlineStack>
+                      ))}
+                    </BlockStack>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Dernière étape : ajoutez le bundle à votre page produit (onglet « Page & URL » → « Publier »).
+                    </Text>
+                  </BlockStack>
+                </Card>
+              );
+            })()}
 
             <Tabs
               tabs={[
