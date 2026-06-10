@@ -38,7 +38,7 @@ import { BundleIframePreview } from "./BundleIframePreview";
 // BundleStorefrontPreview conservé mais remplacé par l'iframe (parité 100% storefront)
 // import { BundleStorefrontPreview } from "./BundleStorefrontPreview";
 import { BlockLibraryPanel, SidebarLevel2 } from "./SidebarLevel2";
-import { SidebarLevel3 } from "./SidebarLevel3";
+import { SidebarLevel3, StepBarConfig } from "./SidebarLevel3";
 import {
   emptyStep,
   type BundleFormState,
@@ -491,6 +491,16 @@ export function BundleVisualEditor({
             + Ajouter une étape
           </Button>
 
+          <Box paddingBlockStart="200" paddingBlockEnd="100">
+            <Text as="h3" variant="headingSm">
+              Barre d'étapes
+            </Text>
+          </Box>
+          <StepBarConfig
+            design={form.storefrontDesign}
+            onDesignChange={(d) => patchDesign(d)}
+          />
+
           <Box paddingBlockStart="400" paddingBlockEnd="200">
             <Text as="h3" variant="headingSm">
               Apparence de la section
@@ -781,37 +791,40 @@ export function BundleVisualEditor({
         </Card>
       </div>
 
-      {/* Panneau bibliothèque de blocs — colonne inline à côté de la sidebar */}
-      {showBlockLibrary && nav.level === 2 ? (
-        <div
-          style={{
-            flex: "0 0 220px",
-            width: 220,
-            background: "var(--p-color-bg-surface)",
-            border: "1px solid var(--p-color-border)",
-            borderRadius: "var(--p-border-radius-300)",
-            boxShadow: "var(--p-shadow-300)",
-            overflow: "auto",
-            maxHeight: "70vh",
-          }}
-        >
-          <BlockLibraryPanel
-            onAdd={(block) => {
-              const stepIndex = nav.level === 2 ? nav.stepIndex : 0;
-              const stepDesign = getStepDesign(stepIndex);
-              patchStepDesign(stepIndex, {
-                ...stepDesign,
-                version: 2,
-                blocks: [...stepDesign.blocks, block],
-              });
+      {/* Aperçu 70% — position relative pour l'overlay */}
+      <div style={{ flex: "1 1 0", minWidth: 280, position: "relative" }}>
+        {/* Overlay bibliothèque de blocs — flotte au-dessus de l'aperçu */}
+        {showBlockLibrary && nav.level === 2 ? (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: 240,
+              zIndex: 50,
+              background: "var(--p-color-bg-surface)",
+              border: "1px solid var(--p-color-border)",
+              borderRadius: "var(--p-border-radius-300)",
+              boxShadow: "var(--p-shadow-600)",
+              overflow: "auto",
+              maxHeight: "70vh",
             }}
-            onClose={() => setShowBlockLibrary(false)}
-          />
-        </div>
-      ) : null}
-
-      {/* Aperçu 70% */}
-      <div style={{ flex: "1 1 0", minWidth: 280 }}>
+          >
+            <BlockLibraryPanel
+              onAdd={(block) => {
+                const stepIndex = nav.level === 2 ? nav.stepIndex : 0;
+                const stepDesign = getStepDesign(stepIndex);
+                patchStepDesign(stepIndex, {
+                  ...stepDesign,
+                  version: 2,
+                  blocks: [...stepDesign.blocks, block],
+                });
+                setShowBlockLibrary(false);
+              }}
+              onClose={() => setShowBlockLibrary(false)}
+            />
+          </div>
+        ) : null}
         <Card>
           <BlockStack gap="300">
             <InlineStack align="space-between" blockAlign="center">
