@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useFetcher, useNavigate } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -66,12 +66,9 @@ type SaveActionJson =
   | { error: string; details?: string };
 
 const STATUS_OPTIONS = [
-  { label: "Brouillon (non vendable)", value: "DRAFT" },
-  { label: "Actif (catalogue / recherche)", value: "ACTIVE" },
-  {
-    label: "Non répertorié (lien direct uniquement)",
-    value: "UNLISTED",
-  },
+  { label: "Brouillon", value: "DRAFT" },
+  { label: "Actif", value: "ACTIVE" },
+  { label: "Non répertorié", value: "UNLISTED" },
   { label: "Archivé", value: "ARCHIVED" },
 ];
 
@@ -140,6 +137,9 @@ export function BundleEditorForm({
   const bundle = bundleRaw;
 
   const [form, setForm] = useState<BundleFormState>(() => toFormState(bundle));
+  const [isDirty, setIsDirty] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(true);
+  const skipDirtyRef = useRef(true);
   const [selectedTab, setSelectedTab] = useState(0);
   const [galleryUrlDraft, setGalleryUrlDraft] = useState("");
   const [shopifyFilesModalOpen, setShopifyFilesModalOpen] = useState(false);
@@ -147,8 +147,22 @@ export function BundleEditorForm({
   bundleGalleryRef.current = form.bundleGallery;
 
   useEffect(() => {
+    skipDirtyRef.current = true;
     setForm(toFormState(bundle));
+    setIsDirty(false);
   }, [bundle.id, bundle.bundleUid, isNew]);
+
+  useEffect(() => {
+    if (skipDirtyRef.current) { skipDirtyRef.current = false; return; }
+    setIsDirty(true);
+  }, [form]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   const previewHandle =
     form.productHandle.trim() || slugifyProductHandle(form.name.trim() || "bundle");
@@ -179,6 +193,7 @@ export function BundleEditorForm({
     }
     if (d.ok) {
       shopifyBridge.toast.show("Enregistré");
+      setIsDirty(false);
       if ("warning" in d && d.warning) {
         shopifyBridge.toast.show(d.warning, { isError: true });
       }
@@ -385,7 +400,6 @@ export function BundleEditorForm({
 
   return (
     <Page
-      fullWidth
       backAction={{ content: "Bundles", url: "/app/bundles" }}
       title={isNew ? "Nouveau bundle" : "Modifier le bundle"}
       primaryAction={{
@@ -408,38 +422,44 @@ export function BundleEditorForm({
                 { label: "Nommer le bundle", done: !!form.name.trim(), goTo: 0 },
                 { label: "Ajouter des produits à une étape", done: form.steps.some((s) => s.products.length > 0), goTo: 1 },
                 { label: "Définir le prix", done: form.bundlePricingMode !== "FIXED_PRICE_BOX" || !!form.flatDiscountValue, goTo: 2 },
-                { label: "Activer le bundle (statut « Actif »)", done: form.status === "ACTIVE", goTo: 0 },
+                { label: "Activer le bundle", done: form.status === "ACTIVE", goTo: 0 },
               ];
               const doneCount = checklist.filter((i) => i.done).length;
               return (
                 <Card>
                   <BlockStack gap="300">
                     <InlineStack align="space-between" blockAlign="center">
-                      <Text as="h2" variant="headingSm">
-                        Configuration du bundle ({doneCount}/{checklist.length})
-                      </Text>
+                      <button
+                        type="button"
+                        onClick={() => setChecklistOpen((o) => !o)}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+                      >
+                        <Text as="h2" variant="headingSm">
+                          Configuration ({doneCount}/{checklist.length})
+                        </Text>
+                        <Text as="span" variant="bodySm" tone="subdued">{checklistOpen ? "▲" : "▼"}</Text>
+                      </button>
                       {doneCount === checklist.length ? <Badge tone="success">Prêt</Badge> : null}
                     </InlineStack>
-                    <BlockStack gap="150">
-                      {checklist.map((it, i) => (
-                        <InlineStack key={i} align="space-between" blockAlign="center">
-                          <InlineStack gap="200" blockAlign="center">
-                            <div style={{ color: it.done ? "var(--p-color-icon-success)" : "var(--p-color-icon-subdued)" }}>
-                              <Icon source={CheckIcon} />
-                            </div>
-                            <Text as="span" variant="bodyMd" tone={it.done ? "subdued" : "base"}>
-                              {it.label}
-                            </Text>
+                    {checklistOpen ? (
+                      <BlockStack gap="150">
+                        {checklist.map((it, i) => (
+                          <InlineStack key={i} align="space-between" blockAlign="center">
+                            <InlineStack gap="200" blockAlign="center">
+                              <div style={{ color: it.done ? "var(--p-color-icon-success)" : "var(--p-color-icon-subdued)" }}>
+                                <Icon source={CheckIcon} />
+                              </div>
+                              <Text as="span" variant="bodyMd" tone={it.done ? "subdued" : "base"}>
+                                {it.label}
+                              </Text>
+                            </InlineStack>
+                            {!it.done ? (
+                              <Button variant="plain" onClick={() => setSelectedTab(it.goTo)}>Configurer</Button>
+                            ) : null}
                           </InlineStack>
-                          {!it.done ? (
-                            <Button variant="plain" onClick={() => setSelectedTab(it.goTo)}>Configurer</Button>
-                          ) : null}
-                        </InlineStack>
-                      ))}
-                    </BlockStack>
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Dernière étape : ajoutez le bundle à votre page produit (onglet « Page & URL » → « Publier »).
-                    </Text>
+                        ))}
+                      </BlockStack>
+                    ) : null}
                   </BlockStack>
                 </Card>
               );
@@ -475,7 +495,7 @@ export function BundleEditorForm({
                   autoComplete="off"
                 />
                 <Select
-                  label="Statut (aligné sur le produit Shopify)"
+                  label="Statut"
                   options={STATUS_OPTIONS}
                   value={form.status}
                   onChange={(v) =>
@@ -484,7 +504,6 @@ export function BundleEditorForm({
                       status: v as BundleFormState["status"],
                     }))
                   }
-                  helpText="Enregistrer le bundle met à jour le produit catalogue ; une modification dans Shopify met à jour ce statut."
                 />
                 <Divider />
                 <Text as="h3" variant="headingSm">
@@ -574,9 +593,6 @@ export function BundleEditorForm({
                   >
                     Choisir dans Fichiers Shopify
                   </Button>
-                  <Text as="span" variant="bodySm" tone="subdued">
-                    Images déjà dans Admin → Contenu → Fichiers (scope read_files).
-                  </Text>
                 </InlineStack>
                 <InlineStack gap="300" blockAlign="end" wrap>
                   <div style={{ flex: "1 1 220px", minWidth: 200 }}>
@@ -1151,6 +1167,27 @@ export function BundleEditorForm({
           </BlockStack>
         </Layout.Section>
       </Layout>
+
+      {isDirty ? (
+        <div style={{
+          position: "sticky",
+          bottom: 0,
+          zIndex: 50,
+          background: "var(--p-color-bg-surface)",
+          borderTop: "2px solid var(--p-color-border-caution)",
+          padding: "12px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          boxShadow: "0 -4px 12px rgba(0,0,0,0.1)",
+        }}>
+          <Text as="span" variant="bodyMd">● Modifications non enregistrées</Text>
+          <Button variant="primary" onClick={handleSave} loading={saving}>
+            Enregistrer
+          </Button>
+        </div>
+      ) : null}
 
       <Modal
         open={shopifyFilesModalOpen}

@@ -458,11 +458,6 @@ export function BundleVisualEditor({
               />
             </Tooltip>
           </InlineStack>
-          <Text as="p" variant="bodySm" tone="subdued">
-            Les étapes = le parcours du client. Cliquez une étape pour ajouter ses
-            produits et la mettre en page.
-          </Text>
-
           {form.steps.length === 0 ? (
             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
               <Text as="p" variant="bodySm" tone="subdued">
@@ -514,14 +509,9 @@ export function BundleVisualEditor({
           </Popover>
 
           <Box paddingBlockStart="400" paddingBlockEnd="200">
-            <BlockStack gap="100">
-              <Text as="h3" variant="headingSm">
-                Apparence de la section
-              </Text>
-              <Text as="p" variant="bodySm" tone="subdued">
-                Le style global du widget (couleurs, bordures, polices), commun à toutes les étapes.
-              </Text>
-            </BlockStack>
+            <Text as="h3" variant="headingSm">
+              Apparence de la section
+            </Text>
           </Box>
           <Button
             onClick={() => setNav({ level: "global" })}
@@ -811,14 +801,9 @@ export function BundleVisualEditor({
         <Card>
           <BlockStack gap="300">
             <InlineStack align="space-between" blockAlign="center">
-              <BlockStack>
-                <Text as="h2" variant="headingMd">
-                  Aperçu boutique
-                </Text>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Rendu simplifié — cliquez sur un élément pour le modifier.
-                </Text>
-              </BlockStack>
+              <Text as="h2" variant="headingMd">
+                Aperçu boutique
+              </Text>
               <InlineStack gap="100">
                 <Button
                   pressed={!isMobilePreview}
