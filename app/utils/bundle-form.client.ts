@@ -301,7 +301,7 @@ export function emptyStep(sortOrder: number): UiStep {
               cardLayout: "classic",
               columns: 3,
               columnsMobile: 2,
-              source: "step_pick",
+              source: "all_products",
             } as import("./storefront-design").StorefrontBlockV2,
           ],
         };

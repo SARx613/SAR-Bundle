@@ -386,7 +386,7 @@ export function BundleVisualEditor({
     }
     return [
       { id: newBlockId(), type: "heading", text: "Choisissez vos produits", tag: "h2", style: headingStyle },
-      { id: newBlockId(), type: "product_list", source: "step_pick", cardLayout: "classic", columns: 3, columnsMobile: 2 },
+      { id: newBlockId(), type: "product_list", source: "all_products", cardLayout: "classic", columns: 3, columnsMobile: 2 },
     ] as StorefrontBlockV2[];
   };
 
@@ -791,39 +791,52 @@ export function BundleVisualEditor({
         </Card>
       </div>
 
-      {/* Aperçu 70% — position relative pour l'overlay */}
-      <div style={{ flex: "1 1 0", minWidth: 280, position: "relative" }}>
-        {/* Overlay bibliothèque de blocs — flotte au-dessus de l'aperçu */}
+      {/* Aperçu 70% */}
+      <div style={{ flex: "1 1 0", minWidth: 280 }}>
+        {/* Overlay bibliothèque de blocs — modal plein écran sur mobile, flottant sur desktop */}
         {showBlockLibrary && nav.level === 2 ? (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: 240,
-              zIndex: 50,
-              background: "var(--p-color-bg-surface)",
-              border: "1px solid var(--p-color-border)",
-              borderRadius: "var(--p-border-radius-300)",
-              boxShadow: "var(--p-shadow-600)",
-              overflow: "auto",
-              maxHeight: "70vh",
-            }}
-          >
-            <BlockLibraryPanel
-              onAdd={(block) => {
-                const stepIndex = nav.level === 2 ? nav.stepIndex : 0;
-                const stepDesign = getStepDesign(stepIndex);
-                patchStepDesign(stepIndex, {
-                  ...stepDesign,
-                  version: 2,
-                  blocks: [...stepDesign.blocks, block],
-                });
-                setShowBlockLibrary(false);
+          <>
+            {/* Backdrop cliquable pour fermer */}
+            <div
+              onClick={() => setShowBlockLibrary(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 49,
+                background: "rgba(0,0,0,0.25)",
               }}
-              onClose={() => setShowBlockLibrary(false)}
             />
-          </div>
+            <div
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "min(320px, 90vw)",
+                maxHeight: "80vh",
+                zIndex: 50,
+                background: "var(--p-color-bg-surface)",
+                border: "1px solid var(--p-color-border)",
+                borderRadius: "var(--p-border-radius-300)",
+                boxShadow: "var(--p-shadow-600)",
+                overflow: "auto",
+              }}
+            >
+              <BlockLibraryPanel
+                onAdd={(block) => {
+                  const stepIndex = nav.level === 2 ? nav.stepIndex : 0;
+                  const stepDesign = getStepDesign(stepIndex);
+                  patchStepDesign(stepIndex, {
+                    ...stepDesign,
+                    version: 2,
+                    blocks: [...stepDesign.blocks, block],
+                  });
+                  setShowBlockLibrary(false);
+                }}
+                onClose={() => setShowBlockLibrary(false)}
+              />
+            </div>
+          </>
         ) : null}
         <Card>
           <BlockStack gap="300">

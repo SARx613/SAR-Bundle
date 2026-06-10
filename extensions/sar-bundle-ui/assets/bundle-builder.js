@@ -5,6 +5,25 @@
 (function () {
   'use strict';
 
+  // Fallback translations (FR) — used when API translations are unavailable or missing a key
+  var FR_DEFAULTS = {
+    btn_add_to_cart: 'Ajouter au panier',
+    btn_next: 'Suivant',
+    btn_previous: 'Précédent',
+    label_total: 'Total du pack',
+    btn_add_to_box: 'Ajouter',
+    label_step: 'Étape',
+    label_loading: 'Chargement du bundle…',
+    label_select_product: 'Sélectionnez au moins un produit.',
+    label_upsell_title: 'Options Supplémentaires',
+    label_composition: 'Composition du pack',
+    label_heading_default: 'Composez votre pack',
+  };
+
+  function t(bundle, key) {
+    return (bundle && bundle.translations && bundle.translations[key]) || FR_DEFAULTS[key] || key;
+  }
+
   var PROXY_PATH = '/apps/sar-bundle/api/bundle';
 
   function shopifyRoot() {
@@ -1010,7 +1029,7 @@
             title.style.fontSize = '18px';
             title.style.fontWeight = '700';
             if (sty.titleColor) title.style.color = sty.titleColor;
-            title.textContent = b.title || (bundle.translations && bundle.translations.label_upsell_title) || 'Extra Options';
+            title.textContent = b.title || t(bundle, 'label_upsell_title');
             container.appendChild(title);
 
             var list = document.createElement('div');
@@ -1770,7 +1789,7 @@
                   var qCurrent = state.selections[originalGid] || 0;
                   var isSelected = qCurrent > 0;
 
-                  var atcText = (bundle.translations && bundle.translations.btn_add_to_box) || designCtx.__productListButtonText || (bundle.storefrontDesign && bundle.storefrontDesign.global && bundle.storefrontDesign.global.addToBoxText) || 'Add to box';
+                  var atcText = t(bundle, 'btn_add_to_box') || designCtx.__productListButtonText || (bundle.storefrontDesign && bundle.storefrontDesign.global && bundle.storefrontDesign.global.addToBoxText);
 
                   if (isSelected) {
                     atcWrapper.className += ' is-added';
@@ -1982,7 +2001,7 @@
             totalBox.className = 'sar-bundle__bundle-total';
             var totalLabel = document.createElement('span');
             totalLabel.className = 'sar-bundle__bundle-total-label';
-            totalLabel.textContent = (bundle.translations && bundle.translations.label_total) || 'Bundle total';
+            totalLabel.textContent = t(bundle, 'label_total');
             var totalVal = document.createElement('span');
             totalVal.className = 'sar-bundle__bundle-total-value';
             if (disp.compareAt != null) {
@@ -2045,7 +2064,7 @@
             var prev = document.createElement('button');
             prev.type = 'button';
             prev.className = 'sar-bundle__btn sar-bundle__btn--secondary';
-            prev.textContent = (bundle.translations && bundle.translations.btn_previous) || 'Previous';
+            prev.textContent = t(bundle, 'btn_previous');
             prev.disabled = state.stepIndex === 0;
             prev.addEventListener('click', function () {
               state.stepIndex--;
@@ -2057,8 +2076,8 @@
             var next = document.createElement('button');
             next.type = 'button';
             next.className = 'sar-bundle__btn sar-bundle__btn--primary';
-            var txtAddToCart = (bundle.translations && bundle.translations.btn_add_to_cart) || 'Add to cart';
-            var txtNext = (bundle.translations && bundle.translations.btn_next) || 'Next';
+            var txtAddToCart = t(bundle, 'btn_add_to_cart');
+            var txtNext = t(bundle, 'btn_next');
             next.textContent = isLast ? txtAddToCart : txtNext;
             next.addEventListener('click', function () {
               errBox.hidden = true;
@@ -2117,7 +2136,7 @@
                   return;
                 }
               } else if (totals.totalItemCount < 1) {
-                errBox.textContent = (bundle.translations && bundle.translations.label_select_product) || 'Select at least one product.';
+                errBox.textContent = t(bundle, 'label_select_product');
                 errBox.hidden = false;
                 return;
               }

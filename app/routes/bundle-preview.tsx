@@ -131,13 +131,14 @@ ${js}
       );
     });
 
-    // 3. Hauteur dynamique — ResizeObserver sur body
+    // 3. Hauteur dynamique — mesure le contenu SAR uniquement (pas body + padding)
     if (typeof ResizeObserver !== 'undefined') {
       var sarHeightObserver = new ResizeObserver(function() {
-        var h = document.documentElement.scrollHeight;
+        var root = document.getElementById('sar-bundle-root');
+        var h = root ? Math.ceil(root.getBoundingClientRect().height) + 32 : document.documentElement.scrollHeight;
         window.parent.postMessage({ type: 'sar-preview-height', height: h }, '*');
       });
-      sarHeightObserver.observe(document.body);
+      sarHeightObserver.observe(document.getElementById('sar-bundle-root') || document.body);
     }
 
     // 4. Signaler au parent que l'iframe est prête à recevoir des données
