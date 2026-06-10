@@ -705,7 +705,7 @@ function ProductListManager({
   const variantsMetaFetcher = useFetcher<VariantsMetaJson>();
 
   if (block.type !== "product_list") return null;
-  const source = block.source ?? "step_pick";
+  const source = block.source ?? "all_products";
   const products = step?.products ?? [];
   const columns = block.columns ?? 3;
   const cardLayout = block.cardLayout ?? "classic";

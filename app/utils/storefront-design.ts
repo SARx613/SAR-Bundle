@@ -397,7 +397,7 @@ export function seededStorefrontDesign(): StorefrontDesignV2 {
         {
           id: newBlockId(),
           type: "product_list",
-          source: "step_pick",
+          source: "all_products",
           cardLayout: "classic",
           columns: 3,
           columnsMobile: 2,

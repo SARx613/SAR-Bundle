@@ -516,9 +516,9 @@ export default function AppBundles() {
 
         <Layout>
           <Layout.Section>
-            <Card>
+            <Card padding="0">
               {visibleBundles.length === 0 ? (
-                <EmptyState
+                <Box padding="400"><EmptyState
                   heading="Créez votre premier bundle"
                   action={{
                     content: "Créer un bundle",
@@ -529,7 +529,7 @@ export default function AppBundles() {
                   <p>
                     Les bundles par étapes apparaîtront ici une fois configurés.
                   </p>
-                </EmptyState>
+                </EmptyState></Box>
               ) : (
                 <IndexTable
                   resourceName={resourceName}
