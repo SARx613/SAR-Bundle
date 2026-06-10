@@ -159,7 +159,7 @@ export function BundleIframePreview({
           break;
         case "sar-preview-height":
           if (typeof e.data.height === "number" && e.data.height > 0) {
-            setIframeHeight(Math.max(300, e.data.height + 32));
+            setIframeHeight(Math.max(300, e.data.height));
           }
           break;
       }
