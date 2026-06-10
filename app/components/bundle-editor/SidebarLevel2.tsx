@@ -377,6 +377,77 @@ function CategoryRow({
   );
 }
 
+/** Panneau de bibliothèque de blocs — rendu dans une colonne séparée par BundleVisualEditor */
+export function BlockLibraryPanel({
+  onAdd,
+  onClose,
+}: {
+  onAdd: (block: StorefrontBlockV2) => void;
+  onClose: () => void;
+}) {
+  const addBlock = (block: StorefrontBlockV2) => { onAdd(block); onClose(); };
+
+  const groups: Array<{ label: string; items: Array<{ icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>; label: string; block: () => StorefrontBlockV2 }> }> = [
+    {
+      label: "Mise en page",
+      items: [
+        { icon: ListNumberedIcon, label: "Barre d'étape", block: () => ({ id: newBlockId(), type: "step_bar", style: {} }) },
+        { icon: ProductListIcon, label: "Liste de produits", block: () => ({ id: newBlockId(), type: "product_list", cardLayout: "classic", columns: 3, columnsMobile: 2, source: "all_products" }) },
+        { icon: PlusIcon, label: "Options / Sous-produits", block: () => ({ id: newBlockId(), type: "upsell", title: "Complétez votre commande", behavior: "multiple", items: [] }) },
+        { icon: TextInColumnsIcon, label: "Espacement", block: () => ({ id: newBlockId(), type: "spacer", height: 24 }) },
+        { icon: MinusIcon, label: "Séparateur", block: () => ({ id: newBlockId(), type: "divider", thickness: 1, lineStyle: "solid", spacing: 16 }) },
+        { icon: ShieldCheckMarkIcon, label: "Badges de confiance", block: () => ({ id: newBlockId(), type: "trust_badges", align: "center", iconSize: 32, items: [{ id: newBlockId(), label: "Paiement sécurisé" }, { id: newBlockId(), label: "Livraison rapide" }, { id: newBlockId(), label: "Satisfait ou remboursé" }] }) },
+      ],
+    },
+    {
+      label: "Texte",
+      items: [
+        { icon: TextTitleIcon, label: "Titre", block: () => ({ id: newBlockId(), type: "heading", text: "Composez votre coffret", tag: "h2", style: { fontSize: "1.75rem", fontWeight: "700", color: "#1f2937", textAlign: "center" } }) },
+        { icon: TextBlockIcon, label: "Texte", block: () => ({ id: newBlockId(), type: "text", text: "Sélectionnez vos produits préférés.", style: { fontSize: "1rem", color: "#6b7280", textAlign: "center" } }) },
+        { icon: ButtonIcon, label: "Bouton / CTA", block: () => ({ id: newBlockId(), type: "button", text: "Ajouter au panier", action: "scroll_to_bundle", fullWidth: true, style: { backgroundColor: "#1f2937", color: "#ffffff", fontSize: "1rem", fontWeight: "600", padding: "14px 28px", borderRadius: "10px" } }) },
+        { icon: QuestionCircleIcon, label: "FAQ", block: () => ({ id: newBlockId(), type: "faq", allowMultipleOpen: false, items: [{ id: newBlockId(), question: "Votre question ?", answer: "Votre réponse." }], style: {} }) },
+      ],
+    },
+    {
+      label: "Médias",
+      items: [
+        { icon: ImageIcon, label: "Image", block: () => ({ id: newBlockId(), type: "image", url: null, alt: "", style: { maxWidth: "100%" } }) },
+        { icon: LayoutBlockIcon, label: "Bannière (Hero)", block: () => ({ id: newBlockId(), type: "hero", headline: "Votre coffret sur mesure", subtext: "Composez, personnalisez, économisez.", imageUrl: null, layout: "stack", style: { padding: "2.5rem 2rem", backgroundColor: "#f7f5f2", borderRadius: "16px", textAlign: "center", color: "#1f2937" } }) },
+        { icon: LayoutSidebarRightIcon, label: "Section Split", block: () => ({ id: newBlockId(), type: "split", title: "Pourquoi nos coffrets ?", body: "Des produits sélectionnés avec soin.", imageUrl: null, imageSide: "left", style: { padding: "1.5rem", backgroundColor: "#ffffff", borderRadius: "12px", color: "#1f2937" } }) },
+      ],
+    },
+  ];
+
+  return (
+    <div style={{ padding: "12px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px 8px" }}>
+        <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--p-color-text)" }}>Ajouter un bloc</span>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--p-color-text-subdued)", fontSize: 18, lineHeight: 1, padding: "2px 4px" }}
+          aria-label="Fermer"
+        >✕</button>
+      </div>
+      {groups.map((group) => (
+        <div key={group.label} style={{ marginBottom: 8 }}>
+          <div style={{ padding: "4px 4px 2px", fontSize: "0.7rem", fontWeight: 600, color: "var(--p-color-text-subdued)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            {group.label}
+          </div>
+          {group.items.map((item) => (
+            <LibraryItem
+              key={item.label}
+              icon={item.icon}
+              label={item.label}
+              onClick={() => addBlock(item.block() as StorefrontBlockV2)}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SidebarLevel2({
   stepIndex,
   step,
@@ -390,6 +461,7 @@ export function SidebarLevel2({
   activeTab,
   onTabChange,
   onToggleBlockVisibility,
+  onRequestLibrary,
 }: {
   stepIndex: number;
   step: UiStep;
@@ -403,6 +475,7 @@ export function SidebarLevel2({
   activeTab: number;
   onTabChange: (t: number) => void;
   onToggleBlockVisibility: (blockId: string, isHidden: boolean) => void;
+  onRequestLibrary?: () => void;
 }) {
   const shopifyBridge = useAppBridge();
   const safeDesign = ensurePermanentProductBlock(design);
@@ -417,13 +490,6 @@ export function SidebarLevel2({
   const [draftRules, setDraftRules] = useState<UiStepRule[]>(step.rules);
   const uploadFetcher = useFetcher<UploadJson>();
   const variantsMetaFetcher = useFetcher<VariantsMetaJson>();
-
-  const [showLibrary, setShowLibrary] = useState(false);
-  const [openCats, setOpenCats] = useState<Record<LibCategory, boolean>>({
-    mep: true,
-    text: false,
-    media: false,
-  });
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -619,18 +685,6 @@ export function SidebarLevel2({
     }
   };
 
-  const toggleCat = (cat: LibCategory) =>
-    setOpenCats((c) => ({ ...c, [cat]: !c[cat] }));
-
-  const addBlock = (block: StorefrontBlockV2) => {
-    onDesignChange({
-      ...safeDesign,
-      version: 2,
-      blocks: [...safeDesign.blocks, block],
-    });
-    setShowLibrary(false);
-  };
-
   const deleteBlock = (blockId: string) => {
     onDesignChange({
       ...safeDesign,
@@ -672,62 +726,6 @@ export function SidebarLevel2({
     </Tooltip>
   );
 
-  // Section produits de l'étape — visible directement (plus besoin d'aller
-  // chercher dans les réglages du bloc « Liste de Produits »).
-  const productsSection = (
-    <BlockStack gap="200">
-      <Text as="h4" variant="headingSm">Produits de l'étape</Text>
-      <Text as="p" variant="bodySm" tone="subdued">
-        Les produits que le client pourra choisir à cette étape.
-      </Text>
-      <InlineStack gap="200" wrap>
-        <Button onClick={openProductPicker} icon={PlusIcon} variant="primary">
-          Ajouter des produits
-        </Button>
-        <Button onClick={openVariantPicker}>Variantes précises</Button>
-      </InlineStack>
-      {step.products.length === 0 ? (
-        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-          <Text as="p" variant="bodySm" tone="subdued">
-            Aucun produit — cliquez « Ajouter des produits ».
-          </Text>
-        </Box>
-      ) : (
-        <BlockStack gap="150">
-          {step.products.map((p, pi) => (
-            <Box
-              key={p.variantGid}
-              padding="200"
-              borderWidth="025"
-              borderColor="border"
-              borderRadius="200"
-              background="bg-surface"
-            >
-              <InlineStack gap="200" blockAlign="center" wrap={false}>
-                {p.imageUrl ? <Thumbnail source={p.imageUrl} alt="" size="small" /> : null}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Text as="p" variant="bodySm" truncate>{p.displayName}</Text>
-                  {p.priceAmount ? (
-                    <Text as="span" variant="bodyXs" tone="subdued">
-                      {p.priceAmount} {p.currencyCode}
-                    </Text>
-                  ) : null}
-                </div>
-                <Button
-                  variant="plain"
-                  tone="critical"
-                  icon={DeleteIcon}
-                  accessibilityLabel="Retirer"
-                  onClick={() => onStepProductsChange(step.products.filter((_, i) => i !== pi))}
-                />
-              </InlineStack>
-            </Box>
-          ))}
-        </BlockStack>
-      )}
-    </BlockStack>
-  );
-
   const layoutTab = (
     <BlockStack gap="300">
       <InlineStack gap="200" blockAlign="center">
@@ -737,276 +735,47 @@ export function SidebarLevel2({
         </Text>
       </InlineStack>
 
-      {!showLibrary && productsSection}
-      {!showLibrary && <Divider />}
-      {!showLibrary && (
-        <Text as="h4" variant="headingSm">Blocs de mise en page</Text>
-      )}
-
-      {showLibrary ? (
-        <BlockStack gap="200">
-          <InlineStack align="space-between" blockAlign="center">
-            <Text as="h4" variant="headingSm">
-              Ajouter un bloc
+      <BlockStack gap="200">
+        {safeDesign.blocks.length === 0 ? (
+          <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+            <Text as="p" variant="bodySm" tone="subdued">
+              Aucun bloc pour cette étape.
             </Text>
-            <Button variant="plain" onClick={() => setShowLibrary(false)}>
-              ✕
-            </Button>
-          </InlineStack>
-
-          <Divider />
-
-          <CategoryRow
-            id="cat-mep"
-            label="Mise en page"
-            isOpen={openCats.mep}
-            onToggle={() => toggleCat("mep")}
+          </Box>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleBlockDragEnd}
           >
-              <LibraryItem
-                icon={ListNumberedIcon}
-                label="Barre d'étape"
-                onClick={() => addBlock({ id: newBlockId(), type: "step_bar", style: {} })}
-              />
-              <LibraryItem
-                icon={ProductListIcon}
-                label="Liste de Produits"
-                onClick={() =>
-                  addBlock({
-                    id: newBlockId(),
-                    type: "product_list",
-                    cardLayout: "classic",
-                    columns: 3,
-                    columnsMobile: 2,
-                    source: "step_pick",
-                  })
-                }
-              />
-              <LibraryItem
-                icon={PlusIcon}
-                label="Options / Sous-produits ★"
-                onClick={() => addBlock({
-                  id: newBlockId(),
-                  type: "upsell",
-                  title: "Complétez votre commande",
-                  behavior: "multiple",
-                  items: []
-                })}
-              />
-              <LibraryItem
-                icon={TextInColumnsIcon}
-                label="Espacement"
-                onClick={() => addBlock({ id: newBlockId(), type: "spacer", height: 24 })}
-              />
-              <LibraryItem
-                icon={MinusIcon}
-                label="Séparateur"
-                onClick={() => addBlock({ id: newBlockId(), type: "divider", thickness: 1, lineStyle: "solid", spacing: 16 })}
-              />
-              <LibraryItem
-                icon={ShieldCheckMarkIcon}
-                label="Badges de confiance"
-                onClick={() => addBlock({ id: newBlockId(), type: "trust_badges", align: "center", iconSize: 32, items: [
-                  { id: newBlockId(), label: "Paiement sécurisé" },
-                  { id: newBlockId(), label: "Livraison rapide" },
-                  { id: newBlockId(), label: "Satisfait ou remboursé" },
-                ] })}
-              />
-          </CategoryRow>
-
-          <CategoryRow
-            id="cat-text"
-            label="Texte"
-            isOpen={openCats.text}
-            onToggle={() => toggleCat("text")}
-          >
-            <BlockStack gap="100">
-              <LibraryItem
-                icon={TextTitleIcon}
-                label="Titre"
-                onClick={() =>
-                  addBlock({
-                    id: newBlockId(),
-                    type: "heading",
-                    text: "Composez votre coffret",
-                    tag: "h2",
-                    style: {
-                      fontSize: "1.75rem",
-                      fontWeight: "700",
-                      color: "#1f2937",
-                      textAlign: "center",
-                      marginTop: "0",
-                      marginBottom: "0.5rem",
-                    },
-                  })
-                }
-              />
-              <LibraryItem
-                icon={TextBlockIcon}
-                label="Texte"
-                onClick={() =>
-                  addBlock({
-                    id: newBlockId(),
-                    type: "text",
-                    text: "Sélectionnez vos produits préférés étape par étape et profitez d'un tarif avantageux sur l'ensemble.",
-                    style: {
-                      fontSize: "1rem",
-                      color: "#6b7280",
-                      textAlign: "center",
-                      marginTop: "0",
-                      marginBottom: "1rem",
-                    },
-                  })
-                }
-              />
-              <LibraryItem
-                icon={ButtonIcon}
-                label="Bouton / CTA"
-                onClick={() =>
-                  addBlock({
-                    id: newBlockId(),
-                    type: "button",
-                    text: "Ajouter au panier",
-                    action: "scroll_to_bundle",
-                    fullWidth: true,
-                    style: {
-                      backgroundColor: "#1f2937",
-                      color: "#ffffff",
-                      fontSize: "1rem",
-                      fontWeight: "600",
-                      textAlign: "center",
-                      padding: "14px 28px",
-                      borderRadius: "10px",
-                      hoverBackground: "#374151",
-                      hoverColor: "#ffffff",
-                    },
-                  })
-                }
-              />
-              <LibraryItem
-                icon={QuestionCircleIcon}
-                label="FAQ"
-                onClick={() =>
-                  addBlock({
-                    id: newBlockId(),
-                    type: "faq",
-                    allowMultipleOpen: false,
-                    items: [
-                      { id: newBlockId(), question: "Votre question ?", answer: "Votre réponse." },
-                    ],
-                    style: {},
-                  })
-                }
-              />
-            </BlockStack>
-          </CategoryRow>
-
-          <CategoryRow
-            id="cat-media"
-            label="Médias & Sections"
-            isOpen={openCats.media}
-            onToggle={() => toggleCat("media")}
-          >
-            <BlockStack gap="100">
-              <LibraryItem
-                icon={ImageIcon}
-                label="Image"
-                onClick={() =>
-                  addBlock({
-                    id: newBlockId(),
-                    type: "image",
-                    url: null,
-                    alt: "",
-                    style: { maxWidth: "100%" },
-                  })
-                }
-              />
-              <LibraryItem
-                icon={LayoutBlockIcon}
-                label="Bannière (Hero)"
-                onClick={() =>
-                  addBlock({
-                    id: newBlockId(),
-                    type: "hero",
-                    headline: "Votre coffret sur mesure",
-                    subtext: "Composez, personnalisez, économisez.",
-                    imageUrl: null,
-                    layout: "stack",
-                    style: {
-                      padding: "2.5rem 2rem",
-                      backgroundColor: "#f7f5f2",
-                      borderRadius: "16px",
-                      textAlign: "center",
-                      color: "#1f2937",
-                    },
-                  })
-                }
-              />
-              <LibraryItem
-                icon={LayoutSidebarRightIcon}
-                label="Section Split"
-                onClick={() =>
-                  addBlock({
-                    id: newBlockId(),
-                    type: "split",
-                    title: "Pourquoi nos coffrets ?",
-                    body: "Des produits sélectionnés avec soin, réunis à un tarif groupé avantageux.",
-                    imageUrl: null,
-                    imageSide: "left",
-                    style: {
-                      padding: "1.5rem",
-                      backgroundColor: "#ffffff",
-                      borderRadius: "12px",
-                      color: "#1f2937",
-                    },
-                  })
-                }
-              />
-            </BlockStack>
-          </CategoryRow>
-        </BlockStack>
-      ) : (
-        <BlockStack gap="200">
-          {safeDesign.blocks.length === 0 ? (
-            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-              <Text as="p" variant="bodySm" tone="subdued">
-                Aucun bloc. Cliquez sur &quot;+ Ajouter un bloc&quot;.
-              </Text>
-            </Box>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleBlockDragEnd}
+            <SortableContext
+              items={safeDesign.blocks.map((b) => b.id)}
+              strategy={verticalListSortingStrategy}
             >
-              <SortableContext
-                items={safeDesign.blocks.map((b) => b.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <BlockStack gap="150">
-                  {safeDesign.blocks.map((block) => (
-                    <SortableBlockRow
-                      key={block.id}
-                      block={block}
-                      onClick={() => onBlockClick(block.id)}
-                      onDelete={() => deleteBlock(block.id)}
-                      onDuplicate={() => duplicateBlock(block.id)}
-                      isLocked={false}
-                      isHidden={block.isHidden}
-                      onToggleVisibility={() => onToggleBlockVisibility(block.id, !block.isHidden)}
-                    />
-                  ))}
-                </BlockStack>
-              </SortableContext>
-            </DndContext>
-          )}
-          <Button
-            onClick={() => setShowLibrary(true)}
-            fullWidth
-          >
-            + Ajouter un bloc
-          </Button>
-        </BlockStack>
-      )}
+              <BlockStack gap="150">
+                {safeDesign.blocks.map((block) => (
+                  <SortableBlockRow
+                    key={block.id}
+                    block={block}
+                    onClick={() => onBlockClick(block.id)}
+                    onDelete={() => deleteBlock(block.id)}
+                    onDuplicate={() => duplicateBlock(block.id)}
+                    isLocked={false}
+                    isHidden={block.isHidden}
+                    onToggleVisibility={() => onToggleBlockVisibility(block.id, !block.isHidden)}
+                  />
+                ))}
+              </BlockStack>
+            </SortableContext>
+          </DndContext>
+        )}
+        <Button
+          onClick={() => onRequestLibrary?.()}
+          fullWidth
+        >
+          + Ajouter un bloc
+        </Button>
+      </BlockStack>
     </BlockStack>
   );
 
