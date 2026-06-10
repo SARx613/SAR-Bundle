@@ -49,12 +49,15 @@
   margin-block: 0 !important;
 }
 
-/* ─── 2. .Polaris-Page__Content : UNIQUE source du padding latéral */
+/* ─── 2. Padding latéral uniforme sur toutes les pages ─────────── */
 /*
- * C'est ici que Polaris met son padding réel.
- * On remplace par un padding uniforme 1.5rem gauche/droite.
+ * Polaris 12 : quand la Page n'a PAS de header → .Polaris-Page__Content
+ *              quand la Page A un header (backAction/title/primaryAction)
+ *              → le div enfant n'a aucune classe.
+ * On couvre les deux cas.
  */
-.Polaris-Page__Content {
+.Polaris-Page__Content,
+.Polaris-Page > div:last-child:not(.Polaris-Page-Header) {
   max-width: none !important;
   width: 100% !important;
   margin: 0 !important;
