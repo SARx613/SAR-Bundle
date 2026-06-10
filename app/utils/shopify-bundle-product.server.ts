@@ -117,23 +117,8 @@ export async function syncBundleShopifyProduct(
   const SAR_TAG = "SAR-Bundle";
 
   if (bundle.shopifyProductId) {
-    // Fetch the current handle of the Shopify product to avoid "Handle already in use" errors
-    // when the desired handle belongs to a *different* product.
-    let currentHandle: string | null = null;
-    try {
-      const hRes = await admin.graphql(
-        `#graphql query GetProductHandle($id: ID!) { product(id: $id) { handle } }`,
-        { variables: { id: bundle.shopifyProductId } },
-      );
-      const hBody = await hRes.json();
-      currentHandle = hBody?.data?.product?.handle ?? null;
-    } catch {
-      // non-fatal
-    }
-
-    // Only send handle if it differs from what Shopify already has (avoids "already in use" on self).
-    const handleInput = currentHandle === bundle.handle ? undefined : bundle.handle;
-
+    // Never send `handle` on UPDATE — Shopify keeps the existing handle.
+    // Sending it causes "Handle already in use" when the slug matches another product.
     const res = await admin.graphql(
       `#graphql
         mutation ProductUpdateBundle($product: ProductUpdateInput!) {
@@ -154,7 +139,6 @@ export async function syncBundleShopifyProduct(
           product: {
             id: bundle.shopifyProductId,
             title: bundle.name,
-            ...(handleInput !== undefined ? { handle: handleInput } : {}),
             descriptionHtml,
             status: shopifyProductStatus(bundle.status),
             tags: [SAR_TAG],

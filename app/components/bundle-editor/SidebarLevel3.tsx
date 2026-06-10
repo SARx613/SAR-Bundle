@@ -821,15 +821,45 @@ function ProductListManager({
       {/* Layout settings */}
       <CollapsibleStyleSection title="Mise en page" id="sec-pl-layout" defaultOpen>
         <BlockStack gap="300">
-          <Select
-            label="Style de carte"
-            options={[
-              { label: "Classique (bouton Ajouter)", value: "classic" },
-              { label: "Overlay (bouton au survol)", value: "overlay" },
-            ]}
-            value={cardLayout}
-            onChange={(v) => onPatch({ cardLayout: v as ProductListBlock["cardLayout"] } as Partial<StorefrontBlockV2>)}
-          />
+          <BlockStack gap="150">
+            <Text as="span" variant="bodyMd">Style de carte</Text>
+            <InlineGrid columns={["oneHalf", "oneHalf"]} gap="200">
+              {(["classic", "overlay"] as ProductListBlock["cardLayout"][]).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => onPatch({ cardLayout: preset } as Partial<StorefrontBlockV2>)}
+                  style={{
+                    cursor: "pointer",
+                    border: cardLayout === preset ? "2px solid var(--p-color-border-focus)" : "1.5px solid var(--p-color-border)",
+                    borderRadius: "var(--p-border-radius-300)",
+                    background: cardLayout === preset ? "var(--p-color-bg-surface-selected)" : "var(--p-color-bg-surface)",
+                    padding: "10px 8px 8px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 6,
+                    transition: "border-color 120ms, background 120ms",
+                  }}
+                >
+                  {/* mini preview */}
+                  <div style={{ width: "100%", borderRadius: 6, overflow: "hidden", background: "var(--p-color-bg-surface-secondary)", aspectRatio: "3/2", position: "relative", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                    <div style={{ position: "absolute", inset: 0, background: "var(--p-color-bg-fill-secondary)", borderRadius: 6 }} />
+                    {preset === "classic" ? (
+                      <div style={{ position: "relative", zIndex: 1, width: "80%", height: 10, marginBottom: 6, background: "var(--p-color-bg-fill-brand)", borderRadius: 3, opacity: 0.85 }} />
+                    ) : (
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%)", borderRadius: 6, zIndex: 1, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                        <div style={{ width: "70%", height: 10, marginBottom: 6, background: "rgba(255,255,255,0.85)", borderRadius: 3 }} />
+                      </div>
+                    )}
+                  </div>
+                  <Text as="span" variant="bodySm" fontWeight={cardLayout === preset ? "semibold" : "regular"}>
+                    {preset === "classic" ? "Classique" : "Overlay"}
+                  </Text>
+                </button>
+              ))}
+            </InlineGrid>
+          </BlockStack>
           <InlineGrid columns={["oneHalf", "oneHalf"]} gap="200">
             <SliderNumericField
               label="Colonnes (Bureau)"
@@ -956,12 +986,9 @@ function ProductListManager({
         </Box>
       ) : (
         <BlockStack gap="300">
-          <InlineStack gap="200" wrap>
-            <Button onClick={openVariantPicker}>Ajouter des variants</Button>
-            <Button onClick={openProductPicker} variant="secondary">
-              Ajouter des produits
-            </Button>
-          </InlineStack>
+          <Button onClick={openProductPicker} variant="secondary" fullWidth>
+            Ajouter des produits
+          </Button>
 
           {products.length === 0 ? (
             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
@@ -1564,6 +1591,32 @@ function BlockGeneralFields({
     );
   }
   return null;
+}
+
+/* ────────────────────── Step Bar Config (exported for level 1 sidebar) ────────────────────── */
+
+export function StepBarConfig({
+  design,
+  onDesignChange,
+}: {
+  design: StorefrontDesignV2;
+  onDesignChange: (d: StorefrontDesignV2) => void;
+}) {
+  const stepBarBlock = design.global?.blocks?.find((b) => b.type === "step_bar");
+  if (!stepBarBlock) return null;
+
+  const patchBlock = (patch: Partial<StorefrontBlockV2>) => {
+    const newBlocks = (design.global?.blocks ?? []).map((b) =>
+      b.id === stepBarBlock.id ? { ...b, ...patch } : b
+    );
+    onDesignChange({
+      ...design,
+      version: 2,
+      global: { ...(design.global ?? {}), blocks: newBlocks },
+    });
+  };
+
+  return <StepBarStyleFields block={stepBarBlock} onPatch={patchBlock} />;
 }
 
 /* ────────────────────── Main Component ────────────────────── */
