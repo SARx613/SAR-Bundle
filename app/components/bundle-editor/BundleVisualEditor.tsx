@@ -6,14 +6,12 @@ import {
   type SetStateAction,
 } from "react";
 import {
-  ActionList,
   BlockStack,
   Box,
   Button,
   Card,
   Icon,
   InlineStack,
-  Popover,
   RangeSlider,
   Select,
   Text,
@@ -216,7 +214,6 @@ export function BundleVisualEditor({
   shopDomain?: string;
 }) {
   const [nav, setNav] = useState<SidebarLevel>({ level: 1 });
-  const [addStepOpen, setAddStepOpen] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
@@ -489,24 +486,9 @@ export function BundleVisualEditor({
             </DndContext>
           )}
 
-          <Popover
-            active={addStepOpen}
-            onClose={() => setAddStepOpen(false)}
-            activator={
-              <Button variant="primary" fullWidth disclosure onClick={() => setAddStepOpen((o) => !o)}>
-                + Ajouter une étape
-              </Button>
-            }
-          >
-            <ActionList
-              actionRole="menuitem"
-              items={[
-                { content: "Étape produits (titre + liste)", onAction: () => addStep("products") },
-                { content: "Étape options (titre + upsell)", onAction: () => addStep("upsell") },
-                { content: "Étape vide", onAction: () => addStep("blank") },
-              ]}
-            />
-          </Popover>
+          <Button variant="primary" fullWidth onClick={() => addStep("products")}>
+            + Ajouter une étape
+          </Button>
 
           <Box paddingBlockStart="400" paddingBlockEnd="200">
             <Text as="h3" variant="headingSm">

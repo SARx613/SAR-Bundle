@@ -31,6 +31,8 @@ import {
   CheckIcon,
   DeleteIcon,
   InfoIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from "@shopify/polaris-icons";
 import { BundleVisualEditor } from "./bundle-editor/BundleVisualEditor";
 import {
@@ -437,7 +439,7 @@ export function BundleEditorForm({
                         <Text as="h2" variant="headingSm">
                           Configuration ({doneCount}/{checklist.length})
                         </Text>
-                        <Text as="span" variant="bodySm" tone="subdued">{checklistOpen ? "▲" : "▼"}</Text>
+                        <Icon source={checklistOpen ? ChevronUpIcon : ChevronDownIcon} tone="subdued" />
                       </button>
                       {doneCount === checklist.length ? <Badge tone="success">Prêt</Badge> : null}
                     </InlineStack>
@@ -509,15 +511,36 @@ export function BundleEditorForm({
                 <Text as="h3" variant="headingSm">
                   Inventaire
                 </Text>
-                <Banner tone="info">
-                  <p>
-                    L’inventaire est <strong>automatique</strong> : la disponibilité du
-                    bundle suit le stock de ses produits. Le produit en rupture devient
-                    le goulot d’étranglement et limite le nombre de bundles vendables —
-                    Shopify applique cette limite au paiement. Aucune saisie manuelle
-                    n’est nécessaire.
-                  </p>
-                </Banner>
+                <BlockStack gap="200">
+                  <RadioButton
+                    label="Automatique"
+                    helpText="Suit le stock de chaque produit du bundle."
+                    id="inv-auto"
+                    name="inventoryMode"
+                    checked={!form.inventoryQuantity.trim()}
+                    onChange={() => setForm((f) => ({ ...f, inventoryQuantity: "" }))}
+                  />
+                  <RadioButton
+                    label="Quantité précise"
+                    helpText="Fixe manuellement le stock disponible."
+                    id="inv-fixed"
+                    name="inventoryMode"
+                    checked={!!form.inventoryQuantity.trim()}
+                    onChange={() => setForm((f) => ({ ...f, inventoryQuantity: f.inventoryQuantity.trim() || "10" }))}
+                  />
+                  {form.inventoryQuantity.trim() ? (
+                    <TextField
+                      label="Quantité"
+                      labelHidden
+                      type="number"
+                      value={form.inventoryQuantity}
+                      onChange={(v) => setForm((f) => ({ ...f, inventoryQuantity: v }))}
+                      min="0"
+                      suffix="unités"
+                      autoComplete="off"
+                    />
+                  ) : null}
+                </BlockStack>
                 <Divider />
                 <Text as="h3" variant="headingSm">
                   Galerie du bundle

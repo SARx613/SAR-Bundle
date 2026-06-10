@@ -117,6 +117,23 @@ export async function syncBundleShopifyProduct(
   const SAR_TAG = "SAR-Bundle";
 
   if (bundle.shopifyProductId) {
+    // Fetch the current handle of the Shopify product to avoid "Handle already in use" errors
+    // when the desired handle belongs to a *different* product.
+    let currentHandle: string | null = null;
+    try {
+      const hRes = await admin.graphql(
+        `#graphql query GetProductHandle($id: ID!) { product(id: $id) { handle } }`,
+        { variables: { id: bundle.shopifyProductId } },
+      );
+      const hBody = await hRes.json();
+      currentHandle = hBody?.data?.product?.handle ?? null;
+    } catch {
+      // non-fatal
+    }
+
+    // Only send handle if it differs from what Shopify already has (avoids "already in use" on self).
+    const handleInput = currentHandle === bundle.handle ? undefined : bundle.handle;
+
     const res = await admin.graphql(
       `#graphql
         mutation ProductUpdateBundle($product: ProductUpdateInput!) {
@@ -137,7 +154,7 @@ export async function syncBundleShopifyProduct(
           product: {
             id: bundle.shopifyProductId,
             title: bundle.name,
-            handle: bundle.handle,
+            ...(handleInput !== undefined ? { handle: handleInput } : {}),
             descriptionHtml,
             status: shopifyProductStatus(bundle.status),
             tags: [SAR_TAG],
@@ -167,43 +184,61 @@ export async function syncBundleShopifyProduct(
     return { productId: pid, defaultVariantId };
   }
 
-  const createRes = await admin.graphql(
-    `#graphql
-      mutation ProductCreateBundle($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
-        productCreate(product: $product, media: $media) {
-          product {
-            id
-            handle
+  // CREATE: try requested handle, then fall back to suffixed handles on collision
+  const tryCreate = async (handle: string) => {
+    const res = await admin.graphql(
+      `#graphql
+        mutation ProductCreateBundle($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
+          productCreate(product: $product, media: $media) {
+            product {
+              id
+              handle
+            }
+            userErrors {
+              field
+              message
+            }
           }
-          userErrors {
-            field
-            message
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: bundle.name,
-          handle: bundle.handle,
-          descriptionHtml,
-          status: shopifyProductStatus(bundle.status),
-          tags: [SAR_TAG],
-          ...(seo ? { seo } : {}),
-          metafields,
+        }`,
+      {
+        variables: {
+          product: {
+            title: bundle.name,
+            handle,
+            descriptionHtml,
+            status: shopifyProductStatus(bundle.status),
+            tags: [SAR_TAG],
+            ...(seo ? { seo } : {}),
+            metafields,
+          },
+          media: media ?? null,
         },
-        media: media ?? null,
       },
-    },
-  );
-  const createBody = await createRes.json();
-  const createErrs = createBody?.data?.productCreate?.userErrors;
-  if (createErrs?.length) {
+    );
+    const body = await res.json();
+    return body?.data?.productCreate;
+  };
+
+  let createResult = await tryCreate(bundle.handle);
+  if (createResult?.userErrors?.length) {
+    const isHandleCollision = createResult.userErrors.some(
+      (e: { message: string }) =>
+        /handle.*already in use/i.test(e.message) ||
+        /handle.*taken/i.test(e.message),
+    );
+    if (isHandleCollision) {
+      for (let suffix = 2; suffix <= 9; suffix++) {
+        createResult = await tryCreate(`${bundle.handle}-${suffix}`);
+        if (!createResult?.userErrors?.length) break;
+      }
+    }
+  }
+  if (createResult?.userErrors?.length) {
     throw new Error(
-      createErrs.map((e: { message: string }) => e.message).join("; "),
+      createResult.userErrors.map((e: { message: string }) => e.message).join("; "),
     );
   }
-  const newId = createBody?.data?.productCreate?.product?.id;
+  const newId = createResult?.product?.id;
   if (!newId) throw new Error("productCreate returned no product id");
 
   // Publish the newly created product to ALL channels
