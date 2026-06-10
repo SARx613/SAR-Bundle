@@ -12,7 +12,6 @@ import {
   InlineStack,
   RangeSlider,
   Select,
-  Tabs,
   Text,
   TextField,
   Thumbnail,
@@ -23,11 +22,8 @@ import {
 } from "@shopify/polaris";
 import {
   ArrowLeftIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
   DeleteIcon,
   PlusIcon,
-  CashEuroIcon,
 } from "@shopify/polaris-icons";
 import {
   type HeroBlock,
@@ -1597,8 +1593,8 @@ export function SidebarLevel3({
   onStepProductsChange: (products: UiStepProduct[]) => void;
   onBack: () => void;
   onGoToSettings: () => void;
-  activeTab: number;
-  onTabChange: (t: number) => void;
+  activeTab?: number;
+  onTabChange?: (t: number) => void;
   onDeleteBlock: (blockId: string) => void;
 }) {
   const block = design.blocks.find((b) => b.id === blockId);
@@ -1640,7 +1636,140 @@ export function SidebarLevel3({
     </Tooltip>
   );
 
-  const generalTab = (
+  const styleContent = block.type === "step_bar" ? (
+    <StepBarStyleFields
+      block={block}
+      onPatch={(patch) => patchBlock(patch as Partial<StorefrontBlockV2>)}
+    />
+  ) : block.type === "product_list" ? (
+    <BlockStack gap="300">
+      <CollapsibleStyleSection title="Bouton « Ajouter »" id="sec-pl-btn-style" defaultOpen>
+        <BlockStack gap="300">
+          <InlineGrid columns={2} gap="200">
+            <ColorField
+              label="Fond du bouton"
+              value={(block as ProductListBlock).buttonBackground ?? ""}
+              onChange={(v) => patchBlock({ buttonBackground: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+            <ColorField
+              label="Texte du bouton"
+              value={(block as ProductListBlock).buttonColor ?? ""}
+              onChange={(v) => patchBlock({ buttonColor: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+          </InlineGrid>
+          <InlineGrid columns={2} gap="200">
+            <ColorField
+              label="Fond au survol"
+              value={(block as ProductListBlock & { buttonHoverBackground?: string }).buttonHoverBackground ?? ""}
+              onChange={(v) => patchBlock({ buttonHoverBackground: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+            <ColorField
+              label="Texte au survol"
+              value={(block as ProductListBlock & { buttonHoverColor?: string }).buttonHoverColor ?? ""}
+              onChange={(v) => patchBlock({ buttonHoverColor: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+          </InlineGrid>
+          <TextField
+            label="Rayon (border-radius)"
+            value={(block as ProductListBlock).buttonBorderRadius ?? ""}
+            onChange={(v) => patchBlock({ buttonBorderRadius: v || undefined } as Partial<StorefrontBlockV2>)}
+            placeholder="4px"
+            autoComplete="off"
+            helpText="Ex: 4px, 8px, 999px"
+          />
+          <InlineGrid columns={2} gap="200">
+            <TextField
+              label="Padding vertical"
+              value={(block as ProductListBlock).buttonPaddingY ?? ""}
+              onChange={(v) => patchBlock({ buttonPaddingY: v || undefined } as Partial<StorefrontBlockV2>)}
+              placeholder="10px"
+              autoComplete="off"
+            />
+            <TextField
+              label="Padding horizontal"
+              value={(block as ProductListBlock).buttonPaddingX ?? ""}
+              onChange={(v) => patchBlock({ buttonPaddingX: v || undefined } as Partial<StorefrontBlockV2>)}
+              placeholder="16px"
+              autoComplete="off"
+            />
+          </InlineGrid>
+          <InlineGrid columns={2} gap="200">
+            <TextField
+              label="Bordure (épaisseur)"
+              value={(block as ProductListBlock).buttonBorderWidth ?? ""}
+              onChange={(v) => patchBlock({ buttonBorderWidth: v || undefined } as Partial<StorefrontBlockV2>)}
+              placeholder="1px"
+              autoComplete="off"
+            />
+            <ColorField
+              label="Bordure (couleur)"
+              value={(block as ProductListBlock).buttonBorderColor ?? ""}
+              onChange={(v) => patchBlock({ buttonBorderColor: v || undefined } as Partial<StorefrontBlockV2>)}
+            />
+          </InlineGrid>
+        </BlockStack>
+      </CollapsibleStyleSection>
+      <CollapsibleStyleSection title="Grille" id="sec-pl-grid-style">
+        <TextField
+          label="Espacement entre cartes (gap)"
+          value={(block as ProductListBlock).gap ?? ""}
+          onChange={(v) => patchBlock({ gap: v || undefined } as Partial<StorefrontBlockV2>)}
+          placeholder="16px"
+          autoComplete="off"
+          helpText="Ex: 8px, 16px, 24px"
+        />
+      </CollapsibleStyleSection>
+      <CollapsibleStyleSection title="Texte des produits" id="sec-pl-text-style">
+        <BlockStack gap="300">
+          <ColorField
+            label="Couleur des titres"
+            value={(block as ProductListBlock).titleColor ?? ""}
+            onChange={(v) => patchBlock({ titleColor: v || undefined } as Partial<StorefrontBlockV2>)}
+          />
+          <ColorField
+            label="Couleur des prix (Standard / Paliers)"
+            value={(block as ProductListBlock).priceColor ?? ""}
+            onChange={(v) => patchBlock({ priceColor: v || undefined } as Partial<StorefrontBlockV2>)}
+          />
+        </BlockStack>
+      </CollapsibleStyleSection>
+    </BlockStack>
+  ) : block.type === "upsell" ? (
+    <UpsellStyleFields
+      block={block as import("../../utils/storefront-design").UpsellBlock}
+      onPatch={(patch) => patchBlock(patch as Partial<StorefrontBlockV2>)}
+    />
+  ) : STYLE_FIELDS_TYPES.includes(block.type) ? (
+    <BlockStack gap="300">
+      <StyleFields
+        style={styleBlock}
+        onChange={(s) => patchBlock({ style: s } as Partial<StorefrontBlockV2>)}
+        showTextPreset={supportsTextPreset}
+      />
+      {block.type === "button" ? (
+        <CollapsibleStyleSection title="Survol (hover)" id="sec-btn-hover">
+          <BlockStack gap="300">
+            <ColorField
+              label="Fond au survol"
+              value={(block as ButtonBlock).style?.hoverBackground ?? ""}
+              onChange={(v) =>
+                patchBlock({ style: { ...styleBlock, hoverBackground: v || undefined } } as Partial<StorefrontBlockV2>)
+              }
+            />
+            <ColorField
+              label="Texte au survol"
+              value={(block as ButtonBlock).style?.hoverColor ?? ""}
+              onChange={(v) =>
+                patchBlock({ style: { ...styleBlock, hoverColor: v || undefined } } as Partial<StorefrontBlockV2>)
+              }
+            />
+          </BlockStack>
+        </CollapsibleStyleSection>
+      ) : null}
+    </BlockStack>
+  ) : null;
+
+  return (
     <BlockStack gap="300">
       <InlineStack gap="200" blockAlign="center">
         {backBtn}
@@ -1648,16 +1777,6 @@ export function SidebarLevel3({
           {blockDisplayLabel(block)}
         </Text>
       </InlineStack>
-
-      {/* Editable block name */}
-      <TextField
-        label="Nom de la section"
-        value={(block as { name?: string }).name ?? ""}
-        onChange={(v) => patchBlock({ name: v || undefined } as Partial<StorefrontBlockV2>)}
-        autoComplete="off"
-        placeholder={blockDisplayLabel(block)}
-        helpText="Nom affiché dans la sidebar"
-      />
 
       <BlockGeneralFields
         block={block}
@@ -1666,6 +1785,14 @@ export function SidebarLevel3({
         onStepProductsChange={onStepProductsChange}
       />
 
+      {styleContent ? (
+        <>
+          <Divider />
+          {styleContent}
+        </>
+      ) : null}
+
+      <Divider />
       <Button
         tone="critical"
         variant="plain"
@@ -1674,171 +1801,5 @@ export function SidebarLevel3({
         Supprimer ce bloc
       </Button>
     </BlockStack>
-  );
-
-  const styleTab = (
-    <BlockStack gap="300">
-      <InlineStack gap="200" blockAlign="center">
-        {backBtn}
-        <Text as="h3" variant="headingSm" truncate>
-          {blockDisplayLabel(block)}
-        </Text>
-      </InlineStack>
-      <Text as="p" variant="bodySm" tone="subdued">
-        Les variables CSS Shopify s'adaptent automatiquement au thème.
-      </Text>
-      {block.type === "step_bar" ? (
-        <StepBarStyleFields
-          block={block}
-          onPatch={(patch) => patchBlock(patch as Partial<StorefrontBlockV2>)}
-        />
-      ) : block.type === "product_list" ? (
-        <BlockStack gap="300">
-          <CollapsibleStyleSection title="Bouton « Ajouter »" id="sec-pl-btn-style" defaultOpen>
-            <BlockStack gap="300">
-              <InlineGrid columns={2} gap="200">
-                <ColorField
-                  label="Fond du bouton"
-                  value={(block as ProductListBlock).buttonBackground ?? ""}
-                  onChange={(v) => patchBlock({ buttonBackground: v || undefined } as Partial<StorefrontBlockV2>)}
-                />
-                <ColorField
-                  label="Texte du bouton"
-                  value={(block as ProductListBlock).buttonColor ?? ""}
-                  onChange={(v) => patchBlock({ buttonColor: v || undefined } as Partial<StorefrontBlockV2>)}
-                />
-              </InlineGrid>
-              <InlineGrid columns={2} gap="200">
-                <ColorField
-                  label="Fond au survol"
-                  value={(block as ProductListBlock & { buttonHoverBackground?: string }).buttonHoverBackground ?? ""}
-                  onChange={(v) => patchBlock({ buttonHoverBackground: v || undefined } as Partial<StorefrontBlockV2>)}
-                />
-                <ColorField
-                  label="Texte au survol"
-                  value={(block as ProductListBlock & { buttonHoverColor?: string }).buttonHoverColor ?? ""}
-                  onChange={(v) => patchBlock({ buttonHoverColor: v || undefined } as Partial<StorefrontBlockV2>)}
-                />
-              </InlineGrid>
-              <TextField
-                label="Rayon (border-radius)"
-                value={(block as ProductListBlock).buttonBorderRadius ?? ""}
-                onChange={(v) => patchBlock({ buttonBorderRadius: v || undefined } as Partial<StorefrontBlockV2>)}
-                placeholder="4px"
-                autoComplete="off"
-                helpText="Ex: 4px, 8px, 999px"
-              />
-              <InlineGrid columns={2} gap="200">
-                <TextField
-                  label="Padding vertical"
-                  value={(block as ProductListBlock).buttonPaddingY ?? ""}
-                  onChange={(v) => patchBlock({ buttonPaddingY: v || undefined } as Partial<StorefrontBlockV2>)}
-                  placeholder="10px"
-                  autoComplete="off"
-                />
-                <TextField
-                  label="Padding horizontal"
-                  value={(block as ProductListBlock).buttonPaddingX ?? ""}
-                  onChange={(v) => patchBlock({ buttonPaddingX: v || undefined } as Partial<StorefrontBlockV2>)}
-                  placeholder="16px"
-                  autoComplete="off"
-                />
-              </InlineGrid>
-              <InlineGrid columns={2} gap="200">
-                <TextField
-                  label="Bordure (épaisseur)"
-                  value={(block as ProductListBlock).buttonBorderWidth ?? ""}
-                  onChange={(v) => patchBlock({ buttonBorderWidth: v || undefined } as Partial<StorefrontBlockV2>)}
-                  placeholder="1px"
-                  autoComplete="off"
-                />
-                <ColorField
-                  label="Bordure (couleur)"
-                  value={(block as ProductListBlock).buttonBorderColor ?? ""}
-                  onChange={(v) => patchBlock({ buttonBorderColor: v || undefined } as Partial<StorefrontBlockV2>)}
-                />
-              </InlineGrid>
-            </BlockStack>
-          </CollapsibleStyleSection>
-          <CollapsibleStyleSection title="Grille" id="sec-pl-grid-style">
-            <TextField
-              label="Espacement entre cartes (gap)"
-              value={(block as ProductListBlock).gap ?? ""}
-              onChange={(v) => patchBlock({ gap: v || undefined } as Partial<StorefrontBlockV2>)}
-              placeholder="16px"
-              autoComplete="off"
-              helpText="Ex: 8px, 16px, 24px"
-            />
-          </CollapsibleStyleSection>
-          <CollapsibleStyleSection title="Texte des produits" id="sec-pl-text-style">
-            <BlockStack gap="300">
-              <ColorField
-                label="Couleur des titres"
-                value={(block as ProductListBlock).titleColor ?? ""}
-                onChange={(v) => patchBlock({ titleColor: v || undefined } as Partial<StorefrontBlockV2>)}
-              />
-              <ColorField
-                label="Couleur des prix (Standard / Paliers)"
-                value={(block as ProductListBlock).priceColor ?? ""}
-                onChange={(v) => patchBlock({ priceColor: v || undefined } as Partial<StorefrontBlockV2>)}
-              />
-            </BlockStack>
-          </CollapsibleStyleSection>
-        </BlockStack>
-      ) : block.type === "upsell" ? (
-        <UpsellStyleFields
-          block={block as import("../../utils/storefront-design").UpsellBlock}
-          onPatch={(patch) => patchBlock(patch as Partial<StorefrontBlockV2>)}
-        />
-      ) : STYLE_FIELDS_TYPES.includes(block.type) ? (
-        <BlockStack gap="300">
-          <StyleFields
-            style={styleBlock}
-            onChange={(s) => patchBlock({ style: s } as Partial<StorefrontBlockV2>)}
-            showTextPreset={supportsTextPreset}
-          />
-          {block.type === "button" ? (
-            <CollapsibleStyleSection title="Survol (hover)" id="sec-btn-hover">
-              <BlockStack gap="300">
-                <ColorField
-                  label="Fond au survol"
-                  value={(block as ButtonBlock).style?.hoverBackground ?? ""}
-                  onChange={(v) =>
-                    patchBlock({ style: { ...styleBlock, hoverBackground: v || undefined } } as Partial<StorefrontBlockV2>)
-                  }
-                />
-                <ColorField
-                  label="Texte au survol"
-                  value={(block as ButtonBlock).style?.hoverColor ?? ""}
-                  onChange={(v) =>
-                    patchBlock({ style: { ...styleBlock, hoverColor: v || undefined } } as Partial<StorefrontBlockV2>)
-                  }
-                />
-              </BlockStack>
-            </CollapsibleStyleSection>
-          ) : null}
-        </BlockStack>
-      ) : (
-        <Text as="p" variant="bodySm" tone="subdued">
-          Ce type de bloc n'a pas de styles configurables ici.
-        </Text>
-      )}
-    </BlockStack>
-  );
-
-  return (
-    <Tabs
-      fitted
-      tabs={[
-        { id: "general", content: "Générale", accessibilityLabel: "Générale" },
-        { id: "style", content: "Style", accessibilityLabel: "Style" },
-      ]}
-      selected={activeTab}
-      onSelect={onTabChange}
-    >
-      <Box paddingBlockStart="400">
-        {activeTab === 0 ? generalTab : styleTab}
-      </Box>
-    </Tabs>
   );
 }
