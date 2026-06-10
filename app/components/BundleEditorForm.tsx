@@ -3,13 +3,13 @@ import { useFetcher, useNavigate } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   Page,
-  Layout,
   Card,
   TextField,
   Select,
   Button,
   BlockStack,
   InlineStack,
+  InlineGrid,
   Text,
   Checkbox,
   DropZone,
@@ -410,9 +410,7 @@ export function BundleEditorForm({
         onAction: handleSave,
       }}
     >
-      <Layout>
-        <Layout.Section>
-          <BlockStack gap="400">
+      <BlockStack gap="400">
             {actionError ? (
               <Banner tone="critical" title="Erreur">
                 <p>{actionError} {saveFetcher.data && "details" in saveFetcher.data ? `- ${(saveFetcher.data as any).details}` : ''}</p>
@@ -479,68 +477,67 @@ export function BundleEditorForm({
               {selectedTab === 0 ? (
             <BlockStack gap="400">
             <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Informations générales
-                </Text>
-                <TextField
-                  label="Nom"
-                  value={form.name}
-                  onChange={(v) => setForm((f) => ({ ...f, name: v }))}
-                  autoComplete="off"
-                />
+              <BlockStack gap="300">
+                <InlineGrid columns={["twoThirds", "oneThird"]} gap="300">
+                  <TextField
+                    label="Nom"
+                    value={form.name}
+                    onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+                    autoComplete="off"
+                  />
+                  <Select
+                    label="Statut"
+                    options={STATUS_OPTIONS}
+                    value={form.status}
+                    onChange={(v) =>
+                      setForm((f) => ({
+                        ...f,
+                        status: v as BundleFormState["status"],
+                      }))
+                    }
+                  />
+                </InlineGrid>
                 <TextField
                   label="Description"
                   value={form.description}
                   onChange={(v) => setForm((f) => ({ ...f, description: v }))}
-                  multiline={4}
+                  multiline={3}
                   autoComplete="off"
                 />
-                <Select
-                  label="Statut"
-                  options={STATUS_OPTIONS}
-                  value={form.status}
-                  onChange={(v) =>
-                    setForm((f) => ({
-                      ...f,
-                      status: v as BundleFormState["status"],
-                    }))
-                  }
-                />
                 <Divider />
-                <Text as="h3" variant="headingSm">
-                  Inventaire
-                </Text>
-                <BlockStack gap="200">
-                  <RadioButton
-                    label="Automatique"
-                    helpText="Suit le stock de chaque produit du bundle."
-                    id="inv-auto"
-                    name="inventoryMode"
-                    checked={!form.inventoryQuantity.trim()}
-                    onChange={() => setForm((f) => ({ ...f, inventoryQuantity: "" }))}
-                  />
-                  <RadioButton
-                    label="Quantité précise"
-                    helpText="Fixe manuellement le stock disponible."
-                    id="inv-fixed"
-                    name="inventoryMode"
-                    checked={!!form.inventoryQuantity.trim()}
-                    onChange={() => setForm((f) => ({ ...f, inventoryQuantity: f.inventoryQuantity.trim() || "10" }))}
-                  />
-                  {form.inventoryQuantity.trim() ? (
-                    <TextField
-                      label="Quantité"
-                      labelHidden
-                      type="number"
-                      value={form.inventoryQuantity}
-                      onChange={(v) => setForm((f) => ({ ...f, inventoryQuantity: v }))}
-                      min="0"
-                      suffix="unités"
-                      autoComplete="off"
+                <InlineStack gap="400" blockAlign="center" wrap={false}>
+                  <Text as="span" variant="headingSm">Inventaire</Text>
+                  <InlineStack gap="300" blockAlign="center">
+                    <RadioButton
+                      label="Automatique"
+                      id="inv-auto"
+                      name="inventoryMode"
+                      checked={!form.inventoryQuantity.trim()}
+                      onChange={() => setForm((f) => ({ ...f, inventoryQuantity: "" }))}
                     />
-                  ) : null}
-                </BlockStack>
+                    <RadioButton
+                      label="Quantité précise"
+                      id="inv-fixed"
+                      name="inventoryMode"
+                      checked={!!form.inventoryQuantity.trim()}
+                      onChange={() => setForm((f) => ({ ...f, inventoryQuantity: f.inventoryQuantity.trim() || "10" }))}
+                    />
+                    {form.inventoryQuantity.trim() ? (
+                      <div style={{ width: 90 }}>
+                        <TextField
+                          label="Quantité"
+                          labelHidden
+                          type="number"
+                          value={form.inventoryQuantity}
+                          onChange={(v) => setForm((f) => ({ ...f, inventoryQuantity: v }))}
+                          min="0"
+                          suffix="u."
+                          autoComplete="off"
+                        />
+                      </div>
+                    ) : null}
+                  </InlineStack>
+                </InlineStack>
                 <Divider />
                 <Text as="h3" variant="headingSm">
                   Galerie du bundle
@@ -1187,9 +1184,7 @@ export function BundleEditorForm({
             </BlockStack>
               ) : null}
             </Tabs>
-          </BlockStack>
-        </Layout.Section>
-      </Layout>
+      </BlockStack>
 
       {isDirty ? (
         <div style={{

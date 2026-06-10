@@ -37,7 +37,7 @@ import { DragHandleIcon, DeleteIcon, PlusIcon } from "@shopify/polaris-icons";
 import { BundleIframePreview } from "./BundleIframePreview";
 // BundleStorefrontPreview conservé mais remplacé par l'iframe (parité 100% storefront)
 // import { BundleStorefrontPreview } from "./BundleStorefrontPreview";
-import { SidebarLevel2 } from "./SidebarLevel2";
+import { BlockLibraryPanel, SidebarLevel2 } from "./SidebarLevel2";
 import { SidebarLevel3 } from "./SidebarLevel3";
 import {
   emptyStep,
@@ -214,6 +214,7 @@ export function BundleVisualEditor({
   shopDomain?: string;
 }) {
   const [nav, setNav] = useState<SidebarLevel>({ level: 1 });
+  const [showBlockLibrary, setShowBlockLibrary] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
@@ -666,18 +667,20 @@ export function BundleVisualEditor({
           onStepProductsChange={(products) =>
             patchStep(nav.stepIndex, { products })
           }
-          onBack={() => setNav({ level: 1 })}
-          onBlockClick={(blockId) =>
+          onBack={() => { setShowBlockLibrary(false); setNav({ level: 1 }); }}
+          onBlockClick={(blockId) => {
+            setShowBlockLibrary(false);
             setNav({
               level: 3,
               stepIndex: nav.stepIndex,
               blockId,
               activeTab: 0,
-            })
-          }
+            });
+          }}
           activeTab={nav.activeTab}
           onTabChange={(t) => setNav({ ...nav, activeTab: t })}
           onToggleBlockVisibility={toggleBlockVisibility}
+          onRequestLibrary={() => setShowBlockLibrary(true)}
         />
       );
     }
@@ -777,6 +780,35 @@ export function BundleVisualEditor({
           </BlockStack>
         </Card>
       </div>
+
+      {/* Panneau bibliothèque de blocs — colonne inline à côté de la sidebar */}
+      {showBlockLibrary && nav.level === 2 ? (
+        <div
+          style={{
+            flex: "0 0 220px",
+            width: 220,
+            background: "var(--p-color-bg-surface)",
+            border: "1px solid var(--p-color-border)",
+            borderRadius: "var(--p-border-radius-300)",
+            boxShadow: "var(--p-shadow-300)",
+            overflow: "auto",
+            maxHeight: "70vh",
+          }}
+        >
+          <BlockLibraryPanel
+            onAdd={(block) => {
+              const stepIndex = nav.level === 2 ? nav.stepIndex : 0;
+              const stepDesign = getStepDesign(stepIndex);
+              patchStepDesign(stepIndex, {
+                ...stepDesign,
+                version: 2,
+                blocks: [...stepDesign.blocks, block],
+              });
+            }}
+            onClose={() => setShowBlockLibrary(false)}
+          />
+        </div>
+      ) : null}
 
       {/* Aperçu 70% */}
       <div style={{ flex: "1 1 0", minWidth: 280 }}>
