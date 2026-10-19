@@ -20,7 +20,6 @@ import { PackageIcon, PlusIcon } from "@shopify/polaris-icons";
 
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
-import { BILLING_PLANS, type BillingPlanHandle } from "../utils/billing-plans";
 import { getEffectiveShopBilling } from "../utils/billing.server";
 import { fetchCommerceDashboardStats } from "../utils/shopify-dashboard-stats.server";
 import { formatMoney } from "../utils/money";

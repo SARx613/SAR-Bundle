@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Collapsible,
   Divider,
   DropZone,
   Icon,
@@ -21,16 +20,25 @@ import {
 } from "@shopify/polaris";
 import {
   ArrowLeftIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
+  ButtonIcon,
   DeleteIcon,
   DragHandleIcon,
   DuplicateIcon,
   HideIcon,
+  ImageIcon,
+  LayoutBlockIcon,
+  LayoutSidebarRightIcon,
+  ListNumberedIcon,
   MenuHorizontalIcon,
-  SettingsIcon,
-  ViewIcon,
+  MinusIcon,
   PlusIcon,
+  ProductListIcon,
+  QuestionCircleIcon,
+  ShieldCheckMarkIcon,
+  TextBlockIcon,
+  TextInColumnsIcon,
+  TextTitleIcon,
+  ViewIcon,
 } from "@shopify/polaris-icons";
 import {
   DndContext,
@@ -109,27 +117,10 @@ function ruleLabel(r: UiStepRule): string {
   return `${m} ${o} ${r.value}`;
 }
 
-type LibCategory = "mep" | "text" | "media";
-
 function ensurePermanentProductBlock(design: StorefrontDesignV2): StorefrontDesignV2 {
   // product_list is now optional — do not auto-inject it
   return design;
 }
-
-import {
-  ListNumberedIcon,
-  ProductListIcon,
-  TextTitleIcon,
-  TextBlockIcon,
-  ImageIcon,
-  TextInColumnsIcon,
-  LayoutSidebarRightIcon,
-  LayoutBlockIcon,
-  ButtonIcon,
-  MinusIcon,
-  QuestionCircleIcon,
-  ShieldCheckMarkIcon,
-} from "@shopify/polaris-icons";
 
 function blockIconSource(type: string) {
   switch (type) {
@@ -330,51 +321,6 @@ function SortableBlockRow({
           </div>
         </InlineStack>
       </Box>
-    </div>
-  );
-}
-
-function CategoryRow({
-  label,
-  isOpen,
-  onToggle,
-  children,
-  id,
-}: {
-  label: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-  id: string;
-}) {
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-          padding: "6px 4px",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: "var(--p-color-text)",
-          fontWeight: 500,
-          fontSize: "0.8rem",
-        }}
-        aria-expanded={isOpen}
-      >
-        <span>{label}</span>
-        <Icon source={isOpen ? ChevronDownIcon : ChevronRightIcon} />
-      </button>
-      <Collapsible id={id} open={isOpen}>
-        <div style={{ paddingLeft: 4, paddingBottom: 4 }}>
-          {children}
-        </div>
-      </Collapsible>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFetcher, useNavigate } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -35,14 +35,9 @@ import {
   ChevronUpIcon,
 } from "@shopify/polaris-icons";
 import { BundleVisualEditor } from "./bundle-editor/BundleVisualEditor";
-import {
-  PRODUCT_LAYOUT_PRESETS,
-  slugifyProductHandle,
-  type ProductStyleOverrides,
-} from "../utils/storefront-design";
+import { slugifyProductHandle } from "../utils/storefront-design";
 import {
   emptyPricingTier,
-  emptyStep,
   newGalleryItemKey,
   toApiPayload,
   toFormState,
@@ -102,21 +97,6 @@ function PricingModeHelp({
 const THRESHOLD_BASIS_OPTIONS = [
   { label: "Nombre d’articles", value: "ITEM_COUNT" },
   { label: "Valeur panier", value: "CART_VALUE" },
-];
-
-const METRIC_OPTIONS = [
-  { label: "Prix du bundle", value: "BUNDLE_PRICE" },
-  { label: "Nombre total d’articles", value: "TOTAL_ITEM_COUNT" },
-  { label: "Quantité d’un variant", value: "VARIANT_QUANTITY" },
-  { label: "Nombre de variants distincts", value: "DISTINCT_VARIANT_COUNT" },
-];
-
-const OPERATOR_OPTIONS = [
-  { label: "<", value: "LT" },
-  { label: "≤", value: "LTE" },
-  { label: "=", value: "EQ" },
-  { label: "≥", value: "GTE" },
-  { label: ">", value: "GT" },
 ];
 
 const PROP_TYPE_OPTIONS = [

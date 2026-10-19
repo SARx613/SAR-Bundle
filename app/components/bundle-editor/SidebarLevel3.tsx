@@ -1,13 +1,11 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useFetcher } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   BlockStack,
   Box,
   Button,
-  Collapsible,
   DropZone,
-  Icon,
   InlineGrid,
   InlineStack,
   RangeSlider,
@@ -63,24 +61,6 @@ const TEXT_PRESETS = [
   { label: "Paragraphe", value: "p" },
   { label: "Personnalisé", value: "custom" },
 ] as const;
-
-/* ────────────────────── Color Swatch Prefix ────────────────────── */
-
-function ColorSwatch({ color }: { color: string }) {
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        width: 16,
-        height: 16,
-        borderRadius: "50%",
-        background: color || "transparent",
-        border: "1px solid var(--p-color-border)",
-        flexShrink: 0,
-      }}
-    />
-  );
-}
 
 /* ────────────────────── Color field with native picker ────────────────────── */
 
