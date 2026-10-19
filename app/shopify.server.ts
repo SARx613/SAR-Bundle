@@ -33,12 +33,14 @@ function appScopes(): string[] {
     .filter(Boolean);
 }
 
+const DEFAULT_APP_URL = "https://sar-bundle.vercel.app";
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.April26,
   scopes: appScopes(),
-  appUrl: process.env.SHOPIFY_APP_URL || "",
+  appUrl: process.env.SHOPIFY_APP_URL || DEFAULT_APP_URL,
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
@@ -68,7 +70,7 @@ const shopify = shopifyApp({
       const shop = session.shop;
 
       // 1. Register the orders/paid webhook programmatically
-      const appUrl = (process.env.SHOPIFY_APP_URL || "").trim().replace(/\/+$/, "");
+      const appUrl = (process.env.SHOPIFY_APP_URL || DEFAULT_APP_URL).trim().replace(/\/+$/, "");
       if (appUrl.startsWith("https://")) {
         const callbackUrl = `${appUrl}/webhooks/orders/paid`;
         try {
