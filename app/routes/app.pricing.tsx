@@ -18,17 +18,23 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { CheckIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { BILLING_PLANS } from "../utils/billing-plans";
+import {
+  getEffectiveShopBilling,
+  syncShopSubscriptionLineItemId,
+} from "../utils/billing.server";
 import prisma from "../db.server";
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   let session;
+  let admin: Awaited<ReturnType<typeof authenticate.admin>>["admin"];
   let billing: Awaited<ReturnType<typeof authenticate.admin>>["billing"];
 
   try {
     const auth = await authenticate.admin(request);
     session = auth.session;
+    admin = auth.admin;
     billing = auth.billing;
   } catch (err) {
     console.error("[SAR/pricing] authenticate.admin failed:", err);
@@ -36,6 +42,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const shop = session.shop;
+  const isBillingTest = process.env.SHOPIFY_BILLING_TEST !== "false";
 
   // Vérifie l'abonnement. Une redirection (Response) = abonnement requis → on la
   // laisse passer. Toute autre erreur = panne transitoire de l'API Billing : on
@@ -43,11 +50,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     await billing.require({
       plans: [BILLING_PLANS.sar_bundle_plan.handle],
-      isTest: true, // MUST BE true for Development Stores!
-      onFailure: async () => billing.request({
-        plan: BILLING_PLANS.sar_bundle_plan.handle,
-        isTest: true, // MUST BE true for Development Stores!
-      }),
+      isTest: isBillingTest,
+      onFailure: async () =>
+        billing.request({
+          plan: BILLING_PLANS.sar_bundle_plan.handle,
+          isTest: isBillingTest,
+        }),
     });
   } catch (err) {
     if (err instanceof Response) throw err;
@@ -59,14 +67,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   let charged1200 = false;
 
   try {
-    const shopBilling = await prisma.shopBilling.findUnique({
+    let shopBilling = await prisma.shopBilling.findUnique({
       where: { shopDomain: shop },
     });
-    if (shopBilling) {
-      monthlyRevenue = shopBilling.monthlyBundleRevenue ?? 0;
-      charged200 = shopBilling.charged200 ?? false;
-      charged1200 = shopBilling.charged1200 ?? false;
+    if (!shopBilling?.subscriptionLineItemId) {
+      await syncShopSubscriptionLineItemId(admin, shop);
+      shopBilling = await prisma.shopBilling.findUnique({
+        where: { shopDomain: shop },
+      });
     }
+    const effective = getEffectiveShopBilling(shopBilling);
+    monthlyRevenue = effective.monthlyBundleRevenue;
+    charged200 = effective.charged200;
+    charged1200 = effective.charged1200;
   } catch (err) {
     console.error("[SAR/pricing] prisma.shopBilling.findUnique failed (migration pending?):", err);
   }

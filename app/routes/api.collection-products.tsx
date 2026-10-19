@@ -1,24 +1,42 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { unauthenticated } from "../shopify.server";
+import { authenticate, unauthenticated } from "../shopify.server";
 
 /**
  * Produits d'une collection (ou tous), au format proche de products.json, pour
  * l'APERÇU ADMIN. L'iframe d'aperçu est servie depuis le domaine de l'app : elle
  * ne peut pas charger les produits de la boutique (CORS). Cet endpoint same-origin
- * interroge l'Admin API via le jeton offline du shop (unauthenticated.admin).
+ * interroge l'Admin API après authentification Admin ou App Proxy.
  *
  * GET /api/collection-products?shop=xxx.myshopify.com&handle=ma-collection
  *     (handle="all" ou vide => tous les produits)
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
-  const shop = url.searchParams.get("shop");
+  const shopParam = url.searchParams.get("shop");
   const handle = (url.searchParams.get("handle") || "").trim();
-  if (!shop) return json({ products: [] });
+
+  let admin: any = null;
+  try {
+    const auth = await authenticate.admin(request);
+    admin = auth.admin;
+  } catch {
+    try {
+      const proxyAuth = await authenticate.public.appProxy(request);
+      admin = proxyAuth.admin;
+      const proxyShop = proxyAuth.session?.shop || shopParam;
+      if (!admin && proxyShop) {
+        const unauth = await unauthenticated.admin(proxyShop);
+        admin = unauth.admin;
+      }
+    } catch {
+      return json({ products: [] }, { status: 401 });
+    }
+  }
+
+  if (!admin) return json({ products: [] }, { status: 401 });
 
   try {
-    const { admin } = await unauthenticated.admin(shop);
     const isAll = !handle || handle === "all";
 
     const res = isAll

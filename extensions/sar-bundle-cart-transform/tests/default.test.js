@@ -1,45 +1,87 @@
-import path from "path";
-import fs from "fs";
-import { describe, beforeAll, test, expect } from "vitest";
-import { buildFunction, getFunctionInfo, loadSchema, loadInputQuery, loadFixture, validateTestAssets, runFunction } from "@shopify/shopify-function-test-helpers";
+import { describe, test, expect } from "vitest";
+import { cartTransformRun } from "../src/cart_transform_run.js";
 
-describe("Default Integration Test", () => {
-  let schema;
-  let functionDir;
-  let functionInfo;
-  let schemaPath;
-  let targeting;
-  let functionRunnerPath;
-  let wasmPath;
+describe("cartTransformRun unit tests", () => {
+  test("returns NO_CHANGES when cart is empty or has no bundle lines", () => {
+    expect(cartTransformRun({})).toEqual({ operations: [] });
+    expect(cartTransformRun({ cart: { lines: [] } })).toEqual({ operations: [] });
+    expect(
+      cartTransformRun({
+        cart: {
+          lines: [
+            {
+              id: "gid://shopify/CartLine/1",
+              quantity: 1,
+              merchandise: { id: "gid://shopify/ProductVariant/100" },
+            },
+          ],
+        },
+      }),
+    ).toEqual({ operations: [] });
+  });
 
-  beforeAll(async () => {
-    functionDir = path.dirname(__dirname);
-    await buildFunction(functionDir);
-    functionInfo = await getFunctionInfo(functionDir);
-    ({ schemaPath, functionRunnerPath, wasmPath, targeting } = functionInfo);
-    schema = await loadSchema(schemaPath);
-  }, 45000);
+  test("merges a parent line and child lines of the same group and preserves parent attributes", () => {
+    const input = {
+      cart: {
+        lines: [
+          {
+            id: "gid://shopify/CartLine/parent-1",
+            quantity: 1,
+            bundle_group: { value: "grp-123" },
+            bundle_parent: { value: "1" },
+            bundle_id: { value: "bundle-abc" },
+            composition: { value: "2x Savon — Lavande" },
+            attributes: [
+              { key: "_sar_bundle_config_id", value: "bundle-abc" },
+              { key: "Message cadeau", value: "Joyeux anniversaire" },
+            ],
+            merchandise: {
+              id: "gid://shopify/ProductVariant/999",
+            },
+          },
+          {
+            id: "gid://shopify/CartLine/child-1",
+            quantity: 2,
+            bundle_group: { value: "grp-123" },
+            bundle_child: { value: "1" },
+            merchandise: {
+              id: "gid://shopify/ProductVariant/101",
+            },
+          },
+          {
+            id: "gid://shopify/CartLine/child-2",
+            quantity: 1,
+            bundle_group: { value: "grp-123" },
+            bundle_child: { value: "1" },
+            merchandise: {
+              id: "gid://shopify/ProductVariant/102",
+            },
+          },
+        ],
+      },
+    };
 
-  const fixturesDir = path.join(__dirname, "fixtures");
-  const fixtureFiles = fs
-    .readdirSync(fixturesDir)
-    .filter((file) => file.endsWith(".json"))
-    .map((file) => path.join(fixturesDir, file));
-
-  fixtureFiles.forEach((fixtureFile) => {
-    test(`runs ${path.relative(fixturesDir, fixtureFile)}`, async () => {
-      const fixture = await loadFixture(fixtureFile);
-      const targetInputQueryPath = targeting[fixture.target].inputQueryPath;
-      const inputQueryAST = await loadInputQuery(targetInputQueryPath);
-
-      const validationResult = await validateTestAssets({ schema, fixture, inputQueryAST });
-      expect(validationResult.inputQuery.errors).toEqual([]);
-      expect(validationResult.inputFixture.errors).toEqual([]);
-      expect(validationResult.outputFixture.errors).toEqual([]);
-
-      const runResult = await runFunction(fixture, functionRunnerPath, wasmPath, targetInputQueryPath, schemaPath);
-      expect(runResult.error).toBeNull();
-      expect(runResult.result.output).toEqual(fixture.expectedOutput);
-    }, 10000);
+    const result = cartTransformRun(input);
+    expect(result.operations).toHaveLength(1);
+    expect(result.operations[0]).toEqual({
+      merge: {
+        parentVariantId: "gid://shopify/ProductVariant/999",
+        cartLines: [
+          { cartLineId: "gid://shopify/CartLine/parent-1", quantity: 1 },
+          { cartLineId: "gid://shopify/CartLine/child-1", quantity: 2 },
+          { cartLineId: "gid://shopify/CartLine/child-2", quantity: 1 },
+        ],
+        attributes: [
+          { key: "_sar_bundle_group", value: "grp-123" },
+          { key: "_sar_bundle_parent", value: "1" },
+          { key: "_sar_bundle_id", value: "bundle-abc" },
+          { key: "Composition", value: "2x Savon — Lavande" },
+          { key: "_sar_bundle_config_id", value: "bundle-abc" },
+          { key: "Message cadeau", value: "Joyeux anniversaire" },
+        ],
+        title: null,
+      },
+    });
   });
 });
+

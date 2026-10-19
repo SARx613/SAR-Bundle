@@ -10,6 +10,7 @@ import prisma from "./db.server";
 
 // ─── Plan definitions (shared — importable client & server) ────────────────
 import { BILLING_PLANS, type BillingPlanHandle } from "./utils/billing-plans";
+import { syncShopSubscriptionLineItemId } from "./utils/billing.server";
 export { BILLING_PLANS, type BillingPlanHandle };
 
 // ─── Scopes ──────────────────────────────────────────────────────────────────
@@ -67,87 +68,34 @@ const shopify = shopifyApp({
       const shop = session.shop;
 
       // 1. Register the orders/paid webhook programmatically
-      const appUrl = process.env.SHOPIFY_APP_URL || "";
-      const callbackUrl = `${appUrl}/webhooks/orders/paid`;
-      try {
-        await admin.graphql(
-          `#graphql
-          mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
-            webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
-              userErrors { field message }
-            }
-          }`,
-          {
-            variables: {
-              topic: "ORDERS_PAID",
-              webhookSubscription: {
-                callbackUrl,
-                format: "JSON",
+      const appUrl = (process.env.SHOPIFY_APP_URL || "").trim().replace(/\/+$/, "");
+      if (appUrl.startsWith("https://")) {
+        const callbackUrl = `${appUrl}/webhooks/orders/paid`;
+        try {
+          await admin.graphql(
+            `#graphql
+            mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+              webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+                userErrors { field message }
+              }
+            }`,
+            {
+              variables: {
+                topic: "ORDERS_PAID",
+                webhookSubscription: {
+                  callbackUrl,
+                  format: "JSON",
+                },
               },
             },
-          },
-        );
-      } catch (err) {
-        console.error("[SAR] Failed to register orders/paid webhook:", err);
+          );
+        } catch (err) {
+          console.error("[SAR] Failed to register orders/paid webhook:", err);
+        }
       }
 
       // 2. Extract and store the usage subscription line item ID
-      try {
-        const response = await admin.graphql(
-          `#graphql
-          query {
-            currentAppInstallation {
-              activeSubscriptions {
-                id
-                name
-                lineItems {
-                  id
-                  plan {
-                    pricingDetails {
-                      __typename
-                    }
-                  }
-                }
-              }
-            }
-          }`
-        );
-        const data = await response.json();
-        const subscriptions = data.data?.currentAppInstallation?.activeSubscriptions || [];
-        
-        // Find the SAR Bundle SAR plan subscription
-        const sarSub = subscriptions.find((s: any) => s.name === BILLING_PLANS.sar_bundle_plan.name);
-        
-        let usageLineItemId = null;
-        if (sarSub && sarSub.lineItems) {
-          const usageLineItem = sarSub.lineItems.find((li: any) => 
-            li.plan?.pricingDetails?.__typename === "AppUsagePricing"
-          );
-          if (usageLineItem) {
-            usageLineItemId = usageLineItem.id;
-          }
-        }
-
-        // Upsert ShopBilling to store this ID
-        if (usageLineItemId) {
-          await prisma.shopBilling.upsert({
-            where: { shopDomain: shop },
-            create: {
-              shopDomain: shop,
-              subscriptionLineItemId: usageLineItemId,
-            },
-            update: {
-              subscriptionLineItemId: usageLineItemId,
-              updatedAt: new Date(),
-            },
-          });
-          console.log(`[SAR] Stored usage line item ID for ${shop}`);
-        } else {
-          console.warn(`[SAR] No usage line item ID found for ${shop} — billing might not be active yet.`);
-        }
-      } catch (err) {
-        console.error("[SAR] Failed to sync subscriptionLineItemId:", err);
-      }
+      await syncShopSubscriptionLineItemId(admin, shop);
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN

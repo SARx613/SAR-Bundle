@@ -48,7 +48,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     // Build translations dictionary
     let translationOverrides: { key: string; value: string }[] = [];
     try {
-      translationOverrides = await (prisma as any).translationOverride.findMany({
+      translationOverrides = await prisma.translationOverride.findMany({
         where: { shopDomain: shop },
         select: { key: true, value: true },
       });

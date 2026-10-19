@@ -29,7 +29,8 @@ function nodeToMeta(node: any): VariantMeta | null {
     String(node.product?.featuredImage?.url ?? "").trim() ||
     null;
   const priceAmount = typeof node.price === "string" ? node.price : null;
-  const currencyCode = null; // Admin API scalar Money doesn't include currency code natively here
+  const currencyCode =
+    node.presentmentPrices?.nodes?.[0]?.price?.currencyCode ?? null;
   const productHandle = String(node.product?.handle ?? "").trim() || null;
   return {
     id: node.id,
@@ -51,38 +52,55 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const { admin } = await authenticate.admin(request);
     const url = new URL(request.url);
-    const ids = url.searchParams
-      .getAll("ids")
-      .filter(Boolean)
-      .filter((id) => id.startsWith("gid://shopify/"));
+    const ids = Array.from(
+      new Set(
+        url.searchParams
+          .getAll("ids")
+          .filter(Boolean)
+          .filter((id) => id.startsWith("gid://shopify/")),
+      ),
+    );
     if (ids.length === 0) return json({ items: [] as VariantMeta[] });
 
-    const res = await admin.graphql(
-      `${PRODUCT_DISPLAY_FIELDS}
-      ${VARIANT_DISPLAY_FIELDS}
-      query EditorVariantMeta($ids: [ID!]!) {
-        nodes(ids: $ids) {
-          ... on ProductVariant {
-            ...VariantDisplayFields
+    const CHUNK = 50;
+    const items: VariantMeta[] = [];
+
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunkIds = ids.slice(i, i + CHUNK);
+      const res = await admin.graphql(
+        `${PRODUCT_DISPLAY_FIELDS}
+        ${VARIANT_DISPLAY_FIELDS}
+        query EditorVariantMeta($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            ... on ProductVariant {
+              ...VariantDisplayFields
+            }
           }
+        }`,
+        { variables: { ids: chunkIds } },
+      );
+      const body = (await res.json()) as any;
+      if (body.errors) {
+        console.error("GraphQL errors:", body.errors);
+        throw new Error(`GraphQL Error: ${JSON.stringify(body.errors)}`);
+      }
+      const nodes = body?.data?.nodes;
+      if (Array.isArray(nodes)) {
+        for (const n of nodes) {
+          const meta = nodeToMeta(n);
+          if (meta) items.push(meta);
         }
-      }`,
-      { variables: { ids } },
-    );
-    const body = (await res.json()) as any;
-    if (body.errors) {
-      console.error("GraphQL errors:", body.errors);
-      throw new Error(`GraphQL Error: ${JSON.stringify(body.errors)}`);
+      }
     }
-    const nodes = body?.data?.nodes;
-    const items = Array.isArray(nodes)
-      ? nodes.map(nodeToMeta).filter((x): x is VariantMeta => x != null)
-      : [];
+
     return json({ items });
   } catch (err: any) {
     if (err instanceof Response) throw err;
     console.error("api.shopify-variants crash:", err);
-    throw new Response(err?.stack || err?.message || String(err), { status: 500, statusText: "API Variants Crash" });
+    throw new Response(err?.message || "Internal Server Error", {
+      status: 500,
+      statusText: "API Variants Crash",
+    });
   }
 };
 

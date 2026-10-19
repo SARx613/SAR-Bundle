@@ -35,8 +35,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { DragHandleIcon, DeleteIcon, PlusIcon } from "@shopify/polaris-icons";
 import { BundleIframePreview } from "./BundleIframePreview";
-// BundleStorefrontPreview conservé mais remplacé par l'iframe (parité 100% storefront)
-// import { BundleStorefrontPreview } from "./BundleStorefrontPreview";
 import { BlockLibraryPanel, SidebarLevel2 } from "./SidebarLevel2";
 import { SidebarLevel3, StepBarConfig } from "./SidebarLevel3";
 import {
@@ -304,11 +302,14 @@ export function BundleVisualEditor({
         const key = String(stepIdx);
         setForm((f) => {
           const global = f.storefrontDesign;
-          const currentBlocks = global.stepDesigns?.[key] ?? global.blocks;
+          const currentBlocks =
+            global.stepDesigns?.[key] ??
+            global.blocks.filter((b) => b.type !== "step_bar");
           return {
             ...f,
             storefrontDesign: {
               ...global,
+              blocks: global.blocks.filter((b) => b.id !== blockId),
               stepDesigns: {
                 ...(global.stepDesigns ?? {}),
                 [key]: currentBlocks.filter((b) => b.id !== blockId),
@@ -330,42 +331,58 @@ export function BundleVisualEditor({
         n.level === 3 ? { level: 2, stepIndex: n.stepIndex, activeTab: 0 } : n,
       );
     },
-    [setForm],
+    [setForm, nav],
   );
 
-  const toggleBlockVisibility = useCallback((blockId: string, forceToggle?: boolean) => {
-    setForm((f) => {
-      const next = { ...f };
-      let found = false;
+  const toggleBlockVisibility = useCallback(
+    (blockId: string, forceToggle?: boolean) => {
+      setForm((f) => {
+        const global = f.storefrontDesign;
+        const stepDesigns = { ...(global.stepDesigns ?? {}) };
+        let found = false;
 
-      // Update in stepOverrides if currently browsing a step
-      if (nav.level === 3 || next.storefrontDesign.stepDesigns?.[nav.stepIndex]) {
-        const key = String(nav.stepIndex);
-        const override = next.storefrontDesign.stepDesigns?.[key];
-        if (override) {
-          next.storefrontDesign.stepDesigns[key] = override.map((b) => {
-            if (b.id === blockId) {
-              found = true;
-              return { ...b, isHidden: forceToggle !== undefined ? forceToggle : !b.isHidden };
-            }
-            return b;
-          });
-        }
-      }
-
-      // Always also update global if not found in override or in global nav
-      if (!found || nav.level === 2) {
-        next.storefrontDesign.blocks = next.storefrontDesign.blocks.map((b) => {
-          if (b.id === blockId) {
-            return { ...b, isHidden: forceToggle !== undefined ? forceToggle : !b.isHidden };
+        if (nav.level === 2 || nav.level === 3) {
+          const key = String(nav.stepIndex);
+          const override = stepDesigns[key];
+          if (override) {
+            stepDesigns[key] = override.map((b) => {
+              if (b.id === blockId) {
+                found = true;
+                return {
+                  ...b,
+                  isHidden: forceToggle !== undefined ? forceToggle : !b.isHidden,
+                };
+              }
+              return b;
+            });
           }
-          return b;
-        });
-      }
+        }
 
-      return next;
-    });
-  }, [setForm, nav]);
+        const nextBlocks =
+          !found || nav.level === 2
+            ? global.blocks.map((b) => {
+                if (b.id === blockId) {
+                  return {
+                    ...b,
+                    isHidden: forceToggle !== undefined ? forceToggle : !b.isHidden,
+                  };
+                }
+                return b;
+              })
+            : global.blocks;
+
+        return {
+          ...f,
+          storefrontDesign: {
+            ...global,
+            blocks: nextBlocks,
+            stepDesigns,
+          },
+        };
+      });
+    },
+    [setForm, nav],
+  );
 
   // Presets de contenu pour une nouvelle étape (évite l'étape vide).
   const stepPresetBlocks = (preset: "products" | "upsell" | "blank"): StorefrontBlockV2[] => {
@@ -391,6 +408,7 @@ export function BundleVisualEditor({
   };
 
   const addStep = (preset: "products" | "upsell" | "blank" = "products") => {
+    const newIdx = form.steps.length;
     setForm((f) => {
       const newIndex = f.steps.length;
       return {
@@ -406,11 +424,32 @@ export function BundleVisualEditor({
         },
       };
     });
-    setAddStepOpen(false);
+    setNav({ level: 2, stepIndex: newIdx, activeTab: 0 });
   };
 
   const deleteStep = (i: number) => {
-    setForm((f) => ({ ...f, steps: f.steps.filter((_, j) => j !== i) }));
+    setForm((f) => {
+      const oldStepDesigns = f.storefrontDesign.stepDesigns ?? {};
+      const nextStepDesigns: Record<string, StorefrontBlockV2[]> = {};
+      f.steps.forEach((_, j) => {
+        if (j === i) return;
+        const newIdx = j > i ? j - 1 : j;
+        const blocks = oldStepDesigns[String(j)];
+        if (blocks !== undefined) {
+          nextStepDesigns[String(newIdx)] = blocks;
+        }
+      });
+      return {
+        ...f,
+        steps: f.steps
+          .filter((_, j) => j !== i)
+          .map((s, idx) => ({ ...s, sortOrder: idx })),
+        storefrontDesign: {
+          ...f.storefrontDesign,
+          stepDesigns: nextStepDesigns,
+        },
+      };
+    });
     setNav((n) => {
       if (n.level === 1 || n.level === "global") return n;
       if (n.stepIndex === i) return { level: 1 };
@@ -424,14 +463,42 @@ export function BundleVisualEditor({
     if (!over || active.id === over.id) return;
     const oldIndex = Number(active.id);
     const newIndex = Number(over.id);
-    setForm((f) => ({
-      ...f,
-      steps: arrayMove(f.steps, oldIndex, newIndex),
-    }));
+    setForm((f) => {
+      const indexOrder = arrayMove(
+        f.steps.map((_, idx) => idx),
+        oldIndex,
+        newIndex,
+      );
+      const oldStepDesigns = f.storefrontDesign.stepDesigns ?? {};
+      const nextStepDesigns: Record<string, StorefrontBlockV2[]> = {};
+      indexOrder.forEach((origIdx, targetIdx) => {
+        const blocks = oldStepDesigns[String(origIdx)];
+        if (blocks !== undefined) {
+          nextStepDesigns[String(targetIdx)] = blocks;
+        }
+      });
+      return {
+        ...f,
+        steps: arrayMove(f.steps, oldIndex, newIndex).map((s, idx) => ({
+          ...s,
+          sortOrder: idx,
+        })),
+        storefrontDesign: {
+          ...f.storefrontDesign,
+          stepDesigns: nextStepDesigns,
+        },
+      };
+    });
     setNav((n) => {
       if (n.level === 1 || n.level === "global") return n;
       if (n.stepIndex === oldIndex) return { ...n, stepIndex: newIndex };
-      return n;
+      const indexOrder = arrayMove(
+        form.steps.map((_, idx) => idx),
+        oldIndex,
+        newIndex,
+      );
+      const movedIdx = indexOrder.indexOf(n.stepIndex);
+      return movedIdx !== -1 ? { ...n, stepIndex: movedIdx } : n;
     });
   };
 

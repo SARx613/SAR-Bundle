@@ -276,26 +276,25 @@ export function BundleEditorForm({
       });
       return;
     }
-    if (uploadBundleFetcher.state !== "idle") {
-      shopifyBridge.toast.show("Un autre téléversement est en cours", {
+    if (bundleGalleryRef.current.some((x) => x.url === u)) {
+      shopifyBridge.toast.show("Cette image est déjà dans la galerie", {
         isError: true,
       });
       return;
     }
-    if (bundleFileQueue.current.length > 0) {
-      shopifyBridge.toast.show("Attendez la fin des fichiers en file d’attente", {
-        isError: true,
-      });
-      return;
-    }
-    const fd = new FormData();
-    fd.append("imageUrl", u);
-    uploadBundleFetcher.submit(fd, {
-      method: "POST",
-      action: "/api/upload",
-      encType: "multipart/form-data",
-    });
+    setForm((f) => ({
+      ...f,
+      bundleGallery: [
+        ...f.bundleGallery,
+        {
+          key: newGalleryItemKey(),
+          url: u,
+          mediaGid: null,
+        },
+      ],
+    }));
     setGalleryUrlDraft("");
+    shopifyBridge.toast.show("Image ajoutée à la galerie");
   };
 
   const moveGalleryItem = (index: number, delta: number) => {
@@ -683,14 +682,14 @@ export function BundleEditorForm({
                 <InlineStack gap="200">
                   <Button
                     variant="primary"
-                    url={`https://${shopDomain}/admin/themes/current/editor?previewPath=${encodeURIComponent(`/products/${(form.productHandle || "").trim()}`)}`}
+                    url={`https://${shopDomain}/admin/themes/current/editor?previewPath=${encodeURIComponent(`/products/${previewHandle}`)}`}
                     target="_blank"
-                    disabled={!form.productHandle?.trim()}
+                    disabled={!previewHandle}
                   >
                     Ouvrir l'éditeur de thème
                   </Button>
-                  {form.productHandle?.trim() ? (
-                    <Button url={`https://${shopDomain}/products/${form.productHandle.trim()}`} target="_blank">
+                  {previewHandle ? (
+                    <Button url={`https://${shopDomain}/products/${previewHandle}`} target="_blank">
                       Voir la page produit
                     </Button>
                   ) : null}

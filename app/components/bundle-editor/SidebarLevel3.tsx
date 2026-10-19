@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useFetcher } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import {
@@ -601,15 +601,17 @@ function ImageUploadField({
 }) {
   const uploadFetcher = useFetcher<UploadJson>();
 
-  // When upload completes, update the image
-  if (
-    uploadFetcher.state === "idle" &&
-    uploadFetcher.data?.ok &&
-    uploadFetcher.data.imageUrl
-  ) {
-    // Trigger the change
-    onImageChange(uploadFetcher.data.imageUrl, uploadFetcher.data.imageGid);
-  }
+  useEffect(() => {
+    if (
+      uploadFetcher.state === "idle" &&
+      uploadFetcher.data?.ok &&
+      uploadFetcher.data.imageUrl &&
+      uploadFetcher.data.imageUrl !== imageUrl
+    ) {
+      onImageChange(uploadFetcher.data.imageUrl, uploadFetcher.data.imageGid);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadFetcher.state, uploadFetcher.data]);
 
   const handleDrop = useCallback(
     (_droppedFiles: File[], acceptedFiles: File[]) => {
@@ -668,6 +670,8 @@ type VariantsMetaJson = {
     displayTitle: string;
     imageUrl: string | null;
     productHandle: string | null;
+    priceAmount?: string | null;
+    currencyCode?: string | null;
   }>;
 };
 
@@ -699,12 +703,7 @@ function ProductListManager({
 }) {
   const shopifyBridge = useAppBridge();
   const variantsMetaFetcher = useFetcher<VariantsMetaJson>();
-
-  if (block.type !== "product_list") return null;
-  const source = block.source ?? "all_products";
   const products = step?.products ?? [];
-  const columns = block.columns ?? 3;
-  const cardLayout = block.cardLayout ?? "classic";
 
   const enrichVariants = (gids: string[]) => {
     if (gids.length === 0) return;
@@ -713,30 +712,47 @@ function ProductListManager({
     variantsMetaFetcher.load(`/api/shopify-variants?${params.toString()}`);
   };
 
-  if (
-    variantsMetaFetcher.state === "idle" &&
-    variantsMetaFetcher.data &&
-    step
-  ) {
-    const byId = new Map(variantsMetaFetcher.data.items.map((x) => [x.id, x]));
-    if (byId.size > 0) {
-      const enriched = products.map((p) => {
-        const meta = byId.get(p.variantGid);
-        if (!meta) return p;
-        return {
-          ...p,
-          displayName: meta.displayTitle || p.displayName,
-          imageUrl: meta.imageUrl ?? p.imageUrl,
-          productHandle: meta.productHandle ?? p.productHandle,
-        };
-      });
-      const changed = enriched.some((e, i) => {
-        const prev = products[i];
-        return prev && (e.displayName !== prev.displayName || e.imageUrl !== prev.imageUrl || e.productHandle !== prev.productHandle);
-      });
-      if (changed) onStepProductsChange(enriched);
+  useEffect(() => {
+    if (
+      variantsMetaFetcher.state !== "idle" ||
+      !variantsMetaFetcher.data ||
+      !step
+    ) {
+      return;
     }
-  }
+    const byId = new Map(variantsMetaFetcher.data.items.map((x) => [x.id, x]));
+    if (byId.size === 0) return;
+    const enriched = products.map((p) => {
+      const meta = byId.get(p.variantGid);
+      if (!meta) return p;
+      return {
+        ...p,
+        displayName: meta.displayTitle || p.displayName,
+        imageUrl: meta.imageUrl ?? p.imageUrl,
+        productHandle: meta.productHandle ?? p.productHandle,
+        priceAmount: meta.priceAmount ?? p.priceAmount,
+        currencyCode: meta.currencyCode ?? p.currencyCode,
+      };
+    });
+    const changed = enriched.some((e, i) => {
+      const prev = products[i];
+      return (
+        prev &&
+        (e.displayName !== prev.displayName ||
+          e.imageUrl !== prev.imageUrl ||
+          e.productHandle !== prev.productHandle ||
+          e.priceAmount !== prev.priceAmount ||
+          e.currencyCode !== prev.currencyCode)
+      );
+    });
+    if (changed) onStepProductsChange(enriched);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantsMetaFetcher.state, variantsMetaFetcher.data]);
+
+  if (block.type !== "product_list") return null;
+  const source = block.source ?? "all_products";
+  const columns = block.columns ?? 3;
+  const cardLayout = block.cardLayout ?? "classic";
 
   const openVariantPicker = async () => {
     const selected = await shopifyBridge.resourcePicker({
@@ -759,6 +775,8 @@ function ProductListManager({
         maxQuantity: null,
         displayName: v.displayName ?? v.id.split("/").pop() ?? v.id,
         imageUrl: v.image?.url ?? null,
+        priceAmount: null,
+        currencyCode: null,
         productHandle: v.product?.handle ?? null,
         layoutPreset: "STACK_ADD_TO_QTY",
         styleOverrides: null,
@@ -766,7 +784,7 @@ function ProductListManager({
     }
     onStepProductsChange([...products, ...additions]);
     const missing = additions
-      .filter((a) => !a.imageUrl || !a.displayName?.trim() || !a.productHandle)
+      .filter((a) => !a.imageUrl || !a.displayName?.trim() || !a.productHandle || !a.priceAmount)
       .map((a) => a.variantGid);
     if (missing.length) enrichVariants(missing);
   };
@@ -777,7 +795,9 @@ function ProductListManager({
       multiple: true,
       action: "add",
     });
-    const sel = (selected as unknown as { selection?: Array<Record<string, unknown>> } | null)?.selection;
+    const sel = Array.isArray(selected)
+      ? (selected as unknown as Array<Record<string, unknown>>)
+      : (selected as unknown as { selection?: Array<Record<string, unknown>> } | null)?.selection;
     if (!Array.isArray(sel) || sel.length === 0) return;
 
     const existing = new Set(products.map((p) => p.variantGid));
@@ -801,6 +821,8 @@ function ProductListManager({
         maxQuantity: null,
         displayName: title,
         imageUrl,
+        priceAmount: null,
+        currencyCode: null,
         productHandle: typeof p.handle === "string" ? (p.handle as string) : null,
         layoutPreset: "STACK_ADD_TO_QTY",
         styleOverrides: null,
@@ -810,7 +832,7 @@ function ProductListManager({
     if (additions.length) {
       onStepProductsChange([...products, ...additions]);
       const missing = additions
-        .filter((a) => !a.imageUrl || !a.displayName?.trim() || !a.productHandle)
+        .filter((a) => !a.imageUrl || !a.displayName?.trim() || !a.productHandle || !a.priceAmount)
         .map((a) => a.variantGid);
       if (missing.length) enrichVariants(missing);
     }
@@ -986,9 +1008,14 @@ function ProductListManager({
         </Box>
       ) : (
         <BlockStack gap="300">
-          <Button onClick={openProductPicker} variant="secondary" fullWidth>
-            Ajouter des produits
-          </Button>
+          <InlineGrid columns={2} gap="200">
+            <Button onClick={openProductPicker} variant="secondary" fullWidth>
+              Ajouter des produits
+            </Button>
+            <Button onClick={openVariantPicker} variant="secondary" fullWidth>
+              Ajouter des variantes
+            </Button>
+          </InlineGrid>
 
           {products.length === 0 ? (
             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
@@ -1007,30 +1034,62 @@ function ProductListManager({
                   borderRadius="200"
                   background="bg-surface"
                 >
-                  <InlineStack gap="200" blockAlign="center" wrap={false}>
-                    {p.imageUrl ? (
-                      <Thumbnail source={p.imageUrl} alt="" size="small" />
-                    ) : null}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <Text as="p" variant="bodySm" truncate>
-                        {p.displayName}
-                      </Text>
-                      {p.minQuantity != null || p.maxQuantity != null ? (
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          Qté : {p.minQuantity ?? 0} - {p.maxQuantity ?? "∞"}
-                        </Text>
+                  <BlockStack gap="200">
+                    <InlineStack gap="200" blockAlign="center" wrap={false}>
+                      {p.imageUrl ? (
+                        <Thumbnail source={p.imageUrl} alt="" size="small" />
                       ) : null}
-                    </div>
-                    <Tooltip content="Retirer">
-                      <Button
-                        icon={DeleteIcon}
-                        variant="plain"
-                        tone="critical"
-                        onClick={() => onStepProductsChange(products.filter((_, k) => k !== pi))}
-                        accessibilityLabel="Retirer"
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text as="p" variant="bodySm" truncate>
+                          {p.displayName}
+                        </Text>
+                        {p.priceAmount ? (
+                          <Text as="p" variant="bodyXs" tone="subdued">
+                            {p.priceAmount} {p.currencyCode ?? "EUR"}
+                          </Text>
+                        ) : null}
+                      </div>
+                      <Tooltip content="Retirer">
+                        <Button
+                          icon={DeleteIcon}
+                          variant="plain"
+                          tone="critical"
+                          onClick={() => onStepProductsChange(products.filter((_, k) => k !== pi))}
+                          accessibilityLabel="Retirer"
+                        />
+                      </Tooltip>
+                    </InlineStack>
+                    <InlineGrid columns={2} gap="200">
+                      <NumericField
+                        label="Qté min"
+                        value={p.minQuantity}
+                        onChange={(v) =>
+                          onStepProductsChange(
+                            products.map((item, k) =>
+                              k === pi ? { ...item, minQuantity: v ?? null } : item,
+                            ),
+                          )
+                        }
+                        min={0}
+                        suffix=""
+                        placeholder="0"
                       />
-                    </Tooltip>
-                  </InlineStack>
+                      <NumericField
+                        label="Qté max"
+                        value={p.maxQuantity}
+                        onChange={(v) =>
+                          onStepProductsChange(
+                            products.map((item, k) =>
+                              k === pi ? { ...item, maxQuantity: v ?? null } : item,
+                            ),
+                          )
+                        }
+                        min={1}
+                        suffix=""
+                        placeholder="∞"
+                      />
+                    </InlineGrid>
+                  </BlockStack>
                 </Box>
               ))}
             </BlockStack>
@@ -1602,17 +1661,17 @@ export function StepBarConfig({
   design: StorefrontDesignV2;
   onDesignChange: (d: StorefrontDesignV2) => void;
 }) {
-  const stepBarBlock = design.global?.blocks?.find((b) => b.type === "step_bar");
+  const stepBarBlock = design.blocks.find((b) => b.type === "step_bar");
   if (!stepBarBlock) return null;
 
   const patchBlock = (patch: Partial<StorefrontBlockV2>) => {
-    const newBlocks = (design.global?.blocks ?? []).map((b) =>
-      b.id === stepBarBlock.id ? { ...b, ...patch } : b
+    const newBlocks = design.blocks.map((b) =>
+      b.id === stepBarBlock.id ? ({ ...b, ...patch } as StorefrontBlockV2) : b,
     );
     onDesignChange({
       ...design,
       version: 2,
-      global: { ...(design.global ?? {}), blocks: newBlocks },
+      blocks: newBlocks,
     });
   };
 

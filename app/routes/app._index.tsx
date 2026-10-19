@@ -21,6 +21,7 @@ import { PackageIcon, PlusIcon } from "@shopify/polaris-icons";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { BILLING_PLANS, type BillingPlanHandle } from "../utils/billing-plans";
+import { getEffectiveShopBilling } from "../utils/billing.server";
 import { fetchCommerceDashboardStats } from "../utils/shopify-dashboard-stats.server";
 import { formatMoney } from "../utils/money";
 
@@ -55,8 +56,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }),
   ]);
 
-  const monthlyRevenue = shopBilling?.monthlyBundleRevenue ?? 0;
-  const currentCharges = (shopBilling?.charged200 ? 14.99 : 0) + (shopBilling?.charged1200 ? 25.0 : 0);
+  const effectiveBilling = getEffectiveShopBilling(shopBilling);
+  const monthlyRevenue = effectiveBilling.monthlyBundleRevenue;
+  const currentCharges = (effectiveBilling.charged200 ? 14.99 : 0) + (effectiveBilling.charged1200 ? 25.0 : 0);
 
   return json({
     stats: { total, active, draft },
@@ -95,7 +97,7 @@ export default function AppHome() {
         {c.truncated ? (
           <Banner tone="warning" title="Volume de commandes élevé">
             <p>
-              Seules les {40 * 100} dernières commandes payantes sont prises
+              Seules les {10 * 100} dernières commandes payantes sont prises
               en compte dans ce calcul. Pour tout l’historique, demandez le
               scope <strong>read_all_orders</strong> (validation Shopify).
             </p>

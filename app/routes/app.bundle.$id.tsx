@@ -1,6 +1,22 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import {
+  useLoaderData,
+  useRouteError,
+  isRouteErrorResponse,
+  useNavigate,
+} from "@remix-run/react";
+import { useEffect } from "react";
+import {
+  Box,
+  Page,
+  Layout,
+  Card,
+  Text,
+  BlockStack,
+  Button,
+  InlineStack,
+} from "@shopify/polaris";
 import { Prisma } from "@prisma/client";
 import { BundleEditorForm } from "../components/BundleEditorForm";
 import prisma from "../db.server";
@@ -13,7 +29,7 @@ import {
   serializeBundleTree,
   toPrismaBundleScalars,
 } from "../utils/bundle.server";
-import { slugifyProductHandle } from "../utils/storefront-design";
+import { seededStorefrontDesign, slugifyProductHandle } from "../utils/storefront-design";
 import {
   galleryUrlsFromBundle,
   syncBundleShopifyProduct,
@@ -35,26 +51,30 @@ async function enrichPayloadProductHandles(
   const uniqueIds = Array.from(new Set(ids));
   if (uniqueIds.length === 0) return;
 
-  const res = await admin.graphql(
-    `${PRODUCT_DISPLAY_FIELDS}
-      ${VARIANT_DISPLAY_FIELDS}
-      query BundleSaveVariantHandles($ids: [ID!]!) {
-      nodes(ids: $ids) {
-        ... on ProductVariant {
-          ...VariantDisplayFields
-        }
-      }
-    }`,
-    { variables: { ids: uniqueIds } },
-  );
-  const body = await res.json();
-  const nodes = Array.isArray(body?.data?.nodes) ? body.data.nodes : [];
+  const CHUNK = 50;
   const handleByVariantId = new Map<string, string>();
-  for (const n of nodes) {
-    const id = n?.id;
-    const h = n?.product?.handle;
-    if (typeof id === "string" && typeof h === "string" && h.trim()) {
-      handleByVariantId.set(id, h.trim());
+  for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+    const batch = uniqueIds.slice(i, i + CHUNK);
+    const res = await admin.graphql(
+      `${PRODUCT_DISPLAY_FIELDS}
+        ${VARIANT_DISPLAY_FIELDS}
+        query BundleSaveVariantHandles($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on ProductVariant {
+            ...VariantDisplayFields
+          }
+        }
+      }`,
+      { variables: { ids: batch } },
+    );
+    const body = await res.json();
+    const nodes = Array.isArray(body?.data?.nodes) ? body.data.nodes : [];
+    for (const n of nodes) {
+      const id = n?.id;
+      const h = n?.product?.handle;
+      if (typeof id === "string" && typeof h === "string" && h.trim()) {
+        handleByVariantId.set(id, h.trim());
+      }
     }
   }
 
@@ -84,7 +104,7 @@ const emptyBundleState: SerializedBundle = {
   productHandle: null,
   seoTitle: null,
   seoDescription: null,
-  storefrontDesign: null,
+  storefrontDesign: seededStorefrontDesign(),
   status: "DRAFT",
   bundlePricingMode: "STANDARD",
   fixedBoxItemCount: null,
@@ -100,7 +120,19 @@ const emptyBundleState: SerializedBundle = {
   minBundleCartValue: null,
   maxBundleCartValue: null,
   pricingTiers: [],
-  steps: [],
+  steps: [
+    {
+      sortOrder: 0,
+      name: "Choisissez vos produits",
+      description: null,
+      imageUrl: null,
+      imageGid: null,
+      isFinalStep: true,
+      products: [],
+      rules: [],
+      lineItemProperties: [],
+    },
+  ],
 };
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -112,7 +144,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     if (id === "new") {
       return json({
         isNew: true as const,
-        bundle: emptyBundleState,
+        bundle: {
+          ...emptyBundleState,
+          storefrontDesign: seededStorefrontDesign(),
+        },
         shop: session.shop,
       });
     }
@@ -200,7 +235,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     console.error("APP.BUNDLE.$ID LOADER CRASH:", err);
     throw json({
       message: err?.message || String(err),
-      stack: err?.stack || ""
     }, { status: 400, statusText: "Developer Error" });
   }
 };
@@ -418,7 +452,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return json({
       error: "Failed to save bundle",
       details: e?.message || String(e),
-      stack: e?.stack
     }, { status: 400 });
   }
 };
@@ -427,15 +460,6 @@ export default function AppBundleDetail() {
   const { isNew, bundle, shop } = useLoaderData<typeof loader>();
   return <BundleEditorForm isNew={isNew} bundle={bundle} shopDomain={shop} />;
 }
-import {
-  useRouteError,
-  isRouteErrorResponse,
-  useNavigate,
-} from "@remix-run/react";
-import { useEffect } from "react";
-import {
-  Box, Page, Layout, Card, Text, BlockStack, Button, InlineStack,
-} from "@shopify/polaris";
 
 export function ErrorBoundary() {
   const error = useRouteError();
@@ -476,30 +500,7 @@ export function ErrorBoundary() {
           <div style={{ maxWidth: 560, margin: "40px auto" }}>
             <Card>
               <BlockStack gap="400">
-                {isStaleOrServerError ? (
-                  // Cas 1 : session expirée / nouveau déploiement
-                  <>
-                    <InlineStack gap="300" blockAlign="center">
-                      <span style={{ fontSize: 36 }}>🔄</span>
-                      <BlockStack gap="100">
-                        <Text as="h2" variant="headingMd">
-                          Rechargement en cours…
-                        </Text>
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          L’application s’est mise à jour. Rechargement dans 3 s…
-                        </Text>
-                      </BlockStack>
-                    </InlineStack>
-                    <InlineStack gap="200">
-                      <Button variant="primary" onClick={() => window.location.reload()}>
-                        Recharger maintenant
-                      </Button>
-                      <Button onClick={() => navigate("/app/bundles")}>
-                        Retour aux bundles
-                      </Button>
-                    </InlineStack>
-                  </>
-                ) : is404 ? (
+                {is404 ? (
                   // Cas 2 : bundle introuvable
                   <>
                     <InlineStack gap="300" blockAlign="center">

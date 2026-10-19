@@ -150,22 +150,41 @@ export async function syncBundleShopifyProduct(
     );
     const body = await res.json();
     const errs = body?.data?.productUpdate?.userErrors;
-    if (errs?.length) {
-      throw new Error(errs.map((e: { message: string }) => e.message).join("; "));
-    }
     const pid = body?.data?.productUpdate?.product?.id;
-    if (!pid) throw new Error("productUpdate returned no product id");
-    await syncProductGalleryMedia(admin, pid, bundle.galleryUrls);
-    const defaultVariantId = await fetchDefaultVariantGid(admin, pid);
-    // Apply inventory if specified
-    if (bundle.inventoryQuantity != null && defaultVariantId) {
-      try {
-        await setVariantInventory(admin, pid, defaultVariantId, bundle.inventoryQuantity);
-      } catch (e) {
-        console.warn("setVariantInventory (non-fatal):", e);
-      }
+
+    const errMsg = Array.isArray(errs) && errs.length
+      ? errs.map((e: { message: string }) => e.message).join("; ")
+      : "";
+    const isProductMissing =
+      /does not exist|not found|could not find|invalid id/i.test(errMsg) ||
+      (!errs?.length && !pid);
+
+    if (errs?.length && !isProductMissing) {
+      throw new Error(errMsg);
     }
-    return { productId: pid, defaultVariantId };
+
+    if (!isProductMissing && pid) {
+      await syncProductGalleryMedia(admin, pid, bundle.galleryUrls);
+      try {
+        await publishProductToAllChannels(admin, pid);
+      } catch (e) {
+        console.warn("publishProductToAllChannels (non-fatal):", e);
+      }
+      const defaultVariantId = await fetchDefaultVariantGid(admin, pid);
+      // Apply inventory if specified
+      if (bundle.inventoryQuantity != null && defaultVariantId) {
+        try {
+          await setVariantInventory(admin, pid, defaultVariantId, bundle.inventoryQuantity);
+        } catch (e) {
+          console.warn("setVariantInventory (non-fatal):", e);
+        }
+      }
+      return { productId: pid, defaultVariantId };
+    }
+
+    console.warn(
+      `[SAR] Linked Shopify product ${bundle.shopifyProductId} missing or deleted in Shopify Admin (${errMsg || "no product returned"}). Recreating product...`,
+    );
   }
 
   // CREATE: try requested handle, then fall back to suffixed handles on collision
@@ -244,9 +263,14 @@ export async function syncBundleShopifyProduct(
   return { productId: newId, defaultVariantId };
 }
 
+function normalizeMediaUrl(u: string): string {
+  return u.trim().split("?")[0]!.toLowerCase();
+}
+
 /**
- * Réconcilie les images catalogue avec la galerie bundle : supprime les MediaImage
- * existantes puis recrée depuis les URLs (ordre conservé).
+ * Réconcilie les images catalogue avec la galerie bundle : compare d'abord
+ * les URLs existantes avec `galleryUrls` pour éviter de supprimer et recréer
+ * destructivement les médias lorsqu'ils n'ont pas changé.
  */
 async function syncProductGalleryMedia(
   admin: AdminClient,
@@ -264,6 +288,9 @@ async function syncProductGalleryMedia(
               __typename
               ... on MediaImage {
                 id
+                image {
+                  url
+                }
               }
             }
           }
@@ -273,15 +300,70 @@ async function syncProductGalleryMedia(
   );
   const listBody = await listRes.json();
   const nodes = listBody?.data?.product?.media?.nodes;
-  const mediaIds: string[] = [];
+  const existingMedia: Array<{ id: string; url: string }> = [];
   if (Array.isArray(nodes)) {
     for (const n of nodes) {
       if (n?.__typename === "MediaImage" && typeof n.id === "string") {
-        mediaIds.push(n.id);
+        const imgUrl = typeof n.image?.url === "string" ? n.image.url : "";
+        existingMedia.push({ id: n.id, url: imgUrl });
       }
     }
   }
 
+  // If the gallery URLs are identical in length and order, do nothing!
+  if (
+    existingMedia.length === urls.length &&
+    existingMedia.every(
+      (m, idx) => m.url && normalizeMediaUrl(m.url) === normalizeMediaUrl(urls[idx]!),
+    )
+  ) {
+    return;
+  }
+
+  // If existing media is a prefix of the new galleryUrls, only append the new ones!
+  if (
+    existingMedia.length > 0 &&
+    existingMedia.length < urls.length &&
+    existingMedia.every(
+      (m, idx) => m.url && normalizeMediaUrl(m.url) === normalizeMediaUrl(urls[idx]!),
+    )
+  ) {
+    const newUrls = urls.slice(existingMedia.length);
+    const createRes = await admin.graphql(
+      `#graphql
+        mutation ProductCreateMediaAppend($productId: ID!, $media: [CreateMediaInput!]!) {
+          productCreateMedia(productId: $productId, media: $media) {
+            media {
+              ... on MediaImage {
+                id
+              }
+            }
+            mediaUserErrors {
+              field
+              message
+            }
+          }
+        }`,
+      {
+        variables: {
+          productId: productGid,
+          media: newUrls.map((originalSource) => ({
+            originalSource,
+            mediaContentType: "IMAGE",
+            alt: "Bundle",
+          })),
+        },
+      },
+    );
+    const createBody = await createRes.json();
+    const mErrs = createBody?.data?.productCreateMedia?.mediaUserErrors;
+    if (mErrs?.length) {
+      console.error("productCreateMedia", mErrs);
+    }
+    return;
+  }
+
+  const mediaIds = existingMedia.map((m) => m.id);
   if (mediaIds.length) {
     const delRes = await admin.graphql(
       `#graphql

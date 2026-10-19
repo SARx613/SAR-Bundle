@@ -34,7 +34,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   let overrides: { key: string; value: string }[] = [];
   try {
-    overrides = await (prisma as any).translationOverride.findMany({
+    overrides = await prisma.translationOverride.findMany({
       where: { shopDomain: shop },
     });
   } catch {
@@ -80,7 +80,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Upsert each translation
   const validKeys = TRANSLATION_KEYS.map((k) => k.key);
   const ops = [];
-  const db = prisma as any;
 
   for (const [key, value] of Object.entries(entries)) {
     if (!validKeys.includes(key)) continue;
@@ -88,7 +87,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (trimmed) {
       ops.push(
-        db.translationOverride.upsert({
+        prisma.translationOverride.upsert({
           where: { shopDomain_key: { shopDomain: shop, key } },
           create: { shopDomain: shop, key, value: trimmed },
           update: { value: trimmed },
@@ -97,7 +96,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     } else {
       // Empty = delete override (fall back to default)
       ops.push(
-        db.translationOverride.deleteMany({
+        prisma.translationOverride.deleteMany({
           where: { shopDomain: shop, key },
         }),
       );
@@ -106,7 +105,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     if (ops.length > 0) {
-      await (prisma as any).$transaction(ops);
+      await prisma.$transaction(ops);
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

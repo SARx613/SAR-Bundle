@@ -96,9 +96,19 @@
     }
   }
 
-  function buildProductRowByVariantGid(bundle) {
+  var dynamicProductRows = {};
+
+  function buildProductRowByVariantGid(bundle, extraRows) {
     var map = {};
-    if (!bundle.steps) return map;
+    var dyn = extraRows || dynamicProductRows;
+    if (dyn) {
+      for (var dk in dyn) {
+        if (Object.prototype.hasOwnProperty.call(dyn, dk) && dyn[dk]) {
+          map[dk] = dyn[dk];
+        }
+      }
+    }
+    if (!bundle || !bundle.steps) return map;
     for (var si = 0; si < bundle.steps.length; si++) {
       var prods = bundle.steps[si].products || [];
       for (var pi = 0; pi < prods.length; pi++) {
@@ -201,15 +211,16 @@
     variantChoice,
     variantCache,
     productJsonByHandle,
+    extraRows,
   ) {
-    var rowMap = buildProductRowByVariantGid(bundle);
+    var rowMap = buildProductRowByVariantGid(bundle, extraRows);
     var rows = [];
     for (var gk in selections) {
       if (!Object.prototype.hasOwnProperty.call(selections, gk)) continue;
       var q = selections[gk] || 0;
       if (q <= 0) continue;
       var eg = variantChoice[gk] || gk;
-      var prodRow = rowMap[gk];
+      var prodRow = rowMap[gk] || dynamicProductRows[eg] || dynamicProductRows[gk];
       rows.push(
         componentEntryForSelection(
           gk,
@@ -361,12 +372,27 @@
     var step = bundle.steps[stepIndex];
     if (!step || !step.rules || !step.rules.length)
       return { ok: true, messages: [] };
-    var base = getTotals(selections, priceMap, variantChoice);
+    var stepProdRows =
+      step.products && step.products.length
+        ? step.products
+        : step._dynamicProducts || [];
+    var scopedSelections = selections;
+    if (stepProdRows.length > 0) {
+      scopedSelections = {};
+      for (var spi = 0; spi < stepProdRows.length; spi++) {
+        var sgid = stepProdRows[spi] && stepProdRows[spi].variantGid;
+        if (sgid && selections[sgid] != null) {
+          scopedSelections[sgid] = selections[sgid];
+        }
+      }
+    }
+    var base = getTotals(scopedSelections, priceMap, variantChoice);
     var ctx = {
       bundlePrice: base.bundlePrice,
+      basePrice: base.bundlePrice,
       totalItemCount: base.totalItemCount,
       distinctVariantCount: base.distinctVariantCount,
-      selections: selections,
+      selections: scopedSelections,
     };
     var messages = [];
     for (var i = 0; i < step.rules.length; i++) {
@@ -408,6 +434,42 @@
           messages.push(v.messages[mi]);
         }
       }
+    }
+    return { ok: messages.length === 0, messages: messages };
+  }
+
+  /**
+   * Vérifie les contraintes globales du bundle :
+   * minTotalItemCount, maxTotalItemCount, minBundleCartValue, maxBundleCartValue, allowZeroTotal
+   */
+  function validateGlobalBundleConstraints(bundle, totals, displayedAmount, currencyCode) {
+    var messages = [];
+    var minItems = bundle.minTotalItemCount != null ? parseInt(String(bundle.minTotalItemCount), 10) : null;
+    if (minItems != null && !Number.isNaN(minItems) && minItems > 0 && totals.totalItemCount < minItems) {
+      messages.push(
+        'Sélectionnez au moins ' + minItems + ' article(s) au total (actuellement : ' + totals.totalItemCount + ').'
+      );
+    }
+    var maxItems = bundle.maxTotalItemCount != null ? parseInt(String(bundle.maxTotalItemCount), 10) : null;
+    if (maxItems != null && !Number.isNaN(maxItems) && maxItems > 0 && totals.totalItemCount > maxItems) {
+      messages.push(
+        'Vous pouvez sélectionner au maximum ' + maxItems + ' article(s) au total (actuellement : ' + totals.totalItemCount + ').'
+      );
+    }
+    var minCartVal = parseBundleDecimal(bundle.minBundleCartValue);
+    if (minCartVal != null && minCartVal > 0 && totals.bundlePrice < minCartVal - 1e-9) {
+      messages.push(
+        'Le montant minimum requis est de ' + formatMoneyDisplay(String(minCartVal), currencyCode) + '.'
+      );
+    }
+    var maxCartVal = parseBundleDecimal(bundle.maxBundleCartValue);
+    if (maxCartVal != null && maxCartVal > 0 && totals.bundlePrice > maxCartVal + 1e-9) {
+      messages.push(
+        'Le montant maximum autorisé est de ' + formatMoneyDisplay(String(maxCartVal), currencyCode) + '.'
+      );
+    }
+    if (bundle.allowZeroTotal === false && displayedAmount <= 0) {
+      messages.push('Le montant total du pack doit être supérieur à 0.');
     }
     return { ok: messages.length === 0, messages: messages };
   }
@@ -525,6 +587,9 @@
     var base = totals.bundlePrice;
     var showCompare = !!bundle.showCompareAtPrice;
     if (mode === 'FIXED_PRICE_BOX') {
+      if (bundle.showFixedPriceOnLoad === false && totals.totalItemCount === 0) {
+        return { amount: 0, compareAt: null };
+      }
       var fixed = parseBundleDecimal(bundle.flatDiscountValue);
       var amt = fixed != null ? fixed : base;
       var cmp = showCompare && base > amt + 1e-9 ? base : null;
@@ -707,8 +772,16 @@
               ids.map(function (entry) {
                 return fetchVariantJson(entry.nid)
                   .then(function (j) {
-                    variantCache[entry.gid] = j;
-                    priceMap[entry.gid] = parseMoney(j.price);
+                    var priceVal = parseMoney(j.price) / 100;
+                    var cmpVal =
+                      j.compare_at_price != null && j.compare_at_price !== ''
+                        ? parseMoney(j.compare_at_price) / 100
+                        : null;
+                    variantCache[entry.gid] = Object.assign({}, j, {
+                      price: String(priceVal),
+                      compare_at_price: cmpVal != null ? String(cmpVal) : null,
+                    });
+                    priceMap[entry.gid] = priceVal;
                   })
                   .catch(function () {
                     variantCache[entry.gid] = { title: entry.gid, price: '0' };
@@ -821,10 +894,20 @@
               break;
             }
           }
-          var lineProps =
-            finalIdx >= 0
-              ? bundle.steps[finalIdx].lineItemProperties || []
-              : [];
+          var lineProps = [];
+          if (finalIdx >= 0 && Array.isArray(bundle.steps[finalIdx].lineItemProperties) && bundle.steps[finalIdx].lineItemProperties.length) {
+            lineProps = bundle.steps[finalIdx].lineItemProperties;
+          } else {
+            for (var lfi = 0; lfi < bundle.steps.length; lfi++) {
+              var stProps = bundle.steps[lfi].lineItemProperties;
+              if (Array.isArray(stProps) && stProps.length) {
+                lineProps = lineProps.concat(stProps);
+              }
+            }
+            if (!lineProps.length && Array.isArray(bundle.lineItemProperties)) {
+              lineProps = bundle.lineItemProperties;
+            }
+          }
           var propValues = {};
           for (var li = 0; li < lineProps.length; li++) {
             var lp = lineProps[li];
@@ -876,7 +959,11 @@
             bar.style.alignItems = 'center';
             bar.style.justifyContent = preset === 'inline' ? 'center' : 'space-between';
             bar.style.gap = preset === 'inline' ? '10px' : '0';
-            bar.style.margin = '0 0 1.5rem';
+            bar.style.padding = '6px 12px';
+            bar.style.flexWrap = 'wrap';
+            bar.style.maxWidth = '100%';
+            bar.style.boxSizing = 'border-box';
+            bar.style.margin = '0 0 1.25rem';
             bar.style.fontFamily = 'inherit';
 
             function makeCircle(idx, isActive, isCompleted) {
@@ -1043,7 +1130,7 @@
             for (var i = 0; i < items.length; i++) {
               (function(item) {
                 var isSelected = state.upsellSelections[item.id];
-                if (state.upsellSelections[item.id] === undefined && item.defaultEnabled) {
+                if (state.upsellSelections[item.id] === undefined && (item.defaultEnabled || item.selectedByDefault)) {
                   state.upsellSelections[item.id] = true;
                   isSelected = true;
                 }
@@ -1079,7 +1166,7 @@
                 }
                 row.appendChild(check);
 
-                var upImg = item.overrideImage || item.defaultImageUrl;
+                var upImg = item.overrideImage || item.defaultImageUrl || item.imageUrl;
                 if (upImg) {
                   var img = document.createElement('img');
                   img.src = upImg;
@@ -1095,7 +1182,7 @@
                 var lab = document.createElement('div');
                 lab.style.fontWeight = '600';
                 lab.style.fontSize = '14px';
-                lab.textContent = item.overrideLabel || item.productTitle;
+                lab.textContent = item.overrideLabel || item.productTitle || item.title || '';
                 info.appendChild(lab);
                 if (item.shortDescription) {
                   var sd = document.createElement('div');
@@ -1174,7 +1261,7 @@
             if (b.action === 'scroll_to_bundle') {
               el.addEventListener('click', function (e) {
                 e.preventDefault();
-                var target = document.querySelector('.sar-bundle__total, .sar-bundle__nav, .sar-bundle');
+                var target = document.querySelector('.sar-bundle__bundle-total, .sar-bundle__nav, .sar-bundle');
                 if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
               });
             }
@@ -1611,16 +1698,65 @@
             var step = bundle.steps[state.stepIndex];
             var isLast = state.stepIndex === bundle.steps.length - 1;
 
-            // Step bar (block) — rendered before other design blocks
-            var blocks = (bundle.storefrontDesign && bundle.storefrontDesign.blocks) || [];
-            for (var sbi = 0; sbi < blocks.length; sbi++) {
-              var sb = blocks[sbi];
-              if (sb && sb.type === 'step_bar') {
-                renderStepBarBlock(inner, sb, designCtx);
+            // Use per-step design if available, fall back to global design
+            var effectiveDesign = bundle.storefrontDesign;
+            if (bundle.storefrontDesign && bundle.storefrontDesign.stepDesigns) {
+              var stepKey = String(state.stepIndex);
+              var stepBlocks = bundle.storefrontDesign.stepDesigns[stepKey];
+              if (stepBlocks !== undefined) {
+                effectiveDesign = Object.assign({}, bundle.storefrontDesign, { blocks: stepBlocks });
               }
             }
 
-            if (showProgress && (!bundle.storefrontDesign || !bundle.storefrontDesign.blocks || bundle.storefrontDesign.blocks.length === 0)) {
+            var isEditorInteractive = !!(explicitBundleData && explicitBundleData.__editorMode);
+            var effectiveHasStepBar = false;
+            if (effectiveDesign && Array.isArray(effectiveDesign.blocks)) {
+              for (var ebi = 0; ebi < effectiveDesign.blocks.length; ebi++) {
+                var eb = effectiveDesign.blocks[ebi];
+                if (eb && eb.type === 'step_bar' && (!eb.isHidden || isEditorInteractive)) {
+                  effectiveHasStepBar = true;
+                  break;
+                }
+              }
+            }
+
+            // Global step_bar fallback at top ONLY if effectiveDesign is not already rendering a step_bar block
+            var globalBlocks = (bundle.storefrontDesign && bundle.storefrontDesign.blocks) || [];
+            if (!effectiveHasStepBar) {
+              for (var sbi = 0; sbi < globalBlocks.length; sbi++) {
+                var sb = globalBlocks[sbi];
+                if (sb && sb.type === 'step_bar' && (!sb.isHidden || isEditorInteractive)) {
+                  var sbHost = inner;
+                  if (isEditorInteractive) {
+                    sbHost = document.createElement('div');
+                    sbHost.style.position = 'relative';
+                    sbHost.style.transition = 'all 0.2s';
+                    sbHost.style.borderRadius = '4px';
+                    sbHost.style.cursor = 'pointer';
+                    if (sb.isHidden) sbHost.style.opacity = '0.45';
+                    sbHost.setAttribute('data-block-id', sb.id);
+                    if (explicitBundleData.__selectedBlockId === sb.id) {
+                      sbHost.style.outline = '2px solid #2C6ECB';
+                      sbHost.style.background = 'var(--p-color-bg-surface-secondary-hover, rgba(0,0,0,0.02))';
+                    }
+                    sbHost.addEventListener('click', (function(id) {
+                      return function(e) {
+                        e.stopPropagation();
+                        window.dispatchEvent(new CustomEvent('sar-editor-select-block', { detail: id }));
+                      };
+                    })(sb.id));
+                    inner.appendChild(sbHost);
+                  }
+                  renderStepBarBlock(sbHost, sb, designCtx);
+                }
+              }
+            }
+
+            if (
+              showProgress &&
+              !effectiveHasStepBar &&
+              (!bundle.storefrontDesign || !bundle.storefrontDesign.blocks || bundle.storefrontDesign.blocks.length === 0)
+            ) {
               var pills = document.createElement('div');
               pills.className = 'sar-bundle__steps';
               for (var pi = 0; pi < bundle.steps.length; pi++) {
@@ -1640,26 +1776,10 @@
               inner.appendChild(pills);
             }
 
-            // Design blocks (editor order), excluding step bar (already rendered above)
-            // Use per-step design if available, fall back to global design
-            var effectiveDesign = bundle.storefrontDesign;
-            if (bundle.storefrontDesign && bundle.storefrontDesign.stepDesigns) {
-              var stepKey = String(state.stepIndex);
-              var stepBlocks = bundle.storefrontDesign.stepDesigns[stepKey];
-              if (stepBlocks !== undefined) {
-                effectiveDesign = Object.assign({}, bundle.storefrontDesign, { blocks: stepBlocks });
-              }
-            }
+            // Design blocks (editor order), including step_bar at its natural block position
             if (effectiveDesign) {
               var designMount = document.createElement('div');
               renderDesignBlocks(designMount, effectiveDesign, designCtx, variantCache);
-              // Drop only nested step bars from the design mount (they were already rendered above)
-              var toRemove = designMount.querySelectorAll('.sar-stepbar');
-              for (var ri = 0; ri < toRemove.length; ri++) {
-                var n = toRemove[ri];
-                if (n && n.parentNode) n.parentNode.removeChild(n);
-              }
-              // Append remaining design blocks (including product_list containers)
               while (designMount.firstChild) {
                 inner.appendChild(designMount.firstChild);
               }
@@ -1700,6 +1820,10 @@
                     (prodRow.storefront && prodRow.storefront.productHandle) ||
                     '';
 
+                  var minQty = prodRow.minQuantity != null ? Math.max(1, parseInt(String(prodRow.minQuantity), 10) || 1) : 1;
+                  var maxQty = prodRow.maxQuantity != null ? parseInt(String(prodRow.maxQuantity), 10) : null;
+                  if (maxQty != null && (Number.isNaN(maxQty) || maxQty < 1)) maxQty = null;
+
                   function gidNow() {
                     return effectiveGid(originalGid);
                   }
@@ -1710,6 +1834,7 @@
 
                   var card = document.createElement('div');
                   card.className = 'sar-bundle__product sar-bundle__product--' + layoutConfig;
+                  applyProductCardStyles(card, so);
 
                   var imgWrapper = document.createElement('div');
                   imgWrapper.className = 'sar-bundle__product-img-wrapper';
@@ -1780,6 +1905,8 @@
                   atcWrapper.className = 'sar-bundle__product-atc-wrapper';
 
                   function setQty(q) {
+                    if (q > 0 && maxQty != null && q > maxQty) q = maxQty;
+                    if (q < 0) q = 0;
                     state.selections[originalGid] = q;
                     state.selected[originalGid] = q > 0;
                     errBox.hidden = true;
@@ -1789,28 +1916,53 @@
                   var qCurrent = state.selections[originalGid] || 0;
                   var isSelected = qCurrent > 0;
 
-                  var atcText = t(bundle, 'btn_add_to_box') || designCtx.__productListButtonText || (bundle.storefrontDesign && bundle.storefrontDesign.global && bundle.storefrontDesign.global.addToBoxText);
+                  var atcText = designCtx.__productListButtonText || (bundle.storefrontDesign && bundle.storefrontDesign.global && bundle.storefrontDesign.global.addToBoxText) || t(bundle, 'btn_add_to_box');
 
                   if (isSelected) {
                     atcWrapper.className += ' is-added';
                     var qtyBox = document.createElement('div');
                     qtyBox.className = 'sar-bundle__product-qty-box';
+                    if (designCtx.__productListButtonBackground) {
+                      qtyBox.style.background = designCtx.__productListButtonBackground;
+                      qtyBox.style.borderColor = designCtx.__productListButtonBackground;
+                    }
+                    if (designCtx.__productListButtonColor) {
+                      qtyBox.style.color = designCtx.__productListButtonColor;
+                    }
+                    if (designCtx.__productListButtonBorderRadius) {
+                      qtyBox.style.borderRadius = designCtx.__productListButtonBorderRadius;
+                    }
 
                     var minus = document.createElement('button');
                     minus.type = 'button';
                     minus.className = 'sar-bundle__product-qty-btn';
+                    if (designCtx.__productListButtonColor) minus.style.color = designCtx.__productListButtonColor;
                     minus.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
-                    minus.addEventListener('click', function(e) { e.stopPropagation(); setQty(qCurrent - 1); });
+                    minus.addEventListener('click', function(e) {
+                      e.stopPropagation();
+                      var nextQ = qCurrent - 1;
+                      if (nextQ < minQty) nextQ = 0;
+                      setQty(nextQ);
+                    });
 
                     var val = document.createElement('span');
                     val.className = 'sar-bundle__product-qty-val';
+                    if (designCtx.__productListButtonColor) val.style.color = designCtx.__productListButtonColor;
                     val.textContent = String(qCurrent);
 
                     var plus = document.createElement('button');
                     plus.type = 'button';
                     plus.className = 'sar-bundle__product-qty-btn';
+                    if (designCtx.__productListButtonColor) plus.style.color = designCtx.__productListButtonColor;
+                    if (maxQty != null && qCurrent >= maxQty) {
+                      plus.disabled = true;
+                    }
                     plus.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
-                    plus.addEventListener('click', function(e) { e.stopPropagation(); setQty(qCurrent + 1); });
+                    plus.addEventListener('click', function(e) {
+                      e.stopPropagation();
+                      if (maxQty != null && qCurrent >= maxQty) return;
+                      setQty(qCurrent + 1);
+                    });
 
                     qtyBox.appendChild(minus);
                     qtyBox.appendChild(val);
@@ -1839,7 +1991,12 @@
                       });
                     }
 
-                    addBtn.addEventListener('click', function(e) { e.stopPropagation(); setQty(1); });
+                    addBtn.addEventListener('click', function(e) {
+                      e.stopPropagation();
+                      var initialQ = minQty > 1 ? minQty : 1;
+                      if (maxQty != null && initialQ > maxQty) initialQ = maxQty;
+                      setQty(initialQ);
+                    });
                     atcWrapper.appendChild(addBtn);
                   }
 
@@ -1913,16 +2070,21 @@
                     if (v0 && v0.price) priceMap[gid] = parseMoney(v0.price);
                     var img0 = p.images && p.images[0];
                     var url = typeof img0 === 'string' ? img0 : (img0 && img0.src ? img0.src : '');
-                    return {
+                    var rowObj = {
                       variantGid: gid,
+                      productHandle: p.handle || '',
                       storefront: {
                         imageUrl: url,
+                        productTitle: p.title || '',
+                        variantTitle: v0 && v0.title ? String(v0.title) : '',
                         displayTitle: p.title,
                         priceAmount: v0 && v0.price ? String(v0.price) : '0',
                         currencyCode: (typeof Shopify !== 'undefined' && Shopify.currency && Shopify.currency.active) || 'EUR',
                         productHandle: p.handle
                       }
                     };
+                    dynamicProductRows[gid] = rowObj;
+                    return rowObj;
                   }).filter(Boolean);
                 }
                 if (bundle.__shopDomain) {
@@ -1934,6 +2096,7 @@
                       grid.innerHTML = '';
                       if (!prods.length) { grid.innerHTML = noteHtml; return; }
                       stepProds = prods;
+                      step._dynamicProducts = prods;
                       renderProductsLoop();
                     })
                     .catch(function () { grid.innerHTML = noteHtml; });
@@ -1957,17 +2120,23 @@
                     if (v0 && v0.price) priceMap[gid] = parseMoney(v0.price);
                     var img0 = p.images && p.images[0];
                     var url = typeof img0 === 'string' ? img0 : (img0 && img0.src ? img0.src : '');
-                    return {
+                    var rowObj = {
                       variantGid: gid,
+                      productHandle: p.handle || '',
                       storefront: {
                         imageUrl: url,
+                        productTitle: p.title || '',
+                        variantTitle: v0 && v0.title ? String(v0.title) : '',
                         displayTitle: p.title,
                         priceAmount: v0 && v0.price ? String(v0.price) : '0',
                         currencyCode: typeof Shopify !== 'undefined' && Shopify.currency && Shopify.currency.active || 'EUR',
                         productHandle: p.handle
                       }
                     };
+                    dynamicProductRows[gid] = rowObj;
+                    return rowObj;
                   }).filter(Boolean);
+                  step._dynamicProducts = stepProds;
                   renderProductsLoop();
                 });
               } else {
@@ -1976,14 +2145,21 @@
             }
 
             if (step.rules && step.rules.length) {
-              var rh = document.createElement('div');
-              rh.className = 'sar-bundle__rules';
-              rh.textContent =
-                'Des conditions doivent être respectées pour continuer.';
-              body.appendChild(rh);
+              var stepRuleCheck = validateStepRules(
+                bundle,
+                state.stepIndex,
+                state.selections,
+                priceMap,
+                state.variantChoice,
+              );
+              if (!stepRuleCheck.ok) {
+                var rh = document.createElement('div');
+                rh.className = 'sar-bundle__rules';
+                rh.textContent =
+                  'Des conditions doivent être respectées pour continuer.';
+                body.appendChild(rh);
+              }
             }
-
-            inner.appendChild(body);
 
             var totalsPreview = getTotals(
               state.selections,
@@ -1994,9 +2170,25 @@
             // even in FIXED_PRICE_BOX mode where the base bundle price is a fixed amount.
             var upsellExtra = getUpsellExtraPrice(bundle, state.upsellSelections);
             var disp = getDisplayedBundlePrice(bundle, totalsPreview);
-            // Always add upsell on top of the displayed amount (works for all pricing modes)
-            disp = { amount: disp.amount + upsellExtra, compareAt: disp.compareAt };
+            // Always add upsell on top of the displayed amount and compareAt (works for all pricing modes)
+            disp = {
+              amount: disp.amount + upsellExtra,
+              compareAt: disp.compareAt != null ? disp.compareAt + upsellExtra : null,
+            };
             var cur = pickPrimaryCurrency(bundle, variantCache);
+
+            if (isLast) {
+              var globalCheckPreview = validateGlobalBundleConstraints(bundle, totalsPreview, disp.amount, cur);
+              if (!globalCheckPreview.ok) {
+                var ruleMsgEl = document.createElement('div');
+                ruleMsgEl.className = 'sar-bundle__rule-msg';
+                ruleMsgEl.textContent = globalCheckPreview.messages.join(' ');
+                body.appendChild(ruleMsgEl);
+              }
+            }
+
+            inner.appendChild(body);
+
             var totalBox = document.createElement('div');
             totalBox.className = 'sar-bundle__bundle-total';
             var totalLabel = document.createElement('span');
@@ -2020,7 +2212,8 @@
             totalBox.appendChild(totalLabel);
             totalBox.appendChild(totalVal);
 
-            if (isLast && lineProps.length) {
+            var showLinePropsHere = (finalIdx >= 0 ? state.stepIndex === finalIdx : isLast) || isLast;
+            if (showLinePropsHere && lineProps.length) {
               var fin = document.createElement('div');
               fin.className = 'sar-bundle__final';
               for (var lk = 0; lk < lineProps.length; lk++) {
@@ -2036,7 +2229,7 @@
                       propValues[lp.propertyKey] = cb.checked ? 'Yes' : '';
                     });
                     lab.appendChild(cb);
-                    lab.appendChild(document.createTextNode(' ' + lp.label));
+                    lab.appendChild(document.createTextNode(' ' + lp.label + (lp.required ? ' *' : '')));
                     wrap.appendChild(lab);
                   } else {
                     var lab2 = document.createElement('label');
@@ -2141,6 +2334,33 @@
                 return;
               }
 
+              var dispCheckout = getDisplayedBundlePrice(bundle, totals);
+              var upsCheckout = getUpsellExtraPrice(bundle, state.upsellSelections);
+              var finalCheckoutAmount = dispCheckout.amount + upsCheckout;
+              var vGlobal = validateGlobalBundleConstraints(bundle, totals, finalCheckoutAmount, cur);
+              if (!vGlobal.ok) {
+                errBox.textContent = vGlobal.messages.join(' ');
+                errBox.hidden = false;
+                return;
+              }
+
+              // Validate required lineItemProperties
+              for (var lpi = 0; lpi < lineProps.length; lpi++) {
+                var reqLp = lineProps[lpi];
+                if (reqLp && reqLp.required) {
+                  var rawVal = propValues[reqLp.propertyKey];
+                  var isEmpty = reqLp.fieldType === 'CHECKBOX'
+                    ? rawVal !== 'Yes'
+                    : (!rawVal || String(rawVal).trim() === '');
+                  if (isEmpty) {
+                    errBox.textContent =
+                      'Le champ « ' + (reqLp.label || reqLp.propertyKey) + ' » est obligatoire.';
+                    errBox.hidden = false;
+                    return;
+                  }
+                }
+              }
+
               var parentVariantGid = bundle.shopifyParentVariantId
                 ? String(bundle.shopifyParentVariantId)
                 : '';
@@ -2159,19 +2379,23 @@
                 state.variantChoice,
                 variantCache,
                 productJsonByHandle,
+                dynamicProductRows,
               );
               var componentsJson =
                 serializeBundleComponentsProperty(components);
 
-              var lineProps = {
+              var baseLineProps = {
                 _sar_bundle_line: '1',
+                _sar_bundle_id: configId,
                 _sar_bundle_config_id: configId,
+                _sar_bundle_components: componentsJson,
+                Composition: formatCompositionVisibleLines(components),
               };
               if (bundle.name) {
-                lineProps._sar_bundle_name = String(bundle.name);
+                baseLineProps._sar_bundle_name = String(bundle.name);
               }
 
-              var masterProps = Object.assign({}, lineProps);
+              var masterProps = Object.assign({}, baseLineProps);
               for (var pk in propValues) {
                 if (!Object.prototype.hasOwnProperty.call(propValues, pk))
                   continue;
@@ -2240,9 +2464,16 @@
                         properties: {
                           _sar_upsell_for: configId,
                           _sar_bundle_name: String(bundle.name || ''),
-                          _sar_upsell_label: String(uItem.overrideLabel || uItem.productTitle || '')
+                          _sar_upsell_label: String(uItem.overrideLabel || uItem.productTitle || uItem.title || '')
                         }
                       });
+                    } else {
+                      // Hors-catalogue upsell option → record in masterProps so merchant sees it on order
+                      var uOptTitle = uItem.overrideLabel || uItem.productTitle || uItem.title || 'Supplément';
+                      var uOptCurrency = uItem.currencyCode || cur;
+                      masterProps['Option - ' + uOptTitle] = uItem.priceAmount
+                        ? '+' + formatMoneyDisplay(parseMoney(uItem.priceAmount), uOptCurrency)
+                        : 'Oui';
                     }
                   }
                 }

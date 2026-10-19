@@ -9,7 +9,7 @@
  *   iframe → Admin  : sar-preview-ready  (prêt à recevoir données)
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { BundleFormState } from "~/utils/bundle-form.client";
+import type { BundleFormState } from "../../utils/bundle-form.client";
 
 interface BundleIframePreviewProps {
   form: BundleFormState;
@@ -81,8 +81,10 @@ function buildPreviewBundle(
         storefront: {
           displayTitle: p.displayName,
           productTitle: p.displayName,
+          variantTitle: p.variantTitle ?? null,
           imageUrl: p.imageUrl ?? null,
           priceAmount: p.priceAmount ?? null,
+          compareAtAmount: p.compareAtAmount ?? null,
           currencyCode: p.currencyCode ?? null,
           productHandle: p.productHandle ?? null,
         },

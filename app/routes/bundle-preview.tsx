@@ -64,8 +64,6 @@ export function loader() {
     body { padding: 16px; }
     ${sharedCss}
     ${css}
-    /* En mode preview, on retire la bordure externe du widget */
-    .sar-bundle { border: none !important; border-radius: 0 !important; }
     /* Hover sidebar → bloc surligné en bleu dans l'aperçu */
     [data-block-id].sar-hovered {
       outline: 2px solid #2C6ECB !important;
@@ -117,7 +115,10 @@ ${js}
         var prevHover = document.querySelector('[data-block-id].sar-hovered');
         if (prevHover) prevHover.classList.remove('sar-hovered');
         if (e.data.blockId) {
-          var target = document.querySelector('[data-block-id="' + e.data.blockId + '"]');
+          var escapedId = (typeof CSS !== 'undefined' && CSS.escape)
+            ? CSS.escape(String(e.data.blockId))
+            : String(e.data.blockId).replace(/"/g, '\\"');
+          var target = document.querySelector('[data-block-id="' + escapedId + '"]');
           if (target) target.classList.add('sar-hovered');
         }
       }

@@ -41,27 +41,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const uniqueIds = Array.from(new Set(missing));
   if (uniqueIds.length === 0) return json({ ok: true as const, updated: 0 });
 
-  const res = await admin.graphql(
-    `${PRODUCT_DISPLAY_FIELDS}
+  const CHUNK = 50;
+  const handleByVariantId = new Map<string, string>();
+
+  for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+    const chunkIds = uniqueIds.slice(i, i + CHUNK);
+    const res = await admin.graphql(
+      `${PRODUCT_DISPLAY_FIELDS}
       ${VARIANT_DISPLAY_FIELDS}
       query BackfillVariantHandles($ids: [ID!]!) {
-      nodes(ids: $ids) {
-        ... on ProductVariant {
-          ...VariantDisplayFields
+        nodes(ids: $ids) {
+          ... on ProductVariant {
+            ...VariantDisplayFields
+          }
         }
-      }
-    }`,
-    { variables: { ids: uniqueIds } },
-  );
-  const gql = await res.json();
-  const nodes = Array.isArray(gql?.data?.nodes) ? gql.data.nodes : [];
+      }`,
+      { variables: { ids: chunkIds } },
+    );
+    const gql = await res.json();
+    const nodes = Array.isArray(gql?.data?.nodes) ? gql.data.nodes : [];
 
-  const handleByVariantId = new Map<string, string>();
-  for (const n of nodes) {
-    const id = n?.id;
-    const handle = n?.product?.handle;
-    if (typeof id === "string" && typeof handle === "string" && handle.trim()) {
-      handleByVariantId.set(id, handle.trim());
+    for (const n of nodes) {
+      const id = n?.id;
+      const handle = n?.product?.handle;
+      if (typeof id === "string" && typeof handle === "string" && handle.trim()) {
+        handleByVariantId.set(id, handle.trim());
+      }
     }
   }
 

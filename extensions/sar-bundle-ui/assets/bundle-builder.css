@@ -53,8 +53,9 @@
   margin: 1rem 0 0;
   padding: 0.75rem 1rem;
   border-radius: var(--sar-radius, 8px);
-  border: 1px solid var(--sar-color-border, #e1e3e5);
-  background: var(--sar-color-bg-subtle, #f6f6f7);
+  border: 1px solid var(--sar-total-border-color, var(--sar-color-border, #e1e3e5));
+  background: var(--sar-total-bg, var(--sar-color-bg-subtle, #f6f6f7));
+  color: var(--sar-total-text-color, var(--sar-color-text, #121212));
   font-size: 1.05rem;
 }
 
@@ -264,6 +265,7 @@
 .sar-bundle__product-title {
   font-weight: 500;
   font-size: 1rem;
+  color: var(--sar-product-title-color, var(--sar-color-text, #121212));
   line-height: normal;
   margin: 0;
   display: -webkit-box;
@@ -276,6 +278,7 @@
 .sar-bundle__product-price {
   font-weight: 600;
   font-size: 1rem;
+  color: var(--sar-product-price-color, var(--sar-color-text, #121212));
   margin: 0;
 }
 
@@ -397,6 +400,11 @@
   color: var(--sar-color-text, #121212);
 }
 
+.sar-bundle__product-qty-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .sar-bundle__product-qty-val {
   font-size: 16px;
 }
@@ -431,23 +439,26 @@
 }
 
 .sar-bundle__btn--primary {
-  background: var(--sar-color-primary, #1a1a1a);
-  color: #fff;
+  background: var(--sar-btn-primary-bg, var(--sar-color-primary, #1a1a1a));
+  color: var(--sar-btn-primary-color, #fff);
 }
 
 .sar-bundle__btn--primary:hover {
+  background: var(--sar-btn-primary-hover-bg, var(--sar-btn-primary-bg, var(--sar-color-primary, #333)));
+  color: var(--sar-btn-primary-hover-color, var(--sar-btn-primary-color, #fff));
   opacity: 0.92;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .sar-bundle__btn--secondary {
-  background: transparent;
-  color: var(--sar-color-primary, #1a1a1a);
-  border: 2px solid var(--sar-color-primary, #1a1a1a);
+  background: var(--sar-btn-secondary-bg, transparent);
+  color: var(--sar-btn-secondary-color, var(--sar-color-primary, #1a1a1a));
+  border: 2px solid var(--sar-btn-secondary-border-color, var(--sar-color-primary, #1a1a1a));
 }
 
 .sar-bundle__btn--secondary:hover {
-  background: var(--sar-color-bg-subtle, #f0f7f5);
+  background: var(--sar-btn-secondary-hover-bg, var(--sar-color-bg-subtle, #f0f7f5));
+  color: var(--sar-btn-secondary-hover-color, var(--sar-btn-secondary-color, #333));
 }
 
 .sar-bundle__btn:disabled {
@@ -466,9 +477,10 @@
   font-size: 0.9rem;
 }
 
-.sar-bundle__rules {
+.sar-bundle__rules,
+.sar-bundle__rule-msg {
   font-size: 0.85rem;
-  opacity: 0.8;
+  opacity: 0.85;
   margin-top: 0.5rem;
 }
 

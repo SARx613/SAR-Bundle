@@ -60,7 +60,7 @@ export default function PrivacyPolicy() {
       <section style={{ marginBottom: "30px" }}>
         <h2>6. Contact Us</h2>
         <p>
-          If you have any questions about this Privacy Policy, please contact us at: <strong>[EMAIL_ADDRESS]</strong>
+          If you have any questions about this Privacy Policy, please contact us at: <strong><a href="mailto:support@sar-bundle.com">support@sar-bundle.com</a></strong>
         </p>
       </section>
 

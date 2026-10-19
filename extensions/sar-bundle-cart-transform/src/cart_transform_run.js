@@ -48,18 +48,57 @@ export function cartTransformRun(_input) {
     var parentVarId = grp.parent.merchandise && grp.parent.merchandise.id;
     if (!parentVarId) continue;
 
-    var cartLines = [];
+    var cartLines = [
+      { cartLineId: grp.parent.id, quantity: grp.parent.quantity || 1 },
+    ];
     for (var c = 0; c < grp.children.length; c++) {
       var cl = grp.children[c];
       cartLines.push({ cartLineId: cl.id, quantity: cl.quantity || 1 });
+    }
+
+    var mergedAttrs = [];
+    var seenKeys = {};
+    function pushAttr(k, v) {
+      if (!k || v == null || v === '' || seenKeys[k]) return;
+      seenKeys[k] = true;
+      mergedAttrs.push({ key: String(k), value: String(v) });
+    }
+
+    if (grp.parent.bundle_group && grp.parent.bundle_group.value != null) {
+      pushAttr('_sar_bundle_group', grp.parent.bundle_group.value);
+    }
+    if (grp.parent.bundle_parent && grp.parent.bundle_parent.value != null) {
+      pushAttr('_sar_bundle_parent', grp.parent.bundle_parent.value);
+    }
+    if (grp.parent.bundle_id && grp.parent.bundle_id.value != null) {
+      pushAttr('_sar_bundle_id', grp.parent.bundle_id.value);
+    }
+    if (grp.parent.bundle_config_id && grp.parent.bundle_config_id.value != null) {
+      pushAttr('_sar_bundle_config_id', grp.parent.bundle_config_id.value);
+    }
+    if (grp.parent.bundle_name && grp.parent.bundle_name.value != null) {
+      pushAttr('_sar_bundle_name', grp.parent.bundle_name.value);
+    }
+    if (grp.parent.bundle_components && grp.parent.bundle_components.value != null) {
+      pushAttr('_sar_bundle_components', grp.parent.bundle_components.value);
+    }
+    if (grp.parent.composition && grp.parent.composition.value != null) {
+      pushAttr('Composition', grp.parent.composition.value);
+    }
+    if (Array.isArray(grp.parent.attributes)) {
+      for (var ai = 0; ai < grp.parent.attributes.length; ai++) {
+        var at = grp.parent.attributes[ai];
+        if (at && at.key && at.key !== '_sar_bundle_child') {
+          pushAttr(at.key, at.value);
+        }
+      }
     }
 
     ops.push({
       merge: {
         parentVariantId: parentVarId,
         cartLines: cartLines,
-        // No need to copy all attributes; Shopify will keep parent line attributes
-        attributes: [],
+        attributes: mergedAttrs,
         title: null,
       },
     });

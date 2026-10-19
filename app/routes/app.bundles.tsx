@@ -40,8 +40,220 @@ import {
   syncFixedPriceBoxCatalogVariantPrice,
 } from "../utils/shopify-bundle-product.server";
 import { Prisma } from "@prisma/client";
-import { slugifyProductHandle, seededStorefrontDesign } from "../utils/storefront-design";
+import {
+   slugifyProductHandle,
+  seededStorefrontDesign,
+  newBlockId,
+  type StorefrontDesignV2,
+} from "../utils/storefront-design";
 import { fetchProductHandlesByGids } from "../utils/shopify-product-lookup.server";
+
+type BundleTemplateId = "fixed_box" | "multi_step" | "tiered" | "classic";
+
+const BUNDLE_TEMPLATES: Array<{
+  id: BundleTemplateId;
+  icon: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+}> = [
+  {
+    id: "fixed_box",
+    icon: "📦",
+    title: "Coffret à Prix Fixe",
+    subtitle: "Prix fixe 49,90 € pour exactement 3 articles au choix.",
+    badge: "3 produits = 49,90 €",
+  },
+  {
+    id: "multi_step",
+    icon: "🪜",
+    title: "Parcours Multi-Étapes (Routine / Menu)",
+    subtitle: "3 étapes guidées (Base, Complément, Finition + Options) avec -15 %.",
+    badge: "3 étapes · -15 %",
+  },
+  {
+    id: "tiered",
+    icon: "📈",
+    title: "Pack Dégressif par Paliers",
+    subtitle: "Plus le client achète, plus il économise (2 = -10 %, 3 = -15 %, 4+ = -20 %).",
+    badge: "3 paliers progressifs",
+  },
+  {
+    id: "classic",
+    icon: "✨",
+    title: "Bundle Classique sur-mesure",
+    subtitle: "Sélection libre sur 1 étape avec remise globale de 10 %.",
+    badge: "1 étape · -10 %",
+  },
+];
+
+function buildMultiStepDesign(): StorefrontDesignV2 {
+  const base = seededStorefrontDesign();
+  const headingStyle = {
+    fontSize: "1.5rem",
+    fontWeight: "700",
+    color: "#1f2937",
+    textAlign: "center" as const,
+    marginTop: "0",
+    marginBottom: "0.5rem",
+  };
+  const textStyle = {
+    fontSize: "1rem",
+    color: "#6b7280",
+    textAlign: "center" as const,
+    marginTop: "0",
+    marginBottom: "1.25rem",
+  };
+  return {
+    ...base,
+    stepDesigns: {
+      "0": [
+        { id: newBlockId(), type: "heading", text: "Étape 1 : Votre base", tag: "h2", style: headingStyle },
+        { id: newBlockId(), type: "text", text: "Sélectionnez le produit principal de votre routine.", style: textStyle },
+        { id: newBlockId(), type: "product_list", source: "all_products", cardLayout: "classic", columns: 3, columnsMobile: 2 },
+      ],
+      "1": [
+        { id: newBlockId(), type: "heading", text: "Étape 2 : Votre complément", tag: "h2", style: headingStyle },
+        { id: newBlockId(), type: "text", text: "Ajoutez un produit complémentaire adapté à vos besoins.", style: textStyle },
+        { id: newBlockId(), type: "product_list", source: "all_products", cardLayout: "classic", columns: 3, columnsMobile: 2 },
+      ],
+      "2": [
+        { id: newBlockId(), type: "heading", text: "Étape 3 : Finition & Options", tag: "h2", style: headingStyle },
+        { id: newBlockId(), type: "text", text: "Personnalisez et finalisez votre sélection.", style: textStyle },
+        { id: newBlockId(), type: "product_list", source: "all_products", cardLayout: "classic", columns: 3, columnsMobile: 2 },
+        { id: newBlockId(), type: "upsell", title: "Options supplémentaires", behavior: "multiple", items: [] },
+      ],
+    },
+  };
+}
+
+function buildCreateDataForTemplate(
+  shopDomain: string,
+  trimmedName: string,
+  templateId: BundleTemplateId,
+): Prisma.BundleCreateInput {
+  const baseHandle = slugifyProductHandle(trimmedName);
+
+  if (templateId === "fixed_box") {
+    const design = seededStorefrontDesign();
+    if (design.stepDesigns?.["0"]?.[0]?.type === "heading") {
+      design.stepDesigns["0"][0].text = "Choisissez vos 3 produits";
+    }
+    return {
+      shopDomain,
+      name: trimmedName,
+      productHandle: baseHandle,
+      status: "DRAFT",
+      bundlePricingMode: "FIXED_PRICE_BOX",
+      pricingScope: "FLAT",
+      discountValueType: "FIXED_PRICE",
+      flatDiscountValue: new Prisma.Decimal("49.90"),
+      fixedBoxItemCount: 3,
+      showFixedPriceOnLoad: true,
+      storefrontDesign: design as unknown as Prisma.InputJsonValue,
+      steps: {
+        create: [
+          {
+            sortOrder: 0,
+            name: "Choisissez vos 3 produits",
+            isFinalStep: true,
+            rules: {
+              create: [
+                {
+                  sortOrder: 0,
+                  metric: "TOTAL_ITEM_COUNT",
+                  operator: "EQ",
+                  value: new Prisma.Decimal("3"),
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+  }
+
+  if (templateId === "multi_step") {
+    return {
+      shopDomain,
+      name: trimmedName,
+      productHandle: baseHandle,
+      status: "DRAFT",
+      bundlePricingMode: "STANDARD",
+      pricingScope: "FLAT",
+      discountValueType: "PERCENT",
+      flatDiscountValue: new Prisma.Decimal("15"),
+      storefrontDesign: buildMultiStepDesign() as unknown as Prisma.InputJsonValue,
+      steps: {
+        create: [
+          { sortOrder: 0, name: "Étape 1 : Votre base", isFinalStep: false },
+          { sortOrder: 1, name: "Étape 2 : Votre complément", isFinalStep: false },
+          { sortOrder: 2, name: "Étape 3 : Finition & Options", isFinalStep: true },
+        ],
+      },
+    };
+  }
+
+  if (templateId === "tiered") {
+    return {
+      shopDomain,
+      name: trimmedName,
+      productHandle: baseHandle,
+      status: "DRAFT",
+      bundlePricingMode: "TIERED",
+      pricingScope: "TIERED",
+      discountValueType: "PERCENT",
+      storefrontDesign: seededStorefrontDesign() as unknown as Prisma.InputJsonValue,
+      pricingTiers: {
+        create: [
+          {
+            sortOrder: 0,
+            thresholdBasis: "ITEM_COUNT",
+            thresholdMin: new Prisma.Decimal("2"),
+            thresholdMax: new Prisma.Decimal("2"),
+            tierValue: new Prisma.Decimal("10"),
+          },
+          {
+            sortOrder: 1,
+            thresholdBasis: "ITEM_COUNT",
+            thresholdMin: new Prisma.Decimal("3"),
+            thresholdMax: new Prisma.Decimal("3"),
+            tierValue: new Prisma.Decimal("15"),
+          },
+          {
+            sortOrder: 2,
+            thresholdBasis: "ITEM_COUNT",
+            thresholdMin: new Prisma.Decimal("4"),
+            thresholdMax: null,
+            tierValue: new Prisma.Decimal("20"),
+          },
+        ],
+      },
+      steps: {
+        create: [
+          { sortOrder: 0, name: "Choisissez vos produits", isFinalStep: true },
+        ],
+      },
+    };
+  }
+
+  return {
+    shopDomain,
+    name: trimmedName,
+    productHandle: baseHandle,
+    status: "DRAFT",
+    bundlePricingMode: "STANDARD",
+    pricingScope: "FLAT",
+    discountValueType: "PERCENT",
+    flatDiscountValue: new Prisma.Decimal("10"),
+    storefrontDesign: seededStorefrontDesign() as unknown as Prisma.InputJsonValue,
+    steps: {
+      create: [
+        { sortOrder: 0, name: "Choisissez vos produits", isFinalStep: true },
+      ],
+    },
+  };
+}
 
 type BundleRow = {
   id: string;
@@ -129,23 +341,56 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (typeof name !== "string" || !name.trim()) {
       return json({ error: "Identifiant manquant" }, { status: 400 });
     }
+    const rawTemplate = formData.get("template");
+    const templateId: BundleTemplateId =
+      rawTemplate === "fixed_box" ||
+      rawTemplate === "multi_step" ||
+      rawTemplate === "tiered" ||
+      rawTemplate === "classic"
+        ? rawTemplate
+        : "classic";
+
     const created = await prisma.bundle.create({
-      data: {
-        shopDomain: session.shop,
-        name: name.trim(),
-        productHandle: slugifyProductHandle(name),
-        status: "DRAFT",
-        pricingScope: "FLAT",
-        discountValueType: "PERCENT",
-        // Design pré-rempli + 1re étape : l'éditeur n'est jamais vide à la création.
-        storefrontDesign: seededStorefrontDesign() as unknown as Prisma.InputJsonValue,
-        steps: {
-          create: [
-            { sortOrder: 0, name: "Choisissez vos produits", isFinalStep: true },
-          ],
-        },
-      },
+      data: buildCreateDataForTemplate(session.shop, name.trim(), templateId),
     });
+
+    try {
+      const sync = await syncBundleShopifyProduct(admin, {
+        id: created.id,
+        name: created.name,
+        description: created.description,
+        galleryUrls: galleryUrlsFromBundle({
+          bundleGallery: created.bundleGallery,
+          imageUrl: created.imageUrl,
+        }),
+        shopifyProductId: null,
+        handle:
+          created.productHandle?.trim() ||
+          slugifyProductHandle(created.name),
+        seoTitle: created.seoTitle,
+        seoDescription: created.seoDescription,
+        storefrontDesign: created.storefrontDesign ?? {},
+        status: created.status,
+      });
+      const updated = await prisma.bundle.update({
+        where: { id: created.id },
+        data: {
+          shopifyProductId: sync.productId,
+          ...(sync.defaultVariantId
+            ? { shopifyParentVariantId: sync.defaultVariantId }
+            : {}),
+        },
+      });
+      await syncFixedPriceBoxCatalogVariantPrice(admin, {
+        bundlePricingMode: updated.bundlePricingMode,
+        flatDiscountValue: updated.flatDiscountValue,
+        shopifyProductId: updated.shopifyProductId,
+        shopifyParentVariantId: updated.shopifyParentVariantId,
+      });
+    } catch (e) {
+      console.error("create bundle product sync", e);
+    }
+
     return redirect(`/app/bundle/${created.id}`);
   }
 
@@ -289,13 +534,14 @@ export default function AppBundles() {
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createName, setCreateName] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<BundleTemplateId>("fixed_box");
 
   // ── UI optimiste : retire immédiatement les bundles en cours de suppression ──
   // (sinon il faut attendre la revalidation du loader, ralentie par l'appel
   //  Shopify fetchProductHandlesByGids → impression que « rien ne se passe »).
   const pendingDeleteIds = useMemo(() => {
     const fd = fetcher.formData;
-    if (!fd || fetcher.state === "idle") return new Set<string>();
+    if (!fd) return new Set<string>();
     const intent = fd.get("intent");
     if (intent === "delete") {
       const id = fd.get("bundleId");
@@ -307,7 +553,7 @@ export default function AppBundles() {
       );
     }
     return new Set<string>();
-  }, [fetcher.formData, fetcher.state]);
+  }, [fetcher.formData]);
 
   const visibleBundles = useMemo(
     () => bundles.filter((b) => !pendingDeleteIds.has(b.id)),
@@ -331,10 +577,11 @@ export default function AppBundles() {
     const fd = new FormData();
     fd.append("intent", "create");
     fd.append("name", createName);
+    fd.append("template", selectedTemplate);
     fetcher.submit(fd, { method: "post", action: "/app/bundles" });
     setCreateModalOpen(false);
     setCreateName("");
-  }, [fetcher, createName]);
+  }, [fetcher, createName, selectedTemplate]);
 
   const submitDelete = useCallback(
     (bundleId: string) => {
@@ -419,7 +666,7 @@ export default function AppBundles() {
               icon={EditIcon}
               variant="secondary"
               size="large"
-              onClick={(e) => { e.stopPropagation(); navigate(`/app/bundle/${b.id}`); }}
+              onClick={() => navigate(`/app/bundle/${b.id}`)}
               accessibilityLabel="Modifier"
             />
           </span>
@@ -428,7 +675,7 @@ export default function AppBundles() {
               icon={DuplicateIcon}
               variant="secondary"
               size="large"
-              onClick={(e) => { e.stopPropagation(); submitDuplicate(b.id); }}
+              onClick={() => submitDuplicate(b.id)}
               accessibilityLabel="Dupliquer"
             />
           </span>
@@ -440,7 +687,7 @@ export default function AppBundles() {
               variant="secondary"
               size="large"
               tone="critical"
-              onClick={(e) => { e.stopPropagation(); submitDelete(b.id); }}
+              onClick={() => submitDelete(b.id)}
               accessibilityLabel="Supprimer"
             />
           </span>
@@ -569,7 +816,7 @@ export default function AppBundles() {
           onClose={() => setCreateModalOpen(false)}
           title="Créer un nouveau bundle"
           primaryAction={{
-            content: "Créer",
+            content: "Créer le bundle",
             onAction: submitCreate,
             disabled: !createName.trim(),
           }}
@@ -582,18 +829,58 @@ export default function AppBundles() {
         >
           <Modal.Section>
             <BlockStack gap="400">
-              <Text as="p">
-                Entrez un nom pour votre nouveau bundle. Vous serez redirigé pour
-                configurer les étapes, les produits et la tarification de ce
-                nouveau brouillon.
-              </Text>
               <TextField
                 label="Nom du bundle"
                 value={createName}
                 onChange={setCreateName}
+                placeholder="Ex. Mon Coffret Découverte"
                 autoComplete="off"
                 autoFocus
               />
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">
+                  Choisissez un modèle de départ
+                </Text>
+                <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
+                  {BUNDLE_TEMPLATES.map((tpl) => {
+                    const isSelected = selectedTemplate === tpl.id;
+                    return (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        onClick={() => setSelectedTemplate(tpl.id)}
+                        style={{
+                          textAlign: "left",
+                          padding: "14px",
+                          borderRadius: "12px",
+                          border: isSelected
+                            ? "2px solid var(--p-color-border-emphasis, #1a1a1a)"
+                            : "1px solid var(--p-color-border, #e1e3e5)",
+                          background: isSelected
+                            ? "var(--p-color-bg-surface-selected, #f4f6f8)"
+                            : "var(--p-color-bg-surface, #ffffff)",
+                          cursor: "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span style={{ fontSize: "22px", lineHeight: 1 }}>{tpl.icon}</span>
+                          <Badge tone={isSelected ? "success" : "info"}>{tpl.badge}</Badge>
+                        </div>
+                        <Text as="span" variant="bodyMd" fontWeight="bold">
+                          {tpl.title}
+                        </Text>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          {tpl.subtitle}
+                        </Text>
+                      </button>
+                    );
+                  })}
+                </InlineGrid>
+              </BlockStack>
             </BlockStack>
           </Modal.Section>
         </Modal>

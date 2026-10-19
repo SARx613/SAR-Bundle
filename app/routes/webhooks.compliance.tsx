@@ -14,20 +14,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   console.log(`[GDPR] Received ${topic} for ${shop}`, JSON.stringify(payload));
 
   if (topic === "SHOP_REDACT") {
-    // Delete all shop data: sessions, bundles (cascades to steps, rules, etc.),
-    // and translation overrides.
+    // Delete all shop data: sessions, billing, translation overrides, and bundles
+    // (bundles cascade to steps, rules, tiers, products, line item properties).
     try {
       await db.$transaction([
         db.session.deleteMany({ where: { shop } }),
-        // Delete translation overrides
-        ...((() => {
-          try {
-            return [(db as any).translationOverride.deleteMany({ where: { shopDomain: shop } })];
-          } catch {
-            return [];
-          }
-        })()),
-        // Bundles cascade-delete steps, rules, tiers, products, line item properties
+        db.shopBilling.deleteMany({ where: { shopDomain: shop } }),
+        db.translationOverride.deleteMany({ where: { shopDomain: shop } }),
         db.bundle.deleteMany({ where: { shopDomain: shop } }),
       ]);
       console.log(`[GDPR] Successfully redacted all data for shop ${shop}`);

@@ -7,7 +7,11 @@
  * @see https://shopify.dev/docs/api/admin-graphql/latest/queries/orders
  */
 
-const BUNDLE_LINE_PROP = "_sar_bundle_id";
+const BUNDLE_LINE_PROPS = new Set([
+  "_sar_bundle_id",
+  "_sar_bundle_config_id",
+  "_sar_bundle_line",
+]);
 const ORDERS_PER_PAGE = 100;
 // Borné pour rester sous le timeout des fonctions serverless Vercel.
 // 10 pages × 100 = 1000 commandes récentes (au-delà : `truncated = true`).
@@ -44,7 +48,9 @@ function parseMoneyAmount(amount: string | undefined): number {
 }
 
 function isBundleLine(attrs: { key: string; value: string | null }[]): boolean {
-  return attrs.some((a) => a.key === BUNDLE_LINE_PROP && (a.value ?? "") !== "");
+  return attrs.some(
+    (a) => BUNDLE_LINE_PROPS.has(a.key) && (a.value ?? "").trim() !== "",
+  );
 }
 
 export async function fetchCommerceDashboardStats(
@@ -87,9 +93,8 @@ export async function fetchCommerceDashboardStats(
     return empty(currencyCode, e instanceof Error ? e.message : String(e));
   }
 
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
   let cursor: string | null = null;
   let truncated = false;

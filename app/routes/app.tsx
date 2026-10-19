@@ -9,8 +9,10 @@ import layoutOverrides from "../styles/polaris-layout-overrides.css?url";
 import { BlockStack } from "@shopify/polaris";
 import { useEffect } from "react";
 
+import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { BILLING_PLANS } from "../utils/billing-plans";
+import { syncShopSubscriptionLineItemId } from "../utils/billing.server";
 
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -23,19 +25,31 @@ export const links = () => [
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // L'authentification peut lever une redirection (échange de jeton App Bridge).
   // On la laisse remonter telle quelle — ne JAMAIS l'envelopper dans un try/catch.
-  const { billing } = await authenticate.admin(request);
+  const { billing, admin, session } = await authenticate.admin(request);
+  const isBillingTest = process.env.SHOPIFY_BILLING_TEST !== "false";
 
   // Vérifie l'abonnement usage-based.
   try {
     await billing.require({
       plans: [BILLING_PLANS.sar_bundle_plan.handle],
-      isTest: true, // MUST BE true for Development Stores!
+      isTest: isBillingTest,
       onFailure: async () =>
         billing.request({
           plan: BILLING_PLANS.sar_bundle_plan.handle,
-          isTest: true, // MUST BE true for Development Stores!
+          isTest: isBillingTest,
         }),
     });
+
+    const existingBilling = await prisma.shopBilling
+      .findUnique({
+        where: { shopDomain: session.shop },
+        select: { subscriptionLineItemId: true },
+      })
+      .catch(() => null);
+
+    if (!existingBilling?.subscriptionLineItemId) {
+      await syncShopSubscriptionLineItemId(admin, session.shop);
+    }
   } catch (err) {
     // Une redirection (Response) = abonnement requis → on la laisse passer.
     if (err instanceof Response) throw err;

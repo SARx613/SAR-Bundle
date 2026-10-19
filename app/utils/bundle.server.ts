@@ -1,6 +1,7 @@
 import { json } from "@remix-run/node";
 import {
   defaultStorefrontDesign,
+  migrateStorefrontDesign,
   normalizeLayoutPreset,
   normalizeProductHandle,
   slugifyProductHandle,
@@ -88,6 +89,7 @@ export type StepPayload = {
   imageUrl?: string | null;
   imageGid?: string | null;
   isFinalStep?: boolean;
+  stepDesign?: unknown;
   products?: StepProductPayload[];
   rules?: StepRulePayload[];
   lineItemProperties?: LineItemPropertyPayload[];
@@ -206,6 +208,17 @@ function requireDecimal(
   return d;
 }
 
+function clampDecimalPercent(d: Prisma.Decimal): Prisma.Decimal {
+  if (d.lt(0)) return new Prisma.Decimal(0);
+  if (d.gt(100)) return new Prisma.Decimal(100);
+  return d;
+}
+
+function clampDecimalNonNegative(d: Prisma.Decimal): Prisma.Decimal {
+  if (d.lt(0)) return new Prisma.Decimal(0);
+  return d;
+}
+
 export function parseBundlePayload(body: unknown): BundleWritePayload {
   if (!body || typeof body !== "object") {
     throw json({ error: "Request body must be a JSON object" }, { status: 400 });
@@ -296,6 +309,25 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     }
   }
 
+  let normalizedFlatDiscount: string | null | undefined = undefined;
+  if (o.flatDiscountValue === null || o.flatDiscountValue === "") {
+    normalizedFlatDiscount = null;
+  } else if (o.flatDiscountValue !== undefined) {
+    const d = toDecimal(
+      o.flatDiscountValue as string | number,
+      "flatDiscountValue",
+    );
+    if (d !== null) {
+      const bounded =
+        discountValueType === "PERCENT"
+          ? clampDecimalPercent(d)
+          : clampDecimalNonNegative(d);
+      normalizedFlatDiscount = bounded.toString();
+    } else {
+      normalizedFlatDiscount = null;
+    }
+  }
+
   let pricingModeMedia: Prisma.InputJsonValue | null = null;
   if (o.pricingModeMedia !== undefined && o.pricingModeMedia !== null) {
     if (typeof o.pricingModeMedia === "object" && !Array.isArray(o.pricingModeMedia)) {
@@ -303,12 +335,12 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     }
   }
 
-  const pricingTiers = Array.isArray(o.pricingTiers)
+  const rawPricingTiers = Array.isArray(o.pricingTiers)
     ? (o.pricingTiers as PricingTierPayload[])
     : [];
   const steps = Array.isArray(o.steps) ? (o.steps as StepPayload[]) : [];
 
-  if (pricingScope === "TIERED" && pricingTiers.length === 0) {
+  if (pricingScope === "TIERED" && rawPricingTiers.length === 0) {
     throw json(
       {
         error:
@@ -318,23 +350,48 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     );
   }
 
-  for (let i = 0; i < pricingTiers.length; i++) {
-    const t = pricingTiers[i]!;
+  const pricingTiers: PricingTierPayload[] = [];
+  for (let i = 0; i < rawPricingTiers.length; i++) {
+    const t = rawPricingTiers[i]!;
     if (!isEnum(t.thresholdBasis, THRESHOLD_BASES)) {
       throw json(
         { error: `Invalid thresholdBasis on pricingTiers[${i}]` },
         { status: 400 },
       );
     }
-    requireDecimal(t.thresholdMin, `pricingTiers[${i}].thresholdMin`);
+    let minDec = clampDecimalNonNegative(
+      requireDecimal(t.thresholdMin, `pricingTiers[${i}].thresholdMin`),
+    );
+    let maxDec: Prisma.Decimal | null = null;
     if (
       t.thresholdMax !== undefined &&
       t.thresholdMax !== null &&
       t.thresholdMax !== ""
     ) {
-      requireDecimal(t.thresholdMax, `pricingTiers[${i}].thresholdMax`);
+      maxDec = clampDecimalNonNegative(
+        requireDecimal(t.thresholdMax, `pricingTiers[${i}].thresholdMax`),
+      );
+      if (minDec.gt(maxDec)) {
+        const tmp = minDec;
+        minDec = maxDec;
+        maxDec = tmp;
+      }
     }
-    requireDecimal(t.tierValue, `pricingTiers[${i}].tierValue`);
+    const rawTierVal = requireDecimal(
+      t.tierValue,
+      `pricingTiers[${i}].tierValue`,
+    );
+    const boundedTierVal =
+      discountValueType === "PERCENT"
+        ? clampDecimalPercent(rawTierVal)
+        : clampDecimalNonNegative(rawTierVal);
+
+    pricingTiers.push({
+      ...t,
+      thresholdMin: minDec.toString(),
+      thresholdMax: maxDec ? maxDec.toString() : null,
+      tierValue: boundedTierVal.toString(),
+    });
   }
 
   for (let si = 0; si < steps.length; si++) {
@@ -363,6 +420,21 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
           },
           { status: 400 },
         );
+      }
+      if (typeof p.minQuantity === "number" && p.minQuantity < 0) {
+        p.minQuantity = 0;
+      }
+      if (typeof p.maxQuantity === "number" && p.maxQuantity < 0) {
+        p.maxQuantity = 0;
+      }
+      if (
+        typeof p.minQuantity === "number" &&
+        typeof p.maxQuantity === "number" &&
+        p.minQuantity > p.maxQuantity
+      ) {
+        const tmp = p.minQuantity;
+        p.minQuantity = p.maxQuantity;
+        p.maxQuantity = tmp;
       }
     }
 
@@ -425,16 +497,76 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
       : null;
   const productHandle = explicitHandle ?? slugifyProductHandle(nameTrim);
 
-  let storefrontDesign: Prisma.InputJsonValue =
-    defaultStorefrontDesign() as unknown as Prisma.InputJsonValue;
-  if (o.storefrontDesign !== undefined && o.storefrontDesign !== null) {
-    if (typeof o.storefrontDesign === "object") {
-      storefrontDesign = o.storefrontDesign as Prisma.InputJsonValue;
+  const migratedDesign =
+    o.storefrontDesign !== undefined && o.storefrontDesign !== null
+      ? migrateStorefrontDesign(o.storefrontDesign)
+      : defaultStorefrontDesign();
+
+  for (let si = 0; si < steps.length; si++) {
+    const step = steps[si];
+    const sd = step?.stepDesign;
+    if (sd != null && !migratedDesign.stepDesigns?.[String(si)]) {
+      const rawBlocks = Array.isArray(sd)
+        ? sd
+        : typeof sd === "object" &&
+            Array.isArray((sd as { blocks?: unknown }).blocks)
+          ? (sd as { blocks: unknown[] }).blocks
+          : null;
+      if (rawBlocks) {
+        const migratedStep = migrateStorefrontDesign({
+          version: 2,
+          blocks: rawBlocks,
+        });
+        if (!migratedDesign.stepDesigns) {
+          migratedDesign.stepDesigns = {};
+        }
+        migratedDesign.stepDesigns[String(si)] = migratedStep.blocks;
+      }
     }
   }
 
+  const storefrontDesign = migratedDesign as unknown as Prisma.InputJsonValue;
+
   const bundleGallery = normalizeBundleGalleryFromBody(o);
   const primary = bundleGallery[0];
+
+  let minTotalItemCount =
+    typeof o.minTotalItemCount === "number" && Number.isInteger(o.minTotalItemCount)
+      ? Math.max(0, o.minTotalItemCount)
+      : o.minTotalItemCount === null
+        ? null
+        : undefined;
+  let maxTotalItemCount =
+    typeof o.maxTotalItemCount === "number" && Number.isInteger(o.maxTotalItemCount)
+      ? Math.max(0, o.maxTotalItemCount)
+      : o.maxTotalItemCount === null
+        ? null
+        : undefined;
+  if (
+    typeof minTotalItemCount === "number" &&
+    typeof maxTotalItemCount === "number" &&
+    minTotalItemCount > maxTotalItemCount
+  ) {
+    const tmp = minTotalItemCount;
+    minTotalItemCount = maxTotalItemCount;
+    maxTotalItemCount = tmp;
+  }
+
+  let minCartDec = toDecimal(
+    o.minBundleCartValue as string | number | null | undefined,
+    "minBundleCartValue",
+  );
+  let maxCartDec = toDecimal(
+    o.maxBundleCartValue as string | number | null | undefined,
+    "maxBundleCartValue",
+  );
+  if (minCartDec) minCartDec = clampDecimalNonNegative(minCartDec);
+  if (maxCartDec) maxCartDec = clampDecimalNonNegative(maxCartDec);
+  if (minCartDec && maxCartDec && minCartDec.gt(maxCartDec)) {
+    const tmp = minCartDec;
+    minCartDec = maxCartDec;
+    maxCartDec = tmp;
+  }
 
   return {
     name: nameTrim,
@@ -454,7 +586,7 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
     pricingModeMedia,
     pricingScope,
     discountValueType,
-    flatDiscountValue: o.flatDiscountValue as string | number | null | undefined,
+    flatDiscountValue: normalizedFlatDiscount,
     showCompareAtPrice:
       typeof o.showCompareAtPrice === "boolean" ? o.showCompareAtPrice : undefined,
     showFixedPriceOnLoad:
@@ -463,20 +595,20 @@ export function parseBundlePayload(body: unknown): BundleWritePayload {
         : undefined,
     allowZeroTotal:
       typeof o.allowZeroTotal === "boolean" ? o.allowZeroTotal : undefined,
-    minTotalItemCount:
-      typeof o.minTotalItemCount === "number" && Number.isInteger(o.minTotalItemCount)
-        ? o.minTotalItemCount
-        : o.minTotalItemCount === null
-          ? null
-          : undefined,
-    maxTotalItemCount:
-      typeof o.maxTotalItemCount === "number" && Number.isInteger(o.maxTotalItemCount)
-        ? o.maxTotalItemCount
-        : o.maxTotalItemCount === null
-          ? null
-          : undefined,
-    minBundleCartValue: o.minBundleCartValue as string | number | null | undefined,
-    maxBundleCartValue: o.maxBundleCartValue as string | number | null | undefined,
+    minTotalItemCount,
+    maxTotalItemCount,
+    minBundleCartValue:
+      o.minBundleCartValue === undefined
+        ? undefined
+        : minCartDec
+          ? minCartDec.toString()
+          : null,
+    maxBundleCartValue:
+      o.maxBundleCartValue === undefined
+        ? undefined
+        : maxCartDec
+          ? maxCartDec.toString()
+          : null,
     productHandle,
     seoTitle: typeof o.seoTitle === "string" ? o.seoTitle.trim() || null : null,
     seoDescription:
@@ -502,10 +634,9 @@ export function toPrismaBundleScalars(
     description: data.description ?? null,
     imageUrl: data.imageUrl ?? null,
     imageGid: data.imageGid ?? null,
-    bundleGallery:
-      data.bundleGallery.length > 0
-        ? (data.bundleGallery as unknown as Prisma.InputJsonValue)
-        : undefined,
+    bundleGallery: (data.bundleGallery.length > 0
+      ? data.bundleGallery
+      : []) as unknown as Prisma.InputJsonValue,
     productHandle: data.productHandle,
     seoTitle: data.seoTitle ?? null,
     seoDescription: data.seoDescription ?? null,

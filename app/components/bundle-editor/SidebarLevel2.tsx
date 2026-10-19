@@ -68,6 +68,8 @@ type VariantsMetaJson = {
     displayTitle: string;
     imageUrl: string | null;
     productHandle: string | null;
+    priceAmount?: string | null;
+    currencyCode?: string | null;
   }>;
 };
 
@@ -598,6 +600,8 @@ export function SidebarLevel2({
         maxQuantity: null,
         displayName: v.displayName ?? v.id.split("/").pop() ?? v.id,
         imageUrl: v.image?.url ?? null,
+        priceAmount: null,
+        currencyCode: null,
         productHandle: v.product?.handle ?? null,
         layoutPreset: "STACK_ADD_TO_QTY",
         styleOverrides: null,
@@ -629,7 +633,7 @@ export function SidebarLevel2({
     });
     // App Bridge v4 renvoie un tableau ; v3 renvoie { selection: [] }.
     const sel = Array.isArray(selected)
-      ? (selected as Array<Record<string, unknown>>)
+      ? (selected as unknown as Array<Record<string, unknown>>)
       : (selected as unknown as { selection?: Array<Record<string, unknown>> } | null)?.selection;
     if (!Array.isArray(sel) || sel.length === 0) return;
 
@@ -666,6 +670,8 @@ export function SidebarLevel2({
         maxQuantity: null,
         displayName: title,
         imageUrl,
+        priceAmount: null,
+        currencyCode: null,
         productHandle: typeof p.handle === "string" ? (p.handle as string) : null,
         layoutPreset: "STACK_ADD_TO_QTY",
         styleOverrides: null,
@@ -837,6 +843,68 @@ export function SidebarLevel2({
       )}
 
 
+      <Divider />
+      <Text as="h4" variant="headingSm">
+        Produits de l'étape ({step.products.length})
+      </Text>
+      <Text as="p" variant="bodySm" tone="subdued">
+        Produits affichés lorsque la source du bloc Liste de produits est « Produits ».
+      </Text>
+      <InlineStack gap="200">
+        <Button onClick={openProductPicker} variant="secondary" size="slim">
+          + Produits
+        </Button>
+        <Button onClick={openVariantPicker} variant="secondary" size="slim">
+          + Variantes
+        </Button>
+      </InlineStack>
+      {step.products.length > 0 ? (
+        <BlockStack gap="150">
+          {step.products.map((p, pi) => (
+            <Box
+              key={p.variantGid}
+              padding="200"
+              borderWidth="025"
+              borderColor="border"
+              borderRadius="200"
+              background="bg-surface"
+            >
+              <InlineStack gap="200" blockAlign="center" wrap={false}>
+                {p.imageUrl ? (
+                  <Thumbnail source={p.imageUrl} alt="" size="small" />
+                ) : null}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text as="p" variant="bodySm" truncate>
+                    {p.displayName}
+                  </Text>
+                  {p.priceAmount ? (
+                    <Text as="p" variant="bodyXs" tone="subdued">
+                      {p.priceAmount} {p.currencyCode ?? "EUR"}
+                    </Text>
+                  ) : null}
+                </div>
+                <Tooltip content="Retirer">
+                  <Button
+                    icon={DeleteIcon}
+                    variant="plain"
+                    tone="critical"
+                    onClick={() =>
+                      onStepProductsChange(step.products.filter((_, k) => k !== pi))
+                    }
+                    accessibilityLabel="Retirer"
+                  />
+                </Tooltip>
+              </InlineStack>
+            </Box>
+          ))}
+        </BlockStack>
+      ) : (
+        <Text as="p" variant="bodySm" tone="subdued">
+          Aucun produit spécifique sélectionné.
+        </Text>
+      )}
+
+      <Divider />
       <Text as="h4" variant="headingSm">
         Sélections requises
       </Text>
@@ -903,59 +971,102 @@ export function SidebarLevel2({
             </Text>
             <BlockStack gap="300">
               {draftRules.map((r, i) => (
-                <InlineStack key={i} gap="200" blockAlign="end" wrap>
-                  <div style={{ flex: "1 1 140px", minWidth: 110 }}>
-                    <Select
-                      label="Métrique"
-                      options={STEP_RULE_METRICS}
-                      value={r.metric}
-                      onChange={(v) => {
-                        const next = [...draftRules];
-                        const cur = next[i];
-                        if (cur) next[i] = { ...cur, metric: v };
-                        setDraftRules(next);
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: "1 1 140px", minWidth: 110 }}>
-                    <Select
-                      label="Opérateur"
-                      options={STEP_RULE_OPS}
-                      value={r.operator}
-                      onChange={(v) => {
-                        const next = [...draftRules];
-                        const cur = next[i];
-                        if (cur) next[i] = { ...cur, operator: v };
-                        setDraftRules(next);
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: "2 1 80px", minWidth: 60 }}>
-                    <TextField
-                      label="Valeur"
-                      value={r.value}
-                      onChange={(v) => {
-                        const next = [...draftRules];
-                        const cur = next[i];
-                        if (cur) next[i] = { ...cur, value: v };
-                        setDraftRules(next);
-                      }}
-                      autoComplete="off"
-                      type="number"
-                    />
-                  </div>
-                  <div style={{ paddingBottom: 4 }}>
-                    <Button
-                      icon={DeleteIcon}
-                      variant="plain"
-                      tone="critical"
-                      onClick={() =>
-                        setDraftRules(draftRules.filter((_, j) => j !== i))
-                      }
-                      accessibilityLabel="Supprimer la condition"
-                    />
-                  </div>
-                </InlineStack>
+                <Box
+                  key={i}
+                  padding="200"
+                  background="bg-surface-secondary"
+                  borderRadius="200"
+                >
+                  <BlockStack gap="200">
+                    <InlineStack gap="200" blockAlign="end" wrap>
+                      <div style={{ flex: "1 1 140px", minWidth: 110 }}>
+                        <Select
+                          label="Métrique"
+                          options={STEP_RULE_METRICS}
+                          value={r.metric}
+                          onChange={(v) => {
+                            const next = [...draftRules];
+                            const cur = next[i];
+                            if (cur) next[i] = { ...cur, metric: v };
+                            setDraftRules(next);
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: "1 1 140px", minWidth: 110 }}>
+                        <Select
+                          label="Opérateur"
+                          options={STEP_RULE_OPS}
+                          value={r.operator}
+                          onChange={(v) => {
+                            const next = [...draftRules];
+                            const cur = next[i];
+                            if (cur) next[i] = { ...cur, operator: v };
+                            setDraftRules(next);
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: "2 1 80px", minWidth: 60 }}>
+                        <TextField
+                          label="Valeur"
+                          value={r.value}
+                          onChange={(v) => {
+                            const next = [...draftRules];
+                            const cur = next[i];
+                            if (cur) next[i] = { ...cur, value: v };
+                            setDraftRules(next);
+                          }}
+                          autoComplete="off"
+                          type="number"
+                        />
+                      </div>
+                      <div style={{ paddingBottom: 4 }}>
+                        <Button
+                          icon={DeleteIcon}
+                          variant="plain"
+                          tone="critical"
+                          onClick={() =>
+                            setDraftRules(draftRules.filter((_, j) => j !== i))
+                          }
+                          accessibilityLabel="Supprimer la condition"
+                        />
+                      </div>
+                    </InlineStack>
+                    {r.metric === "VARIANT_QUANTITY" ? (
+                      step.products.length > 0 ? (
+                        <Select
+                          label="Variante ciblée"
+                          options={[
+                            { label: "— Choisir une variante —", value: "" },
+                            ...step.products.map((p) => ({
+                              label: p.displayName || p.variantGid,
+                              value: p.variantGid,
+                            })),
+                          ]}
+                          value={r.targetVariantGid ?? ""}
+                          onChange={(v) => {
+                            const next = [...draftRules];
+                            const cur = next[i];
+                            if (cur) next[i] = { ...cur, targetVariantGid: v };
+                            setDraftRules(next);
+                          }}
+                        />
+                      ) : (
+                        <TextField
+                          label="GID de la variante ciblée"
+                          value={r.targetVariantGid ?? ""}
+                          onChange={(v) => {
+                            const next = [...draftRules];
+                            const cur = next[i];
+                            if (cur) next[i] = { ...cur, targetVariantGid: v };
+                            setDraftRules(next);
+                          }}
+                          placeholder="gid://shopify/ProductVariant/..."
+                          autoComplete="off"
+                        />
+                      )
+                    ) : null}
+                  </BlockStack>
+                </Box>
               ))}
               <Button
                 onClick={() =>
