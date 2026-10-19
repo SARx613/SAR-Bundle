@@ -10,7 +10,7 @@
     "dev:clean": "shopify app dev clean",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
-    "deploy": "shopify app deploy",
+    "deploy": "npx --yes --package=@shopify/cli@latest shopify app deploy",
     "config:use": "shopify app config use",
     "env": "shopify app env",
     "start": "remix-serve ./build/server/index.js",
